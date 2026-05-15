@@ -14,6 +14,15 @@ class StationaryWaveFunc:
         self.matrix = matrix
         self.mass = mass
 
+    def laplacian(self) -> NDArray[np.complex128]:
+        return (
+            np.roll(self.matrix, 1 ,axis=0)
+            + np.roll(self.matrix, -1, axis=0)
+            + np.roll(self.matrix, 1, axis=1)
+            + np.roll(self.matrix, -1, axis=1)
+            - 4.0 * self.matrix
+        )
+
 
 class GaussianPacket(StationaryWaveFunc):
     def __init__(
