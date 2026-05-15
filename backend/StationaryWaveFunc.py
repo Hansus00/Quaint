@@ -15,9 +15,9 @@ class GaussianPacket(StationaryWaveFunc):
         r0: tuple[float, float],
         k0: tuple[float, float],
         sigma0: NDArray[np.float64],
-        size_x: float,
-        size_y: float,
+        size_x: int,
+        size_y: int,
     ):
         # TODO: fix it!
-        matrix = np.zeros((size_x, size_y)) * (1 + 1.0j)
+        matrix = np.zeros((size_x, size_y), dtype=np.complex128) * (1 + 1.0j)
         super().__init__(matrix)
