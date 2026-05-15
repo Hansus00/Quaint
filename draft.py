@@ -35,19 +35,23 @@ class Solver:
 
 
 class Cayley(Propagator):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class SuzukiTrotter(Propagator):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class CrankNicolson(Solver):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class SSFM(Solver):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class AnalyticalRectangle(Solver):
