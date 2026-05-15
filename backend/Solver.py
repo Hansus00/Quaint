@@ -1,13 +1,13 @@
 from StationaryWaveFunc import StationaryWaveFunc
-from Propagator import Propagator, Cayley
-from scipy.integrate import solve_ivp
+from Potential import Potential
+import numpy.linalg as la
 
 
 class Solver:
-    propagator: Propagator
+    potential: Potential
 
-    def __init__(self, propagator: Propagator):
-        self.propagator = propagator
+    def __init__(self, potential: Potential):
+        self.potential = potential
 
     def __call__(
         self,
@@ -18,7 +18,7 @@ class Solver:
         raise NotImplementedError
 
 
-class CrankNicolson(Cayley):
+class CrankNicolson:
     def __init__(self):
         pass
 
@@ -29,6 +29,16 @@ class CrankNicolson(Cayley):
         n_steps: int = 1,
     ) -> StationaryWaveFunc:
         raise NotImplementedError
+
+
+class StaticFunction(Solver):
+    def __init__(self, potential: Potential):
+        super().__init__(potential)
+
+    def __call__(
+        self, wave_func: StationaryWaveFunc, delta_t: float = 0.001, n_steps: int = 1
+    ) -> StationaryWaveFunc:
+        return wave_func
 
 
 class SSFM(Solver):
