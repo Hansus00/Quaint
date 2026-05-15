@@ -1,15 +1,19 @@
+# ==============================================================================
+# ### --- FILE main.py --- ###
+# ==============================================================================
+
 import sys
 
 from PyQt6.QtWidgets import (
     QApplication,
 )
-from wave_function_simulator import WaveFunctionSimulator
+from main_window import MainWindow
 import numpy as np
 
 
 if __name__ == "__main__":
     np.set_printoptions(threshold=np.inf)
     app = QApplication(sys.argv)
-    window = WaveFunctionSimulator(size_x=50, size_y=60)
+    window = MainWindow()
     window.show()
     sys.exit(app.exec())
