@@ -1,6 +1,7 @@
 # ==============================================================================
 # ### --- FILE setup_drawer.py --- ###
 # ==============================================================================
+
 import numpy as np
 from PyQt6.QtCore import QPoint, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen
@@ -20,6 +21,7 @@ class SetupDrawer(QDialog):
     A 2D canvas for drawing a potential field and setting wavepacket starting states.
     Emits a tuple upon saving: (potential_matrix, r0, k0, sigma_matrix, mass)
     """
+
     # Updated signal: potential, r0, k0, sigma (2x2 array), mass (float)
     setup_saved = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, np.ndarray, float)
 
@@ -71,7 +73,7 @@ class SetupDrawer(QDialog):
 
         # Physics Parameters (Sigma Matrix & Mass)
         params_layout = QHBoxLayout()
-        
+
         # Sigma xx
         params_layout.addWidget(QLabel("s_xx:"))
         self.sig_xx_input = QDoubleSpinBox()
@@ -211,11 +213,11 @@ class SetupDrawer(QDialog):
             # Map Pixel X to a natural number [0, grid_size_x - 1]
             rx_float = (self.r0_px.x() / self.canvas_width) * self.grid_size_x
             rx = int(np.clip(rx_float, 0, self.grid_size_x - 1))
-            
+
             # Map Pixel Y to a natural number [0, grid_size_y - 1] (Inverting so 0 is at bottom)
             ry_float = (1.0 - (self.r0_px.y() / self.canvas_height)) * self.grid_size_y
             ry = int(np.clip(ry_float, 0, self.grid_size_y - 1))
-            
+
             r0 = np.array([rx, ry])
 
             # k0 continues to represent a continuous vector
@@ -230,13 +232,10 @@ class SetupDrawer(QDialog):
         sig_xx = self.sig_xx_input.value()
         sig_xy = self.sig_xy_input.value()
         sig_yy = self.sig_yy_input.value()
-        
+
         # Build the symmetric 2x2 covariance matrix
-        sigma_matrix = np.array([
-            [sig_xx, sig_xy],
-            [sig_xy, sig_yy]
-        ])
-        
+        sigma_matrix = np.array([[sig_xx, sig_xy], [sig_xy, sig_yy]])
+
         mass = self.mass_input.value()
 
         # Emit all parameters to the main window
