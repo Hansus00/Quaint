@@ -5,6 +5,7 @@ import numpy as np
 import pyqtgraph.opengl as gl
 from matplotlib.colors import hsv_to_rgb
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QVector3D
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -36,17 +37,16 @@ class WaveFunctionSimulator(QMainWindow):
         self.total_frames = 150
 
         self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
-        self.x_limit = 5.0
-        self.y_limit = 5.0 * self.aspect_ratio
+        self.x_limit = 10.0
+        self.y_limit = 10.0 * self.aspect_ratio
 
-        self.x_coarse = np.linspace(-self.x_limit, self.x_limit, self.size_coarse_x)
-        self.y_coarse = np.linspace(-self.y_limit, self.y_limit, self.size_coarse_y)
+        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
+        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
 
-        # Persistent physical states
         self.potential_coarse = np.zeros(
             (self.size_coarse_x, self.size_coarse_y), dtype=float
         )
-        self.r0 = np.array([0.0, 0.0])
+        self.r0 = np.array([0, 0], dtype=int)
         self.k0 = np.array([0.0, 0.0])
         self.sigma0 = self.sigma_matrix = np.array([[1.0, 0.0], [0.0, 1.0]])
         self.mass = 1.0
@@ -70,7 +70,14 @@ class WaveFunctionSimulator(QMainWindow):
         layout = QVBoxLayout(central_widget)
 
         self.view = gl.GLViewWidget()
-        self.view.setCameraPosition(distance=20, elevation=30, azimuth=45)
+        
+        # Center the camera exactly at the middle of the physical coordinate bounds
+        self.view.setCameraPosition(
+            pos=QVector3D(self.x_limit / 2.0, self.y_limit / 2.0, 0.0),
+            distance=20,
+            elevation=30,
+            azimuth=45
+        )
         layout.addWidget(self.view)
 
         controls_layout = QHBoxLayout()
@@ -89,6 +96,11 @@ class WaveFunctionSimulator(QMainWindow):
 
         layout.addLayout(controls_layout)
 
+        # Add 3D Coordinate Axes (X=Red, Y=Green, Z=Blue)
+        self.axis = gl.GLAxisItem()
+        self.axis.setSize(x=self.x_limit, y=self.y_limit, z=5.0)
+        self.view.addItem(self.axis)
+
         self.wave_mesh_item = gl.GLMeshItem(smooth=True, computeNormals=True)
         self.view.addItem(self.wave_mesh_item)
 
@@ -96,13 +108,14 @@ class WaveFunctionSimulator(QMainWindow):
         self.view.addItem(self.potential_mesh_item)
 
         grid = gl.GLGridItem()
-        grid.setSize(10, 10 * self.aspect_ratio, 0)
+        grid.setSize(self.x_limit, self.y_limit, 0)
         grid.setSpacing(1, 1, 0)
+        grid.translate(self.x_limit / 2.0, self.y_limit / 2.0, 0)
         self.view.addItem(grid)
 
     def _setup_mesh_geometry(self):
-        self.x_fine = np.linspace(-self.x_limit, self.x_limit, self.size_fine_x)
-        self.y_fine = np.linspace(-self.y_limit, self.y_limit, self.size_fine_y)
+        self.x_fine = np.linspace(0.0, self.x_limit, self.size_fine_x)
+        self.y_fine = np.linspace(0.0, self.y_limit, self.size_fine_y)
         self.X_fine, self.Y_fine = np.meshgrid(self.x_fine, self.y_fine, indexing="ij")
 
         faces = []
@@ -144,16 +157,20 @@ class WaveFunctionSimulator(QMainWindow):
         drawer.exec()
 
     def apply_setup(self, potential_array, r0, k0, sigma_matrix, mass):
-        # Update simulation states
-        self.potential_coarse = potential_array
+        # Update simulation states.
+        # Flip the potential array along the Y-axis (axis 1) so the QImage's top (Y=0) 
+        # properly maps to the bottom of the 3D plot (Y=0).
+        self.potential_coarse = potential_array[:, ::-1]
         self.r0 = r0
         self.k0 = k0
         self.sigma_matrix = sigma_matrix
+        self.mass = mass
 
-        print(f"Received Setup -> r0: {r0}, k0: {k0}, sigma_matrix: {sigma_matrix}")
+        print(f"Received Setup -> r0 (natural indices): {r0}, k0: {k0}, sigma_matrix: \n{sigma_matrix}")
         print(
-            f"Received potential of dimensions: {len(potential_array)} x {len(potential_array[0])} "
+            f"Received potential of dimensions: {len(self.potential_coarse)} x {len(self.potential_coarse[0])} "
         )
+        print(f"Potential: {self.potential_coarse}")
 
         self.calculate_all_frames()
 
