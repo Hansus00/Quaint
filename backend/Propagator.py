@@ -9,7 +9,7 @@ class Propagator:
         self.potential = potential
 
     def __call__(
-        self, waveFunc: StationaryWaveFunc, potential: Potential
+        self, waveFunc: StationaryWaveFunc, deltaT: float = 1e-3
     ) -> StationaryWaveFunc:
         raise NotImplementedError
 
