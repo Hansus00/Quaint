@@ -1,12 +1,14 @@
 from StationaryWaveFunc import StationaryWaveFunc
-from Propagator import Propagator
+from Potential import Potential
+import numpy as np
+import numpy.linalg as la
 
 
 class Solver:
-    propagator: Propagator
+    potential: Potential
 
-    def __init__(self, propagator: Propagator):
-        self.propagator = propagator
+    def __init__(self, potential: Potential):
+        self.potential = potential
 
     def __call__(
         self,
@@ -18,7 +20,30 @@ class Solver:
 
 
 class CrankNicolson(Solver):
-    raise NotImplementedError
+    def __init__(self, potential: Potential):
+        super().__init__(potential)
+
+    def __call__(
+        self,
+        wave_func: StationaryWaveFunc,
+        delta_t: float = 1e-3,
+        n_steps: int = 1,
+    ) -> StationaryWaveFunc:
+        # FIXME: zrobić
+        A = np.zeros(self.potential.matrix.shape)
+        B = np.zeros(self.potential.matrix.shape)
+
+        return StationaryWaveFunc(la.inv(A) @ B @ wave_func.matrix)
+
+
+class Constant(Solver):
+    def __init__(self, potential: Potential):
+        super().__init__(potential)
+
+    def __call__(
+        self, wave_func: StationaryWaveFunc, delta_t: float = 1e3, n_steps: int = 1
+    ) -> StationaryWaveFunc:
+        return wave_func
 
 
 class SSFM(Solver):
