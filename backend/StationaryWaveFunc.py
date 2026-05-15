@@ -9,13 +9,15 @@ class StationaryWaveFunc:
         raise NotImplementedError
 
 
-class GaussianPackage(StationaryWaveFunc):
+class GaussianPacket(StationaryWaveFunc):
     def __init__(
         self,
         r0: tuple[float, float],
         k0: tuple[float, float],
-        sigma0: tuple[float, float],
+        sigma0: NDArray[np.float64],
+        size_x: float,
+        size_y: float,
     ):
         # TODO: fix it!
-        matrix = np.eye(10) + np.eye(10) * 1.0j
+        matrix = np.zeros((size_x, size_y)) * (1 + 1.0j)
         super().__init__(matrix)
