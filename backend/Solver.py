@@ -41,7 +41,7 @@ class Constant(Solver):
         super().__init__(potential)
 
     def __call__(
-        self, wave_func: StationaryWaveFunc, delta_t: float = 0.001, n_steps: int = 1
+        self, wave_func: StationaryWaveFunc, delta_t: float = 1e3, n_steps: int = 1
     ) -> StationaryWaveFunc:
         return wave_func
 
