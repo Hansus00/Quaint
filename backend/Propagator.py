@@ -34,9 +34,8 @@ class Cayley(Propagator):
         Hamiltonian = momentum_squared/ 2 / wave_func.mass + self.potential
 
         complex_factor = 1j*Hamiltonian * delta_t / 2
-        factor = np.linalg.inv(1 + complex_factor)*(1 - complex_factor)
 
-        return factor * wave_func
+        return np.linalg.solve(1+complex_factor, 1-complex_factor) * wave_func.matrix
     
     def step_multiple(self, wave_func: StationaryWaveFunc, delta_t: float = 1.e-3, n_steps=1) -> StationaryWaveFunc:
         return self._step(wave_func, delta_t, n_steps)
