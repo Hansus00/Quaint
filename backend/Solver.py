@@ -10,9 +10,9 @@ class Solver:
 
     def __call__(
         self,
-        waveFunc: StationaryWaveFunc,
-        deltaT: float = 1e-3,
-        n: int = 1,
+        wave_func: StationaryWaveFunc,
+        delta_t: float = 1e-3,
+        n_steps: int = 1,
     ) -> StationaryWaveFunc:
         raise NotImplementedError
 
