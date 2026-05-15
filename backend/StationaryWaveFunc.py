@@ -21,8 +21,14 @@ class GaussianPacket(StationaryWaveFunc):
         # TODO: fix it!
         _x = np.linspace(0, size_x, size_x - 1)
         _y = np.linspace(0, size_y, size_y - 1)
-        r = np.meshgrid(_x, _y)
-        matrix = np.exp(1j * np.einsum("iijk->jk",k0,r) - 0.5 (r-r0).T @ np.linalg.inv(sigma0) @ (r-r0))
+        x,y = np.meshgrid(_x, _y)
+
+        dx = x - r0[0]
+        dy = y - r0[1]
+
+        dr = np.stack([dx, dy])
+
+        matrix = np.exp(1j * np.einsum("i,ijk->jk",k0,dr) - 0.5 * np.einsum("ikl,ij,jkl->kl",dr,np.linalg.inv(sigma0),dr))
         matrix /= np.sum(np.abs(matrix)**2)
         super().__init__(matrix)
         
