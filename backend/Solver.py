@@ -3,13 +3,14 @@ from Propagator import Propagator
 
 
 class Solver:
-    def __init__(self):
-        raise NotImplementedError
+    propagator: Propagator
+
+    def __init__(self, propagator: Propagator):
+        self.propagator = propagator
 
     def __call__(
         self,
         waveFunc: StationaryWaveFunc,
-        propagator: Propagator,
         deltaT: float = 1e-3,
         n: int = 1,
     ) -> StationaryWaveFunc:
