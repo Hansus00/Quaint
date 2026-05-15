@@ -1,5 +1,6 @@
 from StationaryWaveFunc import StationaryWaveFunc
 from Potential import Potential
+import numpy as np
 import numpy.linalg as la
 
 
@@ -18,9 +19,9 @@ class Solver:
         raise NotImplementedError
 
 
-class CrankNicolson:
-    def __init__(self):
-        pass
+class CrankNicolson(Solver):
+    def __init__(self, potential: Potential):
+        super().__init__(potential)
 
     def __call__(
         self,
@@ -28,7 +29,10 @@ class CrankNicolson:
         delta_t: float = 1e-3,
         n_steps: int = 1,
     ) -> StationaryWaveFunc:
-        raise NotImplementedError
+        A = np.zeros(self.potential.matrix.shape)
+        B = np.zeros(self.potential.matrix.shape)
+
+        return StationaryWaveFunc(la.inv(A) @ B @ wave_func.matrix)
 
 
 class StaticFunction(Solver):
