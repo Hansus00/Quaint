@@ -4,9 +4,15 @@ import numpy as np
 
 class StationaryWaveFunc:
     matrix: NDArray[np.complex128]
+    mass: float = 1
 
-    def __init__(self, matrix: NDArray[np.complex128]):
+    def __init__(
+        self,
+        matrix: NDArray[np.complex128],
+        mass: float = 1,
+    ):
         self.matrix = matrix
+        self.mass = mass
 
 
 class GaussianPacket(StationaryWaveFunc):
@@ -15,6 +21,7 @@ class GaussianPacket(StationaryWaveFunc):
         r0: tuple[int, int],
         k0: NDArray[np.float64],
         sigma0: NDArray[np.float64],
+        mass: float,
         size_x: int,
         size_y: int,
     ):
@@ -34,4 +41,4 @@ class GaussianPacket(StationaryWaveFunc):
         )
 
         matrix /= np.sqrt(np.sum(np.abs(matrix) ** 2))
-        super().__init__(matrix)
+        super().__init__(matrix, mass)
