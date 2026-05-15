@@ -35,7 +35,7 @@ class CrankNicolson(Solver):
         return StationaryWaveFunc(la.inv(A) @ B @ wave_func.matrix)
 
 
-class StaticFunction(Solver):
+class Constant(Solver):
     def __init__(self, potential: Potential):
         super().__init__(potential)
 
