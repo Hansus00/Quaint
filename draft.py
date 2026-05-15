@@ -2,18 +2,11 @@ from numpy.typing import NDArray
 import numpy as np
 
 
-class Plain:
-    matrix: NDArray[np.complex128] = np.eye(1, dtype=np.complex128)
-
-    def __init__(self):
-        raise NotImplementedError
-
-
-class StationaryWaveFunc(Plain):
+class StationaryWaveFunc:
     raise NotImplementedError
 
 
-class Potential(Plain):
+class Potential:
     raise NotImplementedError
 
 
@@ -59,4 +52,5 @@ class SSFM(Solver):
 
 class AnalyticalRectangle(Solver):
     """Analytical solution for infinite rectangle potential well"""
+
     raise NotImplementedError
