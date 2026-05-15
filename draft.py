@@ -1,5 +1,3 @@
-#!/bin/python3
-
 from numpy.typing import NDArray
 import numpy as np
 
@@ -8,30 +6,30 @@ class Plain:
     matrix: NDArray[np.complex128] = np.eye(1, dtype=np.complex128)
 
     def __init__(self):
-        pass
+        raise NotImplementedError
 
 
 class StationaryWaveFunc(Plain):
-    pass
+    raise NotImplementedError
 
 
 class Potential(Plain):
-    pass
+    raise NotImplementedError
 
 
 class Propagator:
     def __init__(self):
-        pass
+        raise NotImplementedError
 
     def __call__(
         self, waveFunc: StationaryWaveFunc, potential: Potential
     ) -> StationaryWaveFunc:
-        pass
+        raise NotImplementedError
 
 
 class Solver:
     def __init__(self):
-        pass
+        raise NotImplementedError
 
     def __call__(
         self,
@@ -40,26 +38,25 @@ class Solver:
         deltaT: float = 1e-3,
         n: int = 1,
     ) -> StationaryWaveFunc:
-        pass
+        raise NotImplementedError
 
 
 class Cayley(Propagator):
-    pass
+    raise NotImplementedError
 
 
 class SuzukiTrotter(Propagator):
-    pass
+    raise NotImplementedError
 
 
 class CrankNicolson(Solver):
-    pass
+    raise NotImplementedError
 
 
 class SSFM(Solver):
-    pass
+    raise NotImplementedError
 
 
 class AnalyticalRectangle(Solver):
     """Analytical solution for infinite rectangle potential well"""
-
-    pass
+    raise NotImplementedError
