@@ -29,6 +29,7 @@ class CrankNicolson(Solver):
         delta_t: float = 1e-3,
         n_steps: int = 1,
     ) -> StationaryWaveFunc:
+        # FIXME: zrobić
         A = np.zeros(self.potential.matrix.shape)
         B = np.zeros(self.potential.matrix.shape)
 
