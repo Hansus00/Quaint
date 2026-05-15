@@ -10,11 +10,13 @@ class Plain:
 
 
 class StationaryWaveFunc(Plain):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class Potential(Plain):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class Propagator:
@@ -42,21 +44,27 @@ class Solver:
 
 
 class Cayley(Propagator):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class SuzukiTrotter(Propagator):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class CrankNicolson(Solver):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class SSFM(Solver):
-    raise NotImplementedError
+    def __init__(self):
+        super().__init__()
 
 
 class AnalyticalRectangle(Solver):
     """Analytical solution for infinite rectangle potential well"""
-    raise NotImplementedError
+    
+    def __init__(self):
+        super().__init__()
