@@ -3,35 +3,74 @@
 # ==============================================================================
 import numpy as np
 
-
 class QuantumMockBackend:
     """
-    Simulates physical dynamics. Operates strictly on backend arrays.
+    Simulation backend that maintains physical states and processes wave frames.
     """
-
-    def __init__(self, x, y, total_frames):
-        self.X, self.Y = np.meshgrid(x, y, indexing="ij")
+    def __init__(self, x_coarse, y_coarse, total_frames):
+        self.x_coarse = x_coarse
+        self.y_coarse = y_coarse
         self.total_frames = total_frames
+        
+        self.size_x = len(x_coarse)
+        self.size_y = len(y_coarse)
 
-    def get_frame(self, psi_prev, t, potential, r0, k0, sigma_matrix, mass):
+        # Initialize default physical states
+        self.potential_coarse = np.zeros((self.size_x, self.size_y), dtype=float)
+        self.r0_physical = np.array([self.x_coarse[0], self.y_coarse[0]], dtype=float)
+        self.k0 = np.array([0.0, 0.0])
+        self.sigma_matrix = np.array([[1.0, 0.0], [0.0, 1.0]])
+        self.mass = 1.0
+
+    def update_setup(self, potential_coarse, r0_indices, k0, sigma_matrix, mass):
         """
-        Accepts the previous wave matrix, time, potential, and initial conditions.
+        Updates internal physical parameters. 
+        Directly maps natural grid indices to physical coordinates without inversions.
         """
-        time_factor = t * 2 * np.pi / self.total_frames
+        self.potential_coarse = potential_coarse
+        
+        # REMOVED Y-axis flipping logic. Direct Cartesian mapping.
+        idx_x = int(np.clip(r0_indices[0], 0, self.size_x - 1))
+        idx_y = int(np.clip(r0_indices[1], 0, self.size_y - 1))
+        
+        self.r0_physical = np.array([self.x_coarse[idx_x], self.y_coarse[idx_y]])
+        
+        # Keep k0 exactly as provided by the UI
+        self.k0 = np.array([k0[0], k0[1]]) 
+        
+        self.sigma_matrix = sigma_matrix
+        self.mass = mass
 
-        # Integrate r0 and k0 into the mock calculation to show them affecting the backend
-        x_pos = r0[0] + k0[0] * t * 0.1 + 2.0 * np.sin(time_factor)
-        y_pos = r0[1] + k0[1] * t * 0.1 + 2.0 * np.cos(time_factor)
+    def calculate_all_frames(self):
+        wave_frames = []
+        for t in range(self.total_frames):
+            psi = self.get_frame(t)
+            wave_frames.append(psi)
+            
+        return wave_frames
 
-        # Apply sigma0 to envelope width
-        envelope = np.exp(-0.5 * ((self.X - x_pos) ** 2 + (self.Y - y_pos) ** 2))
-        phase = np.exp(1j * (k0[0] * self.X + k0[1] * self.Y - 2.0 * time_factor))
+    def get_frame(self, t):
+        """
+        Generates a moving 2D Gaussian wave packet based on internal physical states.
+        """
+        X, Y = np.meshgrid(self.x_coarse, self.y_coarse, indexing="ij")
 
-        interaction_effect = np.exp(-potential * 3.0)
-        psi_new = envelope * phase * interaction_effect + (psi_prev * 0.05)
+        # Calculate position over time
+        time_step = 0.1  
+        current_rx = self.r0_physical[0] + (self.k0[0] / self.mass) * t * time_step
+        current_ry = self.r0_physical[1] + (self.k0[1] / self.mass) * t * time_step
 
-        max_val = np.max(np.abs(psi_new))
-        if max_val > 0:
-            psi_new /= max_val
+        # Extract standard deviations 
+        sx = self.sigma_matrix[0, 0] if self.sigma_matrix[0, 0] > 0 else 1.0
+        sy = self.sigma_matrix[1, 1] if self.sigma_matrix[1, 1] > 0 else 1.0
 
-        return psi_new
+        # Construct Gaussian envelope
+        envelope = np.exp(
+            -((X - current_rx) ** 2) / (2 * sx ** 2)
+            - ((Y - current_ry) ** 2) / (2 * sy ** 2)
+        )
+
+        # Construct Phase
+        phase = np.exp(1j * (self.k0[0] * X + self.k0[1] * Y - t * 0.5))
+
+        return envelope * phase
