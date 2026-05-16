@@ -1,3 +1,5 @@
+# Only to show how to connect backend at frontend
+# test are in testing/
 import sys
 from pathlib import Path
 
@@ -11,9 +13,13 @@ from backend.Solver import CrankNicolson, Constant
 import numpy as np
 
 # tests
-ipw = InfiniteWellPotential(10, 10, 1e5)
+ipw = InfiniteWellPotential(10, 10, 1e5)  # Mock potential well
 gauss = GaussianPacket(
-    (10, 10), np.array([1, 1]), np.array([[1, 0], [0, 1]]), 1, *ipw.matrix.shape
+    (5, 5),
+    np.array([1, 1]),
+    np.array([[1, 0], [0, 1]]),
+    1,
+    *ipw.matrix.shape,
 )
 cn = CrankNicolson(ipw, gauss)
 print(cn.L_2D)
