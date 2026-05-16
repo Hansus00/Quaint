@@ -1,10 +1,6 @@
 # %%
 import sys
-import os
 from pathlib import Path
-
-os.makedirs("pic", exist_ok=True)
-os.makedirs("pic/probability", exist_ok=True)
 
 # to call backend module from current directory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -26,20 +22,20 @@ gauss = GaussianPacket(
     *ipw.matrix.shape,
 )
 delta_t = 0.001
-cn = CrankNicolson(ipw, gauss,delta_t)
+cn = CrankNicolson(ipw, gauss, delta_t)
 
 # %%
-N = 100
+N = 2048
 
-t_array = np.linspace(0,delta_t*N,N+1)
+t_array = np.linspace(0, delta_t * N, N + 1)
 prob = [cn.update().total_probability() for i in range(N)]
 prob = [gauss.total_probability()] + prob
 
-plt.plot(t_array,prob,".")
-plt.title(f'Total probability in time, delta_t = {delta_t}')
-plt.xlabel('t')
-plt.ylabel('P')
+plt.plot(t_array, prob, ".")
+plt.title(f"Total probability in time, delta_t = {delta_t}")
+plt.xlabel("t")
+plt.ylabel("P")
 plt.ylim(0.99, 1.01)
-plt.savefig(f'pic/probability/prob-in-time_delta-t={delta_t}_N={N}.png')
+plt.savefig(f"pic/probability/prob-in-time_delta-t={delta_t}_N={N}.png")
 plt.show()
 # %%
