@@ -26,16 +26,19 @@ gauss = GaussianPacket(
 )
 plt.title("Gaussian packet at start")
 plt.imshow(np.abs(gauss.matrix))
-plt.savefig("gauss_start.png")
+plt.savefig("pic/gauss_start.png")
 plt.show()
 
+# %%
 cn = CrankNicolson(ipw, gauss)
-n_steps = 64
-cn.update(n_steps)
-plt.title("Evolved gaussian packet n=" + str(n_steps))
-plt.imshow(np.abs(cn.get_wave_function().matrix))
-plt.savefig("gauss_evolved_n" + str(n_steps) + ".png")
-plt.show()
+delta_n = 32
+
+for i in range(0, 16):
+    cn.update(delta_n)
+    plt.title("Evolved gaussian packet n=" + str(cn.get_steps_evolved()))
+    plt.imshow(np.abs(cn.get_wave_function().matrix))
+    plt.savefig("pic/gauss_evolved_n" + str(cn.get_steps_evolved()) + ".png")
+    plt.show()
 
 
 # %%
