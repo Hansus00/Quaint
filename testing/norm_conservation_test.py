@@ -25,7 +25,7 @@ delta_t = 0.001
 cn = CrankNicolson(ipw, gauss,delta_t)
 
 # %%
-N = 100
+N = 2048
 
 t_array = np.linspace(0,delta_t*N,N+1)
 prob = [cn.update().total_probability() for i in range(N)]
