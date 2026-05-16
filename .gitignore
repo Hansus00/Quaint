@@ -6,5 +6,6 @@ __pycache__/
 *.pyo
 *.png
 *.mp4
+test/pic/*
 uv.lock
 venv/
