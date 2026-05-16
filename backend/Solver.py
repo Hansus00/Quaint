@@ -9,12 +9,43 @@ import numpy as np
 class Solver:
     potential: Potential
     delta_t: float
+    _wave_func: StationaryWaveFunc
+
+    def __init__(
+        self, potential: Potential, wave_func: StationaryWaveFunc, delta_t: float = 1e-3
+    ):
+        self.potential = potential
+        self._wave_func = wave_func
+        self.delta_t = delta_t
+
+    def step(self) -> None:
+        """Evolves on step of wave function after t + Delta t"""
+        raise NotImplementedError
+
+    def update(self, n_step: int = 1) -> StationaryWaveFunc:
+        """Returns evolved n steps of wave function after time t + n * Delta t"""
+        for i in range(0, n_step):
+            self.step()
+
+        return self._wave_func
+
+    def get_wave_function(self) -> StationaryWaveFunc:
+        """Returns wave function at current state at time t"""
+        return self._wave_func
+
+
+class CrankNicolson(Solver):
     L_2D: NDArray[np.complex128]
     H: NDArray[np.complex128]
+    A: NDArray[np.complex128]
+    B: NDArray[np.complex128]
 
-    def __init__(self, potential: Potential, delta_t: float = 1e-3):
-        self.potential = potential
-        self.delta_t = delta_t
+    wave_state_1D: NDArray[np.complex128]
+
+    def __init__(
+        self, potential: Potential, wave_func: StationaryWaveFunc, delta_t: float = 1e-3
+    ):
+        super().__init__(potential, wave_func, delta_t)
 
         # initializing laplace operator
         Nx, Ny = self.potential.matrix.shape
@@ -29,25 +60,6 @@ class Solver:
 
         self.L_2D = sp.kron(I_y, D_xx) + sp.kron(D_yy, I_x)
 
-    def __call__(
-        self,
-        wave_func: StationaryWaveFunc,
-        n_steps: int = 1,
-    ) -> StationaryWaveFunc:
-        raise NotImplementedError
-
-
-class CrankNicolson(Solver):
-    def __init__(self, potential: Potential, delta_t: float = 1e-3):
-        super().__init__(potential, delta_t)
-
-    def __call__(
-        self,
-        wave_func: StationaryWaveFunc,
-        n_steps: int = 1,
-    ) -> StationaryWaveFunc:
-        Nx, Ny = self.potential.matrix.shape
-
         # calculating Hamilton operator
         T_matrix = -(1 / (2 * wave_func.mass)) * self.L_2D
         V_1d = self.potential.matrix.flatten()
@@ -57,43 +69,33 @@ class CrankNicolson(Solver):
         # Cayley method
         I = sp.eye(Nx * Ny, format="csr")
         prefactor = (1j * self.delta_t) / 2
-        A = (I + prefactor * self.H).astype(np.complex128)
-        B = (I - prefactor * self.H).astype(np.complex128)
+        self.A = (I + prefactor * self.H).astype(np.complex128)
+        self.B = (I - prefactor * self.H).astype(np.complex128)
 
-        psi_1d = wave_func.matrix.flatten().astype(np.complex128)
-        psi_1d_new = spsolve(A, B.dot(psi_1d))
+        self.wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
 
-        psi_2d_new = psi_1d_new.reshape((Nx, Ny))
+    def step(self):
+        # Crank Nicolson
+        psi_1d_new = spsolve(self.A, self.B.dot(self.wave_state_1D))
+        self.wave_state_1D = psi_1d_new
 
-        return StationaryWaveFunc(np.array(psi_2d_new), wave_func.mass)
+        Nx, Ny = self.potential.matrix.shape
+
+        self._wave_func = StationaryWaveFunc(
+            np.array(psi_1d_new.reshape((Nx, Ny))), self._wave_func.mass
+        )
 
 
 class Constant(Solver):
-    def __init__(self, potential: Potential):
-        super().__init__(potential)
+    def __init__(
+        self, potential: Potential, wave_func: StationaryWaveFunc, delta_t: float = 1e-3
+    ):
+        super().__init__(potential, wave_func, delta_t)
 
-    def __call__(
-        self, wave_func: StationaryWaveFunc, n_steps: int = 1
-    ) -> StationaryWaveFunc:
-        return wave_func
+    def step(self):
+        pass
 
 
 class SSFM(Solver):
     def __init__(self):
         raise NotImplementedError
-
-
-if __name__ == "__main__":
-    # TODO: usunąć
-    from Potential import InfiniteWellPotential
-    from StationaryWaveFunc import GaussianPacket
-
-    ipw = InfiniteWellPotential(3, 3, 1e5)
-    cn = CrankNicolson(ipw)
-    print(np.array(cn.L_2D))
-    wf = GaussianPacket(
-        (10, 10), np.array([1, 1]), np.array([[1, 0], [0, 1]]), 1, *ipw.matrix.shape
-    )
-
-    wf = cn(wf)
-    # print(wf.matrix)
