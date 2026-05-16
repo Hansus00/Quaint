@@ -55,15 +55,17 @@ class CrankNicolson(Solver):
         # initializing laplace operator
         Nx, Ny = self.potential.matrix.shape
 
+        # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
         dx, dy = 1, 1
         D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / dx**2
         D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / dy**2
 
-        # self.L_2D = sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy) does the same
         I_x = sp.identity(Nx)
         I_y = sp.identity(Ny)
 
-        self.L_2D = sp.kron(I_y, D_xx) + sp.kron(D_yy, I_x)
+        # 2D Laplacian discretization consistent with C-order flattening used by numpy:
+        # index mapping (i, j) -> i * Ny + j
+        self.L_2D = sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy)
 
         # calculating Hamilton operator
         T_matrix = -(1 / (2 * wave_func.mass)) * self.L_2D
