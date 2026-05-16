@@ -16,9 +16,13 @@ from PyQt6.QtWidgets import (
     QLabel,
     QPushButton,
     QRadioButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
+
+# --- NEW: Predefined potentials imported from the backend module ---
+from backend.Potential import GaussianBumpPotential, HarmonicPotential
 
 
 class SetupDrawer(QDialog):
@@ -140,6 +144,18 @@ class SetupDrawer(QDialog):
         sim_layout.addStretch()
         layout.addLayout(sim_layout)
 
+        # --- NEW: Preset Potential Selection Layout with Gaussian Bump option ---
+        preset_layout = QHBoxLayout()
+        self.preset_menu = QComboBox()
+        self.preset_menu.addItem("Custom / Clear")
+        self.preset_menu.addItem("Gaussian Bump")
+        self.preset_menu.addItem("Harmonic Oscillator")
+        self.preset_menu.currentTextChanged.connect(self.load_preset_potential)
+        preset_layout.addWidget(QLabel("Preset Potential:"))
+        preset_layout.addWidget(self.preset_menu)
+        preset_layout.addStretch()
+        layout.addLayout(preset_layout)
+
         # Mode Selection Layout
         mode_layout = QHBoxLayout()
         self.radio_brush = QRadioButton("Brush Potential")
@@ -160,24 +176,24 @@ class SetupDrawer(QDialog):
         # Physics Parameters (Sigma Matrix & Mass)
         params_layout = QHBoxLayout()
 
-        # Sigma xx
-        params_layout.addWidget(QLabel("s<sub>xx</sub>:"))
+        # Sigma xx with physical units
+        params_layout.addWidget(QLabel("s<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:"))
         self.sig_xx_input = QDoubleSpinBox()
         self.sig_xx_input.setRange(0.1, 20.0)
         self.sig_xx_input.setValue(1.0)
         self.sig_xx_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_xx_input)
 
-        # Sigma xy
-        params_layout.addWidget(QLabel("s<sub>xy</sub>:"))
+        # Sigma xy with physical units
+        params_layout.addWidget(QLabel("s<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:"))
         self.sig_xy_input = QDoubleSpinBox()
         self.sig_xy_input.setRange(-10.0, 10.0)
         self.sig_xy_input.setValue(0.0)
         self.sig_xy_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_xy_input)
 
-        # Sigma yy
-        params_layout.addWidget(QLabel("s<sub>yy</sub>:"))
+        # Sigma yy with physical units
+        params_layout.addWidget(QLabel("s<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:"))
         self.sig_yy_input = QDoubleSpinBox()
         self.sig_yy_input.setRange(0.1, 20.0)
         self.sig_yy_input.setValue(1.0)
@@ -190,8 +206,8 @@ class SetupDrawer(QDialog):
             self.sig_xy_input.setValue(float(self.initial_sigma[0, 1]))
             self.sig_yy_input.setValue(float(self.initial_sigma[1, 1]))
 
-        # Mass
-        params_layout.addWidget(QLabel("m:"))
+        # Mass with physical units
+        params_layout.addWidget(QLabel("m [m<sub>e</sub>]:"))
         self.mass_input = QDoubleSpinBox()
         self.mass_input.setRange(0.01, 100.0)
         self.mass_input.setValue(self.initial_mass)
@@ -200,15 +216,39 @@ class SetupDrawer(QDialog):
 
         layout.addLayout(params_layout)
 
-        # Canvas constraints (increased height slightly for new UI rows)
-        self.setFixedSize(self.canvas_width, self.canvas_height + 140)
+        # Canvas area wrapper with Brush Slider on the right
+        canvas_area = QHBoxLayout()
+        # Add a fixed spacing exactly the width of the canvas to prevent overlaps
+        canvas_area.addSpacing(self.canvas_width + 20)
+
+        # Build the vertical slider layout
+        slider_layout = QVBoxLayout()
+        self.brush_label = QLabel("Brush\nStrength: 15")
+        self.brush_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        slider_layout.addWidget(self.brush_label)
+
+        self.brush_slider = QSlider(Qt.Orientation.Vertical)
+        self.brush_slider.setRange(1, 100)
+        self.brush_slider.setValue(15)  # Default starting alpha
+        self.brush_slider.setMinimumHeight(self.canvas_height - 60)
+        self.brush_slider.valueChanged.connect(
+            lambda v: self.brush_label.setText(f"Brush\nStrength: {v}")
+        )
+        slider_layout.addWidget(self.brush_slider, alignment=Qt.AlignmentFlag.AlignHCenter)
+        slider_layout.addStretch()
+
+        canvas_area.addLayout(slider_layout)
+        canvas_area.addStretch()
+        
+        layout.addLayout(canvas_area)
+
+        # Canvas constraints (Increased height due to new preset row)
+        self.setFixedSize(600, self.canvas_height + 200)
 
         # Restoring the positions of the wavepacket indicators on the canvas
         if self.initial_r0 is not None and self.initial_k0 is not None:
             rx_px = int((self.initial_r0[0] / self.grid_size_x) * self.canvas_width)
-            ry_px = int(
-                (1.0 - (self.initial_r0[1] / self.grid_size_y)) * self.canvas_height
-            )
+            ry_px = int((1.0 - (self.initial_r0[1] / self.grid_size_y)) * self.canvas_height)
             self.r0_px = QPoint(rx_px, ry_px)
 
             kx_px = int((self.initial_k0[0] / 0.1) + rx_px)
@@ -229,6 +269,39 @@ class SetupDrawer(QDialog):
         layout.addStretch()
         layout.addLayout(controls)
 
+    def load_preset_potential(self, text: str) -> None:
+        """
+        Loads a predefined mathematical potential from the backend onto the canvas.
+        Replaces the current drawing with the generated matrix.
+        """
+        if text == "Custom / Clear":
+            self.clear_canvas()
+            return
+
+        potential_matrix = None
+
+        if text == "Gaussian Bump":
+            # Position the peak right in the middle of the simulated grid space
+            r0 = (self.grid_size_x // 2, self.grid_size_y // 2)
+            V0 = 40.0
+            # Symmetric covariance matrix creating a smooth circular hill obstacle
+            sigma0 = np.array([[36.0, 0.0], [0.0, 36.0]], dtype=np.float64)
+            pot = GaussianBumpPotential(self.grid_size_x, self.grid_size_y, r0=r0, V0=V0, sigma0=sigma0)
+            potential_matrix = pot.matrix
+
+        elif text == "Harmonic Oscillator":
+            # Calculate a spring constant k that naturally climbs to V~50 at the boundaries
+            r0 = (self.grid_size_x // 2, self.grid_size_y // 2)
+            max_dist_sq = r0[0] ** 2 + r0[1] ** 2
+            k = 100.0 / max_dist_sq if max_dist_sq > 0 else 1.0
+            pot = HarmonicPotential(self.grid_size_x, self.grid_size_y, k=k, r0=r0)
+            potential_matrix = pot.matrix
+
+        if potential_matrix is not None:
+            # Leverage the existing canvas reconstruction pipeline
+            self._restore_canvas(potential_matrix)
+            self.update()
+
     def update_mode(self) -> None:
         """Updates the drawing state based on radio button selection."""
         if self.radio_brush.isChecked():
@@ -242,8 +315,8 @@ class SetupDrawer(QDialog):
         """Handles the rendering of the canvas and overlay objects like the wave vector."""
         canvas_painter = QPainter(self)
 
-        # Offset Y to account for top UI controls
-        offset_y = 100
+        # Offset Y to account for top UI controls (adjusted for new row layout)
+        offset_y = 135
         canvas_painter.translate(0, offset_y)
         canvas_painter.drawImage(0, 0, self.image)
 
@@ -255,9 +328,10 @@ class SetupDrawer(QDialog):
             canvas_painter.drawEllipse(self.r0_px, 4, 4)
 
     def mousePressEvent(self, event) -> None:
-        pos = event.position().toPoint() - QPoint(0, 100)
+        pos = event.position().toPoint() - QPoint(0, 135)
 
-        if pos.y() < 0 or pos.y() > self.canvas_height:
+        # Stop interactions if clicked outside the canvas bounds
+        if pos.x() < 0 or pos.x() > self.canvas_width or pos.y() < 0 or pos.y() > self.canvas_height:
             return
 
         if event.button() == Qt.MouseButton.LeftButton:
@@ -270,18 +344,23 @@ class SetupDrawer(QDialog):
                 self.update()
 
     def mouseMoveEvent(self, event) -> None:
-        pos = event.position().toPoint() - QPoint(0, 100)
+        pos = event.position().toPoint() - QPoint(0, 135)
+
+        # Stop interactions if cursor moves outside the canvas bounds
+        if pos.x() < 0 or pos.x() > self.canvas_width or pos.y() < 0 or pos.y() > self.canvas_height:
+            return
 
         if event.buttons() & Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser") and self.drawing_potential:
                 painter = QPainter(self.image)
-
+                
                 # Brush adds dark semi-transparent strokes; Eraser overwrites with solid white
                 if self.mode == "brush":
-                    color = QColor(0, 0, 0, 15)
+                    strength = self.brush_slider.value()
+                    color = QColor(0, 0, 0, strength)
                 else:
                     color = QColor(255, 255, 255, 255)
-
+                    
                 pen = QPen(
                     color,
                     30,
@@ -303,7 +382,8 @@ class SetupDrawer(QDialog):
             self.drawing_potential = False
 
     def clear_canvas(self) -> None:
-        """Clears the drawn potential to a blank white canvas."""
+        """Clears the drawn potential to a blank white canvas and resets the preset dropdown."""
+        self.preset_menu.setCurrentText("Custom / Clear")
         self.image.fill(Qt.GlobalColor.white)
         self.update()
 
