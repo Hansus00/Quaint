@@ -87,9 +87,9 @@ class SetupDrawer(QDialog):
         self.radio_pot.toggled.connect(self.update_mode)
 
         self.simulation_menu = QComboBox()
-        self.simulation_menu.addItem("Constant")
         self.simulation_menu.addItem("Crank-Nicolson")
         self.simulation_menu.addItem("SSFM")
+        self.simulation_menu.addItem("Constant")
         self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
         mode_layout.addWidget(QLabel("Simulation Method:"))
         mode_layout.addWidget(self.simulation_menu)
