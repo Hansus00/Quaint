@@ -38,17 +38,6 @@ class Solver:
         """Returns wave function at current state at time t"""
         return self._wave_func
 
-    def update(self, n_step: int = 1) -> StationaryWaveFunc:
-        """Returns evolved n steps of wave function after time t + n * Delta t"""
-        for i in range(0, n_step):
-            self.step()
-
-        return self.get_wave_function()
-
-    def get_wave_function(self) -> StationaryWaveFunc:
-        """Returns wave function at current state at time t"""
-        return self._wave_func
-
 
 class CrankNicolson(Solver):
     L_2D: NDArray[np.complex128]  # TODO: to be removed
