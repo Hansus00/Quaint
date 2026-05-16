@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
     simulation: Any
 
     def __init__(
-        self, size_x: int = 60, size_y: int = 70, z_potential_offset: float = 0.1
+        self, size_x: int = 60, size_y: int = 50, z_potential_offset: float = 0.1
     ) -> None:
         """
         Initializes the main window and default simulation states.

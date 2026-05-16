@@ -52,7 +52,7 @@ class AnimationWidget(QWidget):
         z_potential_offset: float,
         z_scale: float = 15.0,
         fine_grid_scale: int = 4,
-        z_potential_scale: float = 0.07,
+        z_potential_scale: float = 0.05,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
