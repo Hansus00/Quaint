@@ -117,4 +117,3 @@ class Constant(Solver):
 class SSFM(Solver):
     def __init__(self):
         raise NotImplementedError
-
