@@ -7,7 +7,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 # calling backend module
 from backend.Potential import InfiniteWellPotential
 from backend.StationaryWaveFunc import GaussianPacket
-from backend.Solver import CrankNicolson
+from backend.Solver import CrankNicolson, Constant
 import numpy as np
 
 # tests
@@ -27,3 +27,9 @@ print("\n\n\n")
 
 wf = cn.update(2)
 print(wf.matrix)
+
+const = Constant(ipw, wf)
+const.step()
+const.step()
+const.update(10)
+print(const.get_wave_function().matrix == wf.matrix)
