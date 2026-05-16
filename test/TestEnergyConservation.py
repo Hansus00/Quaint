@@ -18,6 +18,7 @@ class CrankNicolsonEnergyTest(CrankNicolson):
         super().__init__(potential, wave_func, delta_t)
 
     def energy(self) -> float:
+        """Returns expected value of the hamiltonian."""
         return np.sum(
             np.conjugate(self._wave_state_1D) * (self.H @ self._wave_state_1D)
         )
@@ -32,6 +33,7 @@ def test_energy_conservation(
 
     energy = np.array([solver.energy()] + [current() for i in range(N)])
 
+    # Expected values of hermitian operators are real
     assert np.allclose(np.imag(energy), np.zeros_like(energy))
 
     energy = np.real(energy)
