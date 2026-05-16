@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 
 plt.style.use("JK_W.mplstyle")
 ipw = InfiniteWellPotential(128, 128, 1e6)  # Mock potential well
+plt.title("Potential well")
 plt.imshow(ipw.matrix)
 plt.show()
 
