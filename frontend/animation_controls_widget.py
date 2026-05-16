@@ -1,8 +1,9 @@
 # ==============================================================================
-# ### --- FILE animation_controls_widget.py --- ###
+# ### --- FILE frontend/animation_controls_widget.py --- ###
 # ==============================================================================
 
 from typing import Optional
+
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -23,7 +24,9 @@ class AnimationControlsWidget(QWidget):
     open_setup_requested = pyqtSignal()
     open_settings_requested = pyqtSignal()
 
-    def __init__(self, total_frames: int, fps: int, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, total_frames: int, fps: int, parent: Optional[QWidget] = None
+    ) -> None:
         """
         Initializes the playback controls widget.
 
@@ -101,3 +104,4 @@ class AnimationControlsWidget(QWidget):
 
         if self.timer.isActive():
             self.timer.setInterval(1000 // self.fps)
+

@@ -1,8 +1,9 @@
 # ==============================================================================
-# ### --- FILE settings.py --- ###
+# ### --- FILE frontend/settings.py --- ###
 # ==============================================================================
 
 from typing import Optional
+
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog,
@@ -20,7 +21,12 @@ class Settings(QDialog):
 
     settings_saved = pyqtSignal(int, int)  # Emits (fps, total_frames)
 
-    def __init__(self, current_fps: int, current_total_frames: int, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self,
+        current_fps: int,
+        current_total_frames: int,
+        parent: Optional[QWidget] = None,
+    ) -> None:
         """
         Initializes the configuration dialog with current default values.
         """
@@ -50,3 +56,4 @@ class Settings(QDialog):
         """Emits the updated setting values and closes the dialog indicating acceptance."""
         self.settings_saved.emit(self.fps_spin.value(), self.frames_spin.value())
         self.accept()
+

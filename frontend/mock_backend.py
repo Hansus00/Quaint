@@ -1,5 +1,5 @@
 # ==============================================================================
-# ### --- FILE mock_backend.py --- ###
+# ### --- FILE frontend/mock_backend.py --- ###
 # ==============================================================================
 
 from typing import List
@@ -12,7 +12,9 @@ class QuantumMockBackend:
     Used during early development as a lightweight placeholder for the numerical solver.
     """
 
-    def __init__(self, x_coarse: np.ndarray, y_coarse: np.ndarray, total_frames: int) -> None:
+    def __init__(
+        self, x_coarse: np.ndarray, y_coarse: np.ndarray, total_frames: int
+    ) -> None:
         self.x_coarse: np.ndarray = x_coarse
         self.y_coarse: np.ndarray = y_coarse
         self.total_frames: int = total_frames
@@ -21,8 +23,12 @@ class QuantumMockBackend:
         self.size_y: int = len(y_coarse)
 
         # Initialize default physical states
-        self.potential_coarse: np.ndarray = np.zeros((self.size_x, self.size_y), dtype=float)
-        self.r0_physical: np.ndarray = np.array([self.x_coarse[0], self.y_coarse[0]], dtype=float)
+        self.potential_coarse: np.ndarray = np.zeros(
+            (self.size_x, self.size_y), dtype=float
+        )
+        self.r0_physical: np.ndarray = np.array(
+            [self.x_coarse[0], self.y_coarse[0]], dtype=float
+        )
         self.k0: np.ndarray = np.array([0.0, 0.0])
         self.sigma_matrix: np.ndarray = np.array([[1.0, 0.0], [0.0, 1.0]])
         self.mass: float = 1.0
@@ -67,16 +73,22 @@ class QuantumMockBackend:
         X, Y = np.meshgrid(self.x_coarse, self.y_coarse, indexing="ij")
 
         time_step: float = 0.1
-        current_rx: float = self.r0_physical[0] + (self.k0[0] / self.mass) * t * time_step
-        current_ry: float = self.r0_physical[1] + (self.k0[1] / self.mass) * t * time_step
+        current_rx: float = (
+            self.r0_physical[0] + (self.k0[0] / self.mass) * t * time_step
+        )
+        current_ry: float = (
+            self.r0_physical[1] + (self.k0[1] / self.mass) * t * time_step
+        )
 
         sx: float = self.sigma_matrix[0, 0] if self.sigma_matrix[0, 0] > 0 else 1.0
         sy: float = self.sigma_matrix[1, 1] if self.sigma_matrix[1, 1] > 0 else 1.0
 
         envelope: np.ndarray = np.exp(
-            -((X - current_rx) ** 2) / (2 * sx ** 2) - ((Y - current_ry) ** 2) / (2 * sy ** 2)
+            -((X - current_rx) ** 2) / (2 * sx**2)
+            - ((Y - current_ry) ** 2) / (2 * sy**2)
         )
 
         phase: np.ndarray = np.exp(1j * (self.k0[0] * X + self.k0[1] * Y - t * 0.5))
 
         return envelope * phase
+
