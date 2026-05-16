@@ -1,5 +1,5 @@
-from StationaryWaveFunc import StationaryWaveFunc
-from Potential import Potential
+from .StationaryWaveFunc import StationaryWaveFunc
+from .Potential import Potential
 from scipy.sparse.linalg import spsolve
 import scipy.sparse as sp
 from numpy.typing import NDArray
