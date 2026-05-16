@@ -52,3 +52,19 @@ class GaussianBumpPotential(Potential):
         )
 
         super().__init__(matrix)
+
+class HarmonicPotential(Potential):
+    def __init__(self, size_x : int, size_y : int,
+                  k : float, r0 : tuple[int, int]):
+        """Quadratic potential with minimum at r0 and strength constant k."""
+        _x = np.arange(size_x)
+        _y = np.arange(size_y)
+
+        x, y = np.meshgrid(_x, _y, indexing="ij")
+
+        dx = x - r0[0]
+        dy = y - r0[1]
+
+        matrix = 0.5 * k * (dx ** 2 + dy ** 2)
+
+        super().__init__(matrix)
