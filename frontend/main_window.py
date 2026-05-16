@@ -2,6 +2,13 @@
 # ### --- FILE main_window.py --- ###
 # ==============================================================================
 import numpy as np
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from backend.Potential import InfiniteWellPotential
+from backend.Solver import CrankNicolson, Constant, SSFM
 from animation_controls_widget import AnimationControlsWidget
 from animation_widget import AnimationWidget
 from mock_backend import QuantumMockBackend
@@ -15,7 +22,7 @@ class MainWindow(QMainWindow):
     Main Application Window linking the data, 3D visualization, and UI controls.
     """
 
-    def __init__(self, size_x=10, size_y=5, z_potential_offset=5):
+    def __init__(self, size_x=50, size_y=70, z_potential_offset=5):
         super().__init__()
         self.setWindowTitle("3D Wave Function & Potential Simulation")
         self.resize(950, 750)
@@ -35,11 +42,10 @@ class MainWindow(QMainWindow):
         self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
 
         self.wave_frames = []
+        self.initial_potential = InfiniteWellPotential(np.zeros((self.size_coarse_y, self.size_coarse_x)))
 
         # Backend now manages all physical states internally
-        self.backend = QuantumMockBackend(
-            self.x_coarse, self.y_coarse, self.total_frames
-        )
+        self.simulation = Constant(self._create_initial_potential(), 1/self.fps)
 
         self._setup_ui()
         self.calculate_all_frames()
@@ -66,8 +72,11 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.controls, stretch=0)
 
     def calculate_all_frames(self):
-        # Delegate the entire frame calculation loop to the backend
-        self.wave_frames = self.backend.calculate_all_frames()
+        self.wave_frames = []
+        next_wavefunc = self.initial_wavefunc
+        for i in range(self.total_frames):
+            next_wavefunc = self.simulation(next_wavefunc)
+            self.wave_frames.append(next_wavefunc)
 
     def open_settings_window(self):
         self.controls.pause()
@@ -81,7 +90,7 @@ class MainWindow(QMainWindow):
         self.controls.update_settings(fps, total_frames)
 
         # Update backend property instead of recreating it so physical states aren't lost
-        self.backend.total_frames = self.total_frames
+        self.simulation.total_frames = self.total_frames
         self.calculate_all_frames()
         self.update_simulation(self.controls.slider.value())
 
@@ -95,6 +104,7 @@ class MainWindow(QMainWindow):
             parent=self,
         )
         drawer.setup_saved.connect(self.apply_setup)
+        drawer.simulation_changed.connect(self.switch_simulation_method)
         drawer.exec()
 
     def apply_setup(self, potential_array, r0, k0, sigma_matrix, mass):
@@ -102,19 +112,11 @@ class MainWindow(QMainWindow):
         potential_coarse = potential_array[:, ::-1]
         print(potential_coarse)
 
-        # Pass pure setup data directly to the backend
-        self.backend.update_setup(
-            potential_coarse=potential_coarse,
-            r0_indices=r0,
-            k0=k0,
-            sigma_matrix=sigma_matrix,
-            mass=mass,
-        )
-
+        self.initial_potential = InfiniteWellPotential(potential_coarse)
         self.calculate_all_frames()
 
         # Retrieve the updated potential array to draw
-        self.animation_widget.update_potential(self.backend.potential_coarse)
+        self.animation_widget.update_potential(self.simulation.potential_coarse)
         self.update_simulation(self.controls.slider.value())
 
     def update_simulation(self, frame_idx):
@@ -123,3 +125,14 @@ class MainWindow(QMainWindow):
 
         psi_coarse = self.wave_frames[frame_idx]
         self.animation_widget.update_wave(psi_coarse)
+
+    def switch_simulation_method(self, method_name):
+        if method_name == "Constant":
+            self.simulation = Constant(self._create_initial_potential(), 1/self.fps)
+        elif method_name == "Crank-Nicolson":
+            self.simulation = CrankNicolson(self._create_initial_potential(), 1/self.fps)
+        elif method_name == "SSFM":
+            self.simulation = SSFM(self._create_initial_potential(), 1/self.fps)
+        else:
+            raise ValueError(f"Unknown simulation method: {method_name}")
+
