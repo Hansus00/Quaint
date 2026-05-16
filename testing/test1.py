@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 
-# to call backend module from frontend directory
+# to call backend module from current directory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from backend.Potential import InfiniteWellPotential
@@ -34,7 +34,7 @@ n_steps = 64
 cn.update(n_steps)
 plt.title("Evolved gaussian packet n=" + str(n_steps))
 plt.imshow(np.abs(cn.get_wave_function().matrix))
-plt.savefig("gauss_evolved.png")
+plt.savefig("gauss_evolved_n" + str(n_steps) + ".png")
 plt.show()
 
 
