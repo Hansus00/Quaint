@@ -25,19 +25,23 @@ class AnimationWidget(QWidget):
         y_limit: float,
         z_potential_offset: float,
         z_scale: float = 15.0,
+        fine_grid_scale: int = 4,
+        z_potential_scale: float = 0.07,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
         self.size_coarse_x: int = size_coarse_x
         self.size_coarse_y: int = size_coarse_y
 
-        self.size_fine_x: int = 4 * self.size_coarse_x
-        self.size_fine_y: int = 4 * self.size_coarse_y
+        self.fine_grid_scale: int = fine_grid_scale
+        self.size_fine_x: int = self.fine_grid_scale * self.size_coarse_x
+        self.size_fine_y: int = self.fine_grid_scale * self.size_coarse_y
 
         self.x_limit: float = x_limit
         self.y_limit: float = y_limit
         self.z_potential_offset: float = z_potential_offset
         self.z_scale: float = z_scale
+        self.z_potential_scale: float = z_potential_scale
 
         self.x_coarse: np.ndarray = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse: np.ndarray = np.linspace(0.0, self.y_limit, self.size_coarse_y)
@@ -48,16 +52,21 @@ class AnimationWidget(QWidget):
         self._setup_ui()
         self._setup_mesh_geometry()
 
-    def update_config(self, size_x: int, size_y: int, y_limit: float, z_offset: float, z_scale: float) -> None:
+    def update_config(
+        self, size_x: int, size_y: int, y_limit: float, z_offset: float, 
+        z_scale: float, fine_grid_scale: int, z_potential_scale: float
+    ) -> None:
         """Dynamically reconfigures the widget's layout bounds and clears state."""
         self.size_coarse_x = size_x
         self.size_coarse_y = size_y
-        self.size_fine_x = 4 * size_x
-        self.size_fine_y = 4 * size_y
+        self.fine_grid_scale = fine_grid_scale
+        self.size_fine_x = self.fine_grid_scale * size_x
+        self.size_fine_y = self.fine_grid_scale * size_y
         
         self.y_limit = y_limit
         self.z_potential_offset = z_offset
         self.z_scale = z_scale
+        self.z_potential_scale = z_potential_scale
 
         self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
@@ -142,8 +151,7 @@ class AnimationWidget(QWidget):
         spline = RectBivariateSpline(self.x_coarse, self.y_coarse, potential_coarse)
         potential_fine = spline(self.x_fine, self.y_fine)
 
-        visual_scale_factor: float = 3.5 / 50.0
-        Z_potential = potential_fine * visual_scale_factor
+        Z_potential = potential_fine * self.z_potential_scale
 
         base_gray: float = 0.7
         gray_values = base_gray - ((potential_fine / 50.0) * 0.5)
@@ -216,7 +224,6 @@ class AnimationWidget(QWidget):
 
         prob_fine = np.clip(prob_fine, 0.0, None)
         
-        # CHANGED: Applies dynamic Z scale amplitude to probability here
         Z_fine = prob_fine * self.z_scale
 
         psi_real_linear = zoom(
@@ -228,7 +235,11 @@ class AnimationWidget(QWidget):
 
         phase = np.angle(psi_real_linear + 1j * psi_imag_linear)
         hue = (phase + np.pi) / (2 * np.pi)
-        value = np.clip(prob_fine * 50, 0.0, 1.0)
+        
+        # Exposure multiplier for visual brightness 
+        # (Boosts the faint probability tails to be visible without exceeding 1.0)
+        brightness_multiplier = 50.0
+        value = np.clip(prob_fine * brightness_multiplier, 0.0, 1.0)
 
         rgb = self._fast_hsv_to_rgb(hue, value)
 
