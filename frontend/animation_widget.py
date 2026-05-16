@@ -171,26 +171,33 @@ class AnimationWidget(QWidget):
             self.wave_mesh_item.setMeshData(meshdata=mesh_data)
             return
 
-        # Cache miss: Run high-quality calculations ONCE for this frame instance
+        # Cache miss: Run calculations ONCE for this frame instance
         wave_matrix = psi_coarse.matrix
         zoom_factor_x = self.size_fine_x / wave_matrix.shape[0]
         zoom_factor_y = self.size_fine_y / wave_matrix.shape[1]
 
-        psi_real_interp = zoom(
-            wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=3
+        # 1. Smoothly interpolate the probability envelope directly.
+        # This eliminates "holes" because the envelope doesn't oscillate.
+        prob_coarse = np.abs(wave_matrix) ** 2
+        prob_fine = zoom(prob_coarse, (zoom_factor_x, zoom_factor_y), order=3)
+
+        # High-order splines can occasionally dip slightly below 0 at the extreme tail ends,
+        # so we clip it to ensure valid physical probability heights.
+        prob_fine = np.clip(prob_fine, 0.0, None)
+        Z_fine = prob_fine * 15.0
+
+        # 2. Use fast bilinear interpolation (order=1) purely to map the phase colors.
+        # Bilinear prevents the phase from "ringing" or overshooting.
+        psi_real_linear = zoom(
+            wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=1
         )
-        psi_imag_interp = zoom(
-            wave_matrix.imag, (zoom_factor_x, zoom_factor_y), order=3
+        psi_imag_linear = zoom(
+            wave_matrix.imag, (zoom_factor_x, zoom_factor_y), order=1
         )
 
-        psi_interp = psi_real_interp + 1j * psi_imag_interp
-        prob = np.abs(psi_interp) ** 2
-
-        Z_fine = prob * 15.0
-
-        phase = np.angle(psi_interp)
+        phase = np.angle(psi_real_linear + 1j * psi_imag_linear)
         hue = (phase + np.pi) / (2 * np.pi)
-        value = np.clip(prob * 50, 0.0, 1.0)
+        value = np.clip(prob_fine * 50, 0.0, 1.0)
 
         rgb = self._fast_hsv_to_rgb(hue, value)
 
