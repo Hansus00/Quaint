@@ -33,7 +33,7 @@ class GaussianPacket(StationaryWaveFunc):
         _x = np.arange(size_x)
         _y = np.arange(size_y)
 
-        x, y = np.meshgrid(_x, _y, indexing="ij")
+        x, y = np.meshgrid(_x, _y, indexing="xy")
 
         dx = x - r0[0]
         dy = y - r0[1]
@@ -41,7 +41,7 @@ class GaussianPacket(StationaryWaveFunc):
         dr = np.stack([dx, dy])
 
         matrix = np.exp(
-            1j * np.einsum("i,ijk->jk", k0, dr)
+            -1j * np.einsum("i,ijk->jk", k0, dr)
             - 0.5 * np.einsum("ikl,ij,jkl->kl", dr, np.linalg.inv(sigma0), dr)
         )
 
