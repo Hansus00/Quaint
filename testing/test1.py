@@ -22,11 +22,11 @@ params = {
     "size_y": 128,
     "well_height": 1e6,
     "r0": (64, 64),
-    "k0": np.array([1, 0]).tolist(),
+    "k0": np.array([1, 1]).tolist(),
     "sigma0": np.array([[16, 0], [0, 16]]).tolist(),
-    "mass": 1e-3,
+    "mass": 1e-2,
     "delta_n": 32,
-    "updates_max": 128,
+    "steps_max": 32,
 }
 with open(directory + "dump.json", "w") as f:
     json.dump(params, f, indent=4)
