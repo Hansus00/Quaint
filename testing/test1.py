@@ -22,7 +22,7 @@ params = {
     "size_y": 128,
     "well_height": 1e6,
     "r0": (64, 64),
-    "k0": np.array([1, 1]).tolist(),
+    "k0": np.array([0, 0]).tolist(),
     "sigma0": np.array([[16, 0], [0, 16]]).tolist(),
     "mass": 2e-3,
     "delta_n": 32,
