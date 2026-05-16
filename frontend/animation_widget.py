@@ -117,12 +117,13 @@ class AnimationWidget(QWidget):
         self.potential_mesh_item.setMeshData(meshdata=mesh_data)
 
     def update_wave(self, psi_coarse):
-        spline_real = RectBivariateSpline(self.x_coarse, self.y_coarse, psi_coarse.real)
-        spline_imag = RectBivariateSpline(self.x_coarse, self.y_coarse, psi_coarse.imag)
+        wave_matrix = psi_coarse.matrix
+        spline_real = RectBivariateSpline(self.x_coarse, self.y_coarse, wave_matrix.real)
+        spline_imag = RectBivariateSpline(self.x_coarse, self.y_coarse, wave_matrix.imag)
 
         psi_interp = spline_real(self.x_fine, self.y_fine) + 1j * spline_imag(
-            self.x_fine, self.y_fine
-        )
+        self.x_fine, self.y_fine
+    )
         prob = np.abs(psi_interp) ** 2
 
         Z_fine = prob * 4.0

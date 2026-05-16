@@ -5,10 +5,15 @@ import numpy as np
 import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+project_root = Path(__file__).resolve().parents[1]
 
-from backend.Potential import InfiniteWellPotential
+
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "backend"))
+
+from backend.Potential import InfiniteWellPotential, Potential
 from backend.Solver import CrankNicolson, Constant, SSFM
+from backend.StationaryWaveFunc import GaussianPacket
 from animation_controls_widget import AnimationControlsWidget
 from animation_widget import AnimationWidget
 from mock_backend import QuantumMockBackend
@@ -42,10 +47,19 @@ class MainWindow(QMainWindow):
         self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
 
         self.wave_frames = []
-        self.initial_potential = InfiniteWellPotential(np.zeros((self.size_coarse_y, self.size_coarse_x)))
+        self.initial_potential = InfiniteWellPotential(self.size_coarse_x, self.size_coarse_y)
+        self.initial_wavefunc = GaussianPacket(
+            r0=np.array([self.x_limit / 2, self.y_limit / 2]),
+            k0=np.array([0.0, 0.0]),
+            sigma0=np.array([[1.0, 0.0], [0.0, 1.0]]),
+            mass=1.0,
+            size_x=self.size_coarse_x,
+            size_y=self.size_coarse_y,
+        )
+
 
         # Backend now manages all physical states internally
-        self.simulation = Constant(self._create_initial_potential(), 1/self.fps)
+        self.simulation = Constant(self.initial_potential)
 
         self._setup_ui()
         self.calculate_all_frames()
@@ -112,11 +126,12 @@ class MainWindow(QMainWindow):
         potential_coarse = potential_array[:, ::-1]
         print(potential_coarse)
 
-        self.initial_potential = InfiniteWellPotential(potential_coarse)
+        self.initial_potential = Potential(potential_coarse)
+        self.initial_wavefunc = GaussianPacket(r0, k0, sigma_matrix, mass, self.size_coarse_x, self.size_coarse_y)
         self.calculate_all_frames()
 
         # Retrieve the updated potential array to draw
-        self.animation_widget.update_potential(self.simulation.potential_coarse)
+        self.animation_widget.update_potential(self.initial_potential.matrix)
         self.update_simulation(self.controls.slider.value())
 
     def update_simulation(self, frame_idx):
@@ -128,11 +143,11 @@ class MainWindow(QMainWindow):
 
     def switch_simulation_method(self, method_name):
         if method_name == "Constant":
-            self.simulation = Constant(self._create_initial_potential(), 1/self.fps)
+            self.simulation = Constant(self.initial_potential)
         elif method_name == "Crank-Nicolson":
-            self.simulation = CrankNicolson(self._create_initial_potential(), 1/self.fps)
+            self.simulation = CrankNicolson(self.initial_potential, 1/self.fps)
         elif method_name == "SSFM":
-            self.simulation = SSFM(self._create_initial_potential(), 1/self.fps)
+            self.simulation = SSFM(self.initial_potential, 1/self.fps)
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
 
