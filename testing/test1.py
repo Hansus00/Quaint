@@ -22,7 +22,7 @@ params = {
     "size_y": 128,
     "well_height": 1e6,
     "r0": (64, 64),
-    "k0": np.array([0, 0]).tolist(),
+    "k0": np.array([1, 0]).tolist(),
     "sigma0": np.array([[16, 0], [0, 16]]).tolist(),
     "mass": 2e-3,
     "delta_n": 32,
@@ -56,7 +56,9 @@ plt.title(
     + "%.4f" % (gauss.total_probability())
 )
 im = plt.imshow(np.abs(gauss.matrix) ** 2)
-cbar = plt.colorbar(im)
+cbar = plt.colorbar(
+    im, format="%.4f"
+)  # FIXME: make it look good, maybe scientific notation?
 cbar.set_label(r"$|\psi|^2$")
 plt.xlabel("x")
 plt.ylabel("y")
@@ -78,7 +80,9 @@ for i in range(0, params["steps_max"]):
         + "%.4f" % (cn.get_wave_function().total_probability())
     )
     im = plt.imshow(np.abs(cn.get_wave_function().matrix) ** 2)
-    cbar = plt.colorbar(im)
+    cbar = plt.colorbar(
+        im, format="%.4f"
+    )  # FIXME: make it look good, maybe scientific notation?
     cbar.set_label(r"$|\psi|^2$")
     plt.xlabel("x")
     plt.ylabel("y")
