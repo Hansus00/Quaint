@@ -131,7 +131,7 @@ class AnimationWidget(QWidget):
         phase = np.angle(psi_interp)
         hue = (phase + np.pi) / (2 * np.pi)
         saturation = np.ones_like(hue)
-        value = np.clip(prob * 2.0 + 0.2, 0, 1)
+        value = np.clip(prob * 4.0, 0, 1)
 
         hsv = np.dstack((hue, saturation, value))
         rgb = hsv_to_rgb(hsv)
