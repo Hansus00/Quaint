@@ -8,6 +8,7 @@ import numpy as np
 from PyQt6.QtCore import QPoint, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen
 from PyQt6.QtWidgets import (
+    QApplication,
     QComboBox,
     QDialog,
     QDoubleSpinBox,
@@ -205,7 +206,9 @@ class SetupDrawer(QDialog):
         # Restoring the positions of the wavepacket indicators on the canvas
         if self.initial_r0 is not None and self.initial_k0 is not None:
             rx_px = int((self.initial_r0[0] / self.grid_size_x) * self.canvas_width)
-            ry_px = int((1.0 - (self.initial_r0[1] / self.grid_size_y)) * self.canvas_height)
+            ry_px = int(
+                (1.0 - (self.initial_r0[1] / self.grid_size_y)) * self.canvas_height
+            )
             self.r0_px = QPoint(rx_px, ry_px)
 
             kx_px = int((self.initial_k0[0] / 0.1) + rx_px)
@@ -216,11 +219,13 @@ class SetupDrawer(QDialog):
         controls = QHBoxLayout()
         clear_btn = QPushButton("Clear Potential")
         clear_btn.clicked.connect(self.clear_canvas)
-        save_btn = QPushButton("Save & Update Simulation")
-        save_btn.clicked.connect(self.save_and_close)
+
+        self.save_btn = QPushButton("Save & Update Simulation")
+        self.save_btn.clicked.connect(self.save_and_close)
 
         controls.addWidget(clear_btn)
-        controls.addWidget(save_btn)
+        controls.addWidget(self.save_btn)
+
         layout.addStretch()
         layout.addLayout(controls)
 
@@ -270,13 +275,13 @@ class SetupDrawer(QDialog):
         if event.buttons() & Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser") and self.drawing_potential:
                 painter = QPainter(self.image)
-                
+
                 # Brush adds dark semi-transparent strokes; Eraser overwrites with solid white
                 if self.mode == "brush":
                     color = QColor(0, 0, 0, 15)
                 else:
                     color = QColor(255, 255, 255, 255)
-                    
+
                 pen = QPen(
                     color,
                     30,
@@ -306,6 +311,10 @@ class SetupDrawer(QDialog):
         """
         Parses canvas drawing and physics inputs, emits them, and closes the dialog.
         """
+        self.save_btn.setText("Loading...")
+        self.save_btn.setEnabled(False) 
+        QApplication.processEvents()
+
         # 1. Process Potential Matrix
         scaled_img = self.image.scaled(
             self.grid_size_x,

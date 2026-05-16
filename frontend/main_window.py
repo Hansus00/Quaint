@@ -8,7 +8,7 @@ from .animation_widget import AnimationWidget
 from backend.Potential import InfiniteWellPotential, Potential
 from backend.Solver import SSFM, Constant, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
 from .settings import Settings
 from .setup_drawer import SetupDrawer
 
@@ -118,6 +118,9 @@ class MainWindow(QMainWindow):
         for _ in range(1, self.total_frames):
             self.simulation.step()
             self.wave_frames.append(self.simulation.get_wave_function())
+
+            # Don't freeze the application while the simulation runs
+            QApplication.processEvents()
 
     def open_settings_window(self) -> None:
         """Opens the playback settings dialog."""
