@@ -23,7 +23,8 @@ class AnimationWidget(QWidget):
         size_coarse_y: int,
         x_limit: float,
         y_limit: float,
-        z_potential_offset: int,
+        z_potential_offset: float,
+        z_scale: float = 15.0,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -36,6 +37,7 @@ class AnimationWidget(QWidget):
         self.x_limit: float = x_limit
         self.y_limit: float = y_limit
         self.z_potential_offset: float = z_potential_offset
+        self.z_scale: float = z_scale
 
         self.x_coarse: np.ndarray = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse: np.ndarray = np.linspace(0.0, self.y_limit, self.size_coarse_y)
@@ -45,6 +47,35 @@ class AnimationWidget(QWidget):
 
         self._setup_ui()
         self._setup_mesh_geometry()
+
+    def update_config(self, size_x: int, size_y: int, y_limit: float, z_offset: float, z_scale: float) -> None:
+        """Dynamically reconfigures the widget's layout bounds and clears state."""
+        self.size_coarse_x = size_x
+        self.size_coarse_y = size_y
+        self.size_fine_x = 4 * size_x
+        self.size_fine_y = 4 * size_y
+        
+        self.y_limit = y_limit
+        self.z_potential_offset = z_offset
+        self.z_scale = z_scale
+
+        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
+        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
+
+        # Re-allocate mesh matrices for the new array dimensions
+        self._setup_mesh_geometry()
+        
+        # Adjust OpenGL visual bounds
+        self.axis.setSize(x=self.x_limit, y=self.y_limit, z=5.0)
+        
+        self.view.removeItem(self.grid)
+        self.grid = gl.GLGridItem()
+        self.grid.setSize(self.x_limit, self.y_limit, 0)
+        self.grid.setSpacing(1, 1, 0)
+        self.grid.translate(self.x_limit / 2.0, self.y_limit / 2.0, 0)
+        self.view.addItem(self.grid)
+
+        self.clear_cache()
 
     def _setup_ui(self) -> None:
         """Sets up the OpenGL View and basic scene objects."""
@@ -70,11 +101,11 @@ class AnimationWidget(QWidget):
         self.potential_mesh_item = gl.GLMeshItem(smooth=True, computeNormals=False)
         self.view.addItem(self.potential_mesh_item)
 
-        grid = gl.GLGridItem()
-        grid.setSize(self.x_limit, self.y_limit, 0)
-        grid.setSpacing(1, 1, 0)
-        grid.translate(self.x_limit / 2.0, self.y_limit / 2.0, 0)
-        self.view.addItem(grid)
+        self.grid = gl.GLGridItem()
+        self.grid.setSize(self.x_limit, self.y_limit, 0)
+        self.grid.setSpacing(1, 1, 0)
+        self.grid.translate(self.x_limit / 2.0, self.y_limit / 2.0, 0)
+        self.view.addItem(self.grid)
 
     def _setup_mesh_geometry(self) -> None:
         """Pre-calculates static coordinates to eliminate runtime memory allocations."""
@@ -180,18 +211,14 @@ class AnimationWidget(QWidget):
         zoom_factor_x = self.size_fine_x / wave_matrix.shape[0]
         zoom_factor_y = self.size_fine_y / wave_matrix.shape[1]
 
-        # 1. Smoothly interpolate the probability envelope directly.
-        # This eliminates "holes" because the envelope doesn't oscillate.
         prob_coarse = np.abs(wave_matrix) ** 2
         prob_fine = zoom(prob_coarse, (zoom_factor_x, zoom_factor_y), order=3)
 
-        # High-order splines can occasionally dip slightly below 0 at the extreme tail ends,
-        # so we clip it to ensure valid physical probability heights.
         prob_fine = np.clip(prob_fine, 0.0, None)
-        Z_fine = prob_fine * 15.0
+        
+        # CHANGED: Applies dynamic Z scale amplitude to probability here
+        Z_fine = prob_fine * self.z_scale
 
-        # 2. Use fast bilinear interpolation (order=1) purely to map the phase colors.
-        # Bilinear prevents the phase from "ringing" or overshooting.
         psi_real_linear = zoom(
             wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=1
         )

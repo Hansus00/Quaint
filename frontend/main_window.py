@@ -3,6 +3,7 @@
 # ==============================================================================
 
 import numpy as np
+from scipy.ndimage import zoom
 from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
 from backend.Potential import InfiniteWellPotential, Potential
@@ -37,6 +38,7 @@ class MainWindow(QMainWindow):
         self.size_coarse_x: int = size_x
         self.size_coarse_y: int = size_y
         self.z_potential_offset: float = z_potential_offset
+        self.z_scale: float = 15.0
 
         self.total_frames: int = 150
         self.fps: int = 30
@@ -92,6 +94,7 @@ class MainWindow(QMainWindow):
             self.x_limit,
             self.y_limit,
             self.z_potential_offset,
+            self.z_scale
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
@@ -125,15 +128,58 @@ class MainWindow(QMainWindow):
     def open_settings_window(self) -> None:
         """Opens the playback settings dialog."""
         self.controls.pause()
-        settings_dialog = Settings(self.fps, self.total_frames, self)
+        settings_dialog = Settings(
+            self.fps, 
+            self.total_frames, 
+            self.size_coarse_x, 
+            self.size_coarse_y, 
+            self.z_scale, 
+            self.z_potential_offset, 
+            self
+        )
         settings_dialog.settings_saved.connect(self.apply_settings)
         settings_dialog.exec()
 
-    def apply_settings(self, fps: int, total_frames: int) -> None:
-        """Applies new playback settings and recalculates frames if needed."""
+    def apply_settings(
+        self, fps: int, total_frames: int, size_x: int, size_y: int, z_scale: float, z_offset: float
+    ) -> None:
+        """Applies new playback settings, resizes arrays if grid changed, and recalculates."""
         self.fps = fps
         self.total_frames = total_frames
         self.controls.update_settings(fps, total_frames)
+
+        old_size_x = self.size_coarse_x
+        old_size_y = self.size_coarse_y
+
+        self.size_coarse_x = size_x
+        self.size_coarse_y = size_y
+        self.z_scale = z_scale
+        self.z_potential_offset = z_offset
+
+        self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
+        self.y_limit = 10.0 * self.aspect_ratio
+
+        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
+        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
+
+        # Scale the cached UI map to safely match the new grid size
+        zoom_x = self.size_coarse_x / old_size_x
+        zoom_y = self.size_coarse_y / old_size_y
+        
+        self.current_potential_array = zoom(self.current_potential_array, (zoom_x, zoom_y), order=1)
+        self.current_r0 = np.array([self.current_r0[0] * zoom_x, self.current_r0[1] * zoom_y])
+
+        # Generate fresh components mapped to the new layout
+        potential_coarse = self.current_potential_array[:, ::-1]
+        self.initial_potential = Potential(potential_coarse)
+        self.initial_wavefunc = GaussianPacket(
+            self.current_r0, self.current_k0, self.current_sigma, self.current_mass, self.size_coarse_x, self.size_coarse_y
+        )
+
+        self.animation_widget.update_config(
+            self.size_coarse_x, self.size_coarse_y, self.y_limit, self.z_potential_offset, self.z_scale
+        )
+        self.animation_widget.update_potential(self.initial_potential.matrix)
 
         self.calculate_all_frames()
         self.update_simulation(self.controls.slider.value())

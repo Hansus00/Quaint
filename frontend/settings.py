@@ -10,25 +10,27 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QSpinBox,
+    QDoubleSpinBox,
     QWidget,
 )
 
 
 class Settings(QDialog):
     """
-<<<<<<< HEAD
-    Dialog window for adjusting playback frames per second (FPS) and total simulation frames.
-=======
-    Dialog window for adjusting playback and simulation settings.
->>>>>>> main
+    Dialog window for adjusting playback, resolution, and visualization settings.
     """
 
-    settings_saved = pyqtSignal(int, int)  # Emits (fps, total_frames)
+    # Emits: (fps, total_frames, size_x, size_y, z_scale, z_offset)
+    settings_saved = pyqtSignal(int, int, int, int, float, float)  
 
     def __init__(
         self,
         current_fps: int,
         current_total_frames: int,
+        current_size_x: int,
+        current_size_y: int,
+        current_z_scale: float,
+        current_z_offset: float,
         parent: Optional[QWidget] = None,
     ) -> None:
         """
@@ -49,6 +51,28 @@ class Settings(QDialog):
         self.frames_spin.setValue(current_total_frames)
         layout.addRow("Total Frames:", self.frames_spin)
 
+        self.size_x_spin = QSpinBox()
+        self.size_x_spin.setRange(10, 500)
+        self.size_x_spin.setValue(current_size_x)
+        layout.addRow("Grid Resolution X:", self.size_x_spin)
+
+        self.size_y_spin = QSpinBox()
+        self.size_y_spin.setRange(10, 500)
+        self.size_y_spin.setValue(current_size_y)
+        layout.addRow("Grid Resolution Y:", self.size_y_spin)
+
+        self.z_scale_spin = QDoubleSpinBox()
+        self.z_scale_spin.setRange(0.1, 100.0)
+        self.z_scale_spin.setValue(current_z_scale)
+        self.z_scale_spin.setSingleStep(1.0)
+        layout.addRow("Wave Amplitude (Z Scale):", self.z_scale_spin)
+
+        self.z_offset_spin = QDoubleSpinBox()
+        self.z_offset_spin.setRange(-50.0, 50.0)
+        self.z_offset_spin.setValue(current_z_offset)
+        self.z_offset_spin.setSingleStep(0.5)
+        layout.addRow("Potential Depth Offset:", self.z_offset_spin)
+
         btn_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -58,5 +82,12 @@ class Settings(QDialog):
 
     def save_settings(self) -> None:
         """Emits the updated setting values and closes the dialog indicating acceptance."""
-        self.settings_saved.emit(self.fps_spin.value(), self.frames_spin.value())
+        self.settings_saved.emit(
+            self.fps_spin.value(),
+            self.frames_spin.value(),
+            self.size_x_spin.value(),
+            self.size_y_spin.value(),
+            self.z_scale_spin.value(),
+            self.z_offset_spin.value()
+        )
         self.accept()
