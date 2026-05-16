@@ -192,7 +192,7 @@ class SetupDrawer(QDialog):
         layout.addLayout(params_layout)
 
         # Canvas constraints (increased height slightly for new UI row)
-        self.setFixedSize(self.canvas_width, self.canvas_height + 130)
+        self.setFixedSize(600, self.canvas_height + 130)
 
         # Restoring the positions of the wavepacket indicators on the canvas
         if self.initial_r0 is not None and self.initial_k0 is not None:

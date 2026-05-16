@@ -190,7 +190,7 @@ class AnimationWidget(QWidget):
 
         phase = np.angle(psi_interp)
         hue = (phase + np.pi) / (2 * np.pi)
-        value = np.clip(prob * 50, 0.25, 1.0)
+        value = np.clip(prob * 50, 0.0, 1.0)
 
         rgb = self._fast_hsv_to_rgb(hue, value)
 
