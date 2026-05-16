@@ -87,8 +87,8 @@ class SetupDrawer(QDialog):
 
         # State Variables
         self.drawing_potential: bool = False
+        self.mode: str = "brush"  # Options: "brush", "eraser", "wavepacket"
         self.last_point: QPoint = QPoint()
-        self.mode: str = "potential"  # Options: "potential", "wavepacket"
 
         # Wavepacket vector state (stored in pixel coordinates for the UI)
         self.r0_px: Optional[QPoint] = None
@@ -126,24 +126,32 @@ class SetupDrawer(QDialog):
         """Sets up the radio buttons, input fields, and layouts for the canvas dialog."""
         layout = QVBoxLayout(self)
 
-        # Mode Selection
-        mode_layout = QHBoxLayout()
-        self.radio_pot = QRadioButton("Draw Potential")
-        self.radio_pot.setChecked(True)
-        self.radio_wave = QRadioButton("Set Wavepacket (r0, k0)")
-
-        self.radio_pot.toggled.connect(self.update_mode)
-
+        # Simulation Method Layout
+        sim_layout = QHBoxLayout()
         self.simulation_menu = QComboBox()
         self.simulation_menu.addItem("Crank-Nicolson")
         self.simulation_menu.addItem("SSFM")
         self.simulation_menu.addItem("Constant")
         self.simulation_menu.setCurrentText(self.initial_method)
         self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
-        mode_layout.addWidget(QLabel("Simulation Method:"))
-        mode_layout.addWidget(self.simulation_menu)
+        sim_layout.addWidget(QLabel("Simulation Method:"))
+        sim_layout.addWidget(self.simulation_menu)
+        sim_layout.addStretch()
+        layout.addLayout(sim_layout)
 
-        mode_layout.addWidget(self.radio_pot)
+        # Mode Selection Layout
+        mode_layout = QHBoxLayout()
+        self.radio_brush = QRadioButton("Brush Potential")
+        self.radio_brush.setChecked(True)
+        self.radio_eraser = QRadioButton("Erase Potential")
+        self.radio_wave = QRadioButton("Set Wavepacket")
+
+        self.radio_brush.toggled.connect(self.update_mode)
+        self.radio_eraser.toggled.connect(self.update_mode)
+        self.radio_wave.toggled.connect(self.update_mode)
+
+        mode_layout.addWidget(self.radio_brush)
+        mode_layout.addWidget(self.radio_eraser)
         mode_layout.addWidget(self.radio_wave)
         mode_layout.addStretch()
         layout.addLayout(mode_layout)
@@ -191,8 +199,8 @@ class SetupDrawer(QDialog):
 
         layout.addLayout(params_layout)
 
-        # Canvas constraints (increased height slightly for new UI row)
-        self.setFixedSize(600, self.canvas_height + 130)
+        # Canvas constraints (increased height slightly for new UI rows)
+        self.setFixedSize(self.canvas_width, self.canvas_height + 140)
 
         # Restoring the positions of the wavepacket indicators on the canvas
         if self.initial_r0 is not None and self.initial_k0 is not None:
@@ -218,8 +226,10 @@ class SetupDrawer(QDialog):
 
     def update_mode(self) -> None:
         """Updates the drawing state based on radio button selection."""
-        if self.radio_pot.isChecked():
-            self.mode = "potential"
+        if self.radio_brush.isChecked():
+            self.mode = "brush"
+        elif self.radio_eraser.isChecked():
+            self.mode = "eraser"
         else:
             self.mode = "wavepacket"
 
@@ -227,8 +237,8 @@ class SetupDrawer(QDialog):
         """Handles the rendering of the canvas and overlay objects like the wave vector."""
         canvas_painter = QPainter(self)
 
-        # Offset Y to account for top UI controls (now roughly 80px)
-        offset_y = 80
+        # Offset Y to account for top UI controls
+        offset_y = 100
         canvas_painter.translate(0, offset_y)
         canvas_painter.drawImage(0, 0, self.image)
 
@@ -240,13 +250,13 @@ class SetupDrawer(QDialog):
             canvas_painter.drawEllipse(self.r0_px, 4, 4)
 
     def mousePressEvent(self, event) -> None:
-        pos = event.position().toPoint() - QPoint(0, 80)
+        pos = event.position().toPoint() - QPoint(0, 100)
 
         if pos.y() < 0 or pos.y() > self.canvas_height:
             return
 
         if event.button() == Qt.MouseButton.LeftButton:
-            if self.mode == "potential":
+            if self.mode in ("brush", "eraser"):
                 self.drawing_potential = True
                 self.last_point = pos
             elif self.mode == "wavepacket":
@@ -255,13 +265,20 @@ class SetupDrawer(QDialog):
                 self.update()
 
     def mouseMoveEvent(self, event) -> None:
-        pos = event.position().toPoint() - QPoint(0, 80)
+        pos = event.position().toPoint() - QPoint(0, 100)
 
         if event.buttons() & Qt.MouseButton.LeftButton:
-            if self.mode == "potential" and self.drawing_potential:
+            if self.mode in ("brush", "eraser") and self.drawing_potential:
                 painter = QPainter(self.image)
+                
+                # Brush adds dark semi-transparent strokes; Eraser overwrites with solid white
+                if self.mode == "brush":
+                    color = QColor(0, 0, 0, 15)
+                else:
+                    color = QColor(255, 255, 255, 255)
+                    
                 pen = QPen(
-                    QColor(0, 0, 0, 15),
+                    color,
                     30,
                     Qt.PenStyle.SolidLine,
                     Qt.PenCapStyle.RoundCap,

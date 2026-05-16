@@ -61,8 +61,12 @@ class MainWindow(QMainWindow):
         )
 
         # Cache for UI state to restore it in the SetupDrawer window upon reopening
-        self.current_potential_array: np.ndarray = np.zeros((self.size_coarse_x, self.size_coarse_y))
-        self.current_r0: np.ndarray = np.array([self.size_coarse_x / 2, self.size_coarse_y / 2])
+        self.current_potential_array: np.ndarray = np.zeros(
+            (self.size_coarse_x, self.size_coarse_y)
+        )
+        self.current_r0: np.ndarray = np.array(
+            [self.size_coarse_x / 2, self.size_coarse_y / 2]
+        )
         self.current_k0: np.ndarray = np.array([0.0, 0.0])
         self.current_sigma: np.ndarray = np.array([[1.0, 0.0], [0.0, 1.0]])
         self.current_mass: float = 1.0
@@ -171,6 +175,11 @@ class MainWindow(QMainWindow):
         self.current_k0 = k0.copy()
         self.current_sigma = sigma_matrix.copy()
         self.current_mass = mass
+        print("Received setup:")
+        print(f"k0: {k0}")
+        print(f"r0: {r0}")
+        print(f"sigma: {sigma_matrix}")
+        print(f"mass: {mass}")
 
         # Flip the potential array along the Y-axis for standard visualization orientation
         potential_coarse = potential_array[:, ::-1]
