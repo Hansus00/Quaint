@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
         self.wave_frames = []
         self.initial_potential = InfiniteWellPotential(self.size_coarse_x, self.size_coarse_y)
         self.initial_wavefunc = GaussianPacket(
-            r0=np.array([self.x_limit / 2, self.y_limit / 2]),
+            r0=np.array([self.size_coarse_x / 2, self.size_coarse_y / 2]),
             k0=np.array([0.0, 0.0]),
             sigma0=np.array([[1.0, 0.0], [0.0, 1.0]]),
             mass=1.0,
@@ -57,9 +57,9 @@ class MainWindow(QMainWindow):
             size_y=self.size_coarse_y,
         )
 
-
-        # Backend now manages all physical states internally
-        self.simulation = Constant(self.initial_potential)
+        # Domyślna metoda symulacji
+        self.current_method = "Constant"
+        self.switch_simulation_method(self.current_method)
 
         self._setup_ui()
         self.calculate_all_frames()
@@ -87,10 +87,14 @@ class MainWindow(QMainWindow):
 
     def calculate_all_frames(self):
         self.wave_frames = []
-        next_wavefunc = self.initial_wavefunc
-        for i in range(self.total_frames):
-            next_wavefunc = self.simulation(next_wavefunc)
-            self.wave_frames.append(next_wavefunc)
+        
+        self.switch_simulation_method(self.current_method)
+        
+        self.wave_frames.append(self.simulation.get_wave_function())
+        
+        for i in range(1, self.total_frames):
+            self.simulation.step()
+            self.wave_frames.append(self.simulation.get_wave_function())
 
     def open_settings_window(self):
         self.controls.pause()
@@ -103,8 +107,6 @@ class MainWindow(QMainWindow):
         self.total_frames = total_frames
         self.controls.update_settings(fps, total_frames)
 
-        # Update backend property instead of recreating it so physical states aren't lost
-        self.simulation.total_frames = self.total_frames
         self.calculate_all_frames()
         self.update_simulation(self.controls.slider.value())
 
@@ -142,12 +144,16 @@ class MainWindow(QMainWindow):
         self.animation_widget.update_wave(psi_coarse)
 
     def switch_simulation_method(self, method_name):
+        self.current_method = method_name
+        delta_t = 1 / self.fps
+        
         if method_name == "Constant":
-            self.simulation = Constant(self.initial_potential)
+            self.simulation = Constant(self.initial_potential, self.initial_wavefunc, delta_t)
         elif method_name == "Crank-Nicolson":
-            self.simulation = CrankNicolson(self.initial_potential, 1/self.fps)
+            self.simulation = CrankNicolson(self.initial_potential, self.initial_wavefunc, delta_t)
         elif method_name == "SSFM":
-            self.simulation = SSFM(self.initial_potential, 1/self.fps)
+            # Moduł SSFM z backendu rzuca błąd NotImplementedError, więc zostawiamy go tak
+            self.simulation = SSFM()
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
 

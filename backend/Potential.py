@@ -3,15 +3,15 @@ import numpy as np
 
 
 class Potential:
-    matrix: NDArray[np.float128]
+    matrix: NDArray[np.float64]
 
-    def __init__(self, matrix: NDArray[np.float128]):
+    def __init__(self, matrix: NDArray[np.float64]):
         self.matrix = matrix
 
 
 class InfiniteWellPotential(Potential):
     def __init__(self, size_x: int, size_y: int, WALL_VALUE: float = 100):
-        matrix = np.zeros((size_x, size_y), dtype=np.float128)
+        matrix = np.zeros((size_x, size_y), dtype=np.float64)
 
         for x in range(0, size_x):
             matrix[x, 0] = WALL_VALUE
