@@ -61,7 +61,7 @@ class MainWindow(QMainWindow):
         )
 
         # Default simulation method
-        self.current_method: str = "Constant"
+        self.current_method: str = "Crank-Nicolson"
         self.switch_simulation_method(self.current_method)
 
         self._setup_ui()
