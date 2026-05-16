@@ -1,10 +1,9 @@
-import numpy as np
-from numpy.typing import NDArray
-import scipy.sparse as sp
-from scipy.sparse.linalg import spsolve
-
-from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
+from .Potential import Potential
+from scipy.sparse.linalg import spsolve
+import scipy.sparse as sp
+from numpy.typing import NDArray
+import numpy as np
 
 
 class Solver:
@@ -41,10 +40,10 @@ class Solver:
 
 
 class CrankNicolson(Solver):
-    L_2D: sp.spmatrix  # TODO: to be removed
-    H: sp.spmatrix  # TODO: to be removed
-    A: sp.spmatrix | sp.sparray
-    B: sp.spmatrix | sp.sparray
+    L_2D: NDArray[np.complex128]  # TODO: to be removed
+    H: NDArray[np.complex128]  # TODO: to be removed
+    A: NDArray[np.complex128]
+    B: NDArray[np.complex128]
 
     _wave_state_1D: NDArray[np.complex128]
 
@@ -53,46 +52,37 @@ class CrankNicolson(Solver):
     ):
         super().__init__(potential, wave_func, delta_t)
 
+        # initializing laplace operator
         Nx, Ny = self.potential.matrix.shape
 
-        self.L_2D = self._create_laplace_operator(Nx, Ny)
-        self.H = self._create_hamilton_operator(self.L_2D, wave_func.mass)
-        self.A, self.B = self._create_cayley_matrices(Nx * Ny, self.H)
-
-        self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
-
-    def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
-        # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
-        dx, dy = 1, 1  # FIXME: which value should be a grid step?
+        dx, dy = 1, 1
         D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / dx**2
         D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / dy**2
 
+        # self.L_2D = sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy) does the same
         I_x = sp.identity(Nx)
         I_y = sp.identity(Ny)
 
-        # 2D Laplacian discretization consistent with C-order flattening used by numpy:
-        # index mapping (i, j) -> i * Ny + j
-        return sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy)
+        self.L_2D = sp.kron(I_y, D_xx) + sp.kron(D_yy, I_x)
 
-    def _create_hamilton_operator(self, L_2D: sp.spmatrix, mass: float) -> sp.spmatrix:
-        T_matrix = -(1 / (2 * mass)) * L_2D
+        # calculating Hamilton operator
+        T_matrix = -(1 / (2 * wave_func.mass)) * self.L_2D
         V_1d = self.potential.matrix.flatten()
         V_matrix = sp.diags(V_1d, offsets=0, format="csr")
-        return T_matrix + V_matrix
+        self.H = T_matrix + V_matrix
 
-    def _create_cayley_matrices(
-        self, N_total: int, H: sp.spmatrix
-    ) -> tuple[sp.spmatrix | sp.sparray, sp.spmatrix | sp.sparray]:
-        I = sp.eye(N_total, format="csr")
+        # Cayley method
+        I = sp.eye(Nx * Ny, format="csr")
         prefactor = (1j * self.delta_t) / 2
-        A = (I + prefactor * H).astype(np.complex128)
-        B = (I - prefactor * H).astype(np.complex128)
-        return A, B
+        self.A = (I + prefactor * self.H).astype(np.complex128)
+        self.B = (I - prefactor * self.H).astype(np.complex128)
+
+        self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
 
     def step(self):
         # Crank Nicolson
         super().step()
-        self._wave_state_1D = np.asarray(spsolve(self.A, self.B @ self._wave_state_1D))
+        self._wave_state_1D = spsolve(self.A, self.B.dot(self._wave_state_1D))
 
     def get_wave_function(self) -> StationaryWaveFunc:
         Nx, Ny = self.potential.matrix.shape
