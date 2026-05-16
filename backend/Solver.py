@@ -40,10 +40,10 @@ class Solver:
 
 
 class CrankNicolson(Solver):
-    L_2D: NDArray[np.complex128]  # TODO: to be removed
-    H: NDArray[np.complex128]  # TODO: to be removed
-    A: NDArray[np.complex128]
-    B: NDArray[np.complex128]
+    L_2D: sp.spmatrix  # TODO: to be removed
+    H: sp.spmatrix  # TODO: to be removed
+    A: sp.spmatrix | sp.sparray
+    B: sp.spmatrix | sp.sparray
 
     _wave_state_1D: NDArray[np.complex128]
 
@@ -84,7 +84,7 @@ class CrankNicolson(Solver):
     def step(self):
         # Crank Nicolson
         super().step()
-        self._wave_state_1D = spsolve(self.A, self.B.dot(self._wave_state_1D))
+        self._wave_state_1D = np.asarray(spsolve(self.A, self.B @ self._wave_state_1D))
 
     def get_wave_function(self) -> StationaryWaveFunc:
         Nx, Ny = self.potential.matrix.shape
