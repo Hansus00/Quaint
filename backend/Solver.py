@@ -145,7 +145,7 @@ class BaseSSFM(Solver):
 
 
 class SSFM(BaseSSFM):
-    """Standard Split-Step Fourier Method."""
+    """Standard Split-Step Fourier Method. Accurate to O(delta_t**2)."""
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         """Creates the full-step real space propagator."""
         return np.exp(-1j * self.potential.matrix * self.delta_t)
@@ -163,7 +163,7 @@ class SSFM(BaseSSFM):
 
 
 class SSFMSymetric(BaseSSFM):
-    """Symmetric Split-Step Fourier Method."""
+    """Symmetric Split-Step Fourier Method. Accurate to O(delta_t**3)."""
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         """Creates the half-step real space propagator."""
         return np.exp(-1j * self.potential.matrix * self.delta_t / 2)
