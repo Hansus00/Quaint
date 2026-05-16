@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QRadioButton,
     QVBoxLayout,
+    QComboBox,
 )
 
 
@@ -23,6 +24,7 @@ class SetupDrawer(QDialog):
     """
 
     # Updated signal: potential, r0, k0, sigma (2x2 array), mass (float)
+    simulation_changed = pyqtSignal(str)
     setup_saved = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, np.ndarray, float)
 
     def __init__(
@@ -65,6 +67,15 @@ class SetupDrawer(QDialog):
         self.radio_wave = QRadioButton("Set Wavepacket (r0, k0)")
 
         self.radio_pot.toggled.connect(self.update_mode)
+
+        self.simulation_menu = QComboBox()
+        self.simulation_menu.addItem("Constant")
+        self.simulation_menu.addItem("Crank-Nicolson")
+        self.simulation_menu.addItem("SSFM")
+        self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
+        mode_layout.addWidget(QLabel("Simulation Method:"))
+        mode_layout.addWidget(self.simulation_menu)
+
 
         mode_layout.addWidget(self.radio_pot)
         mode_layout.addWidget(self.radio_wave)
