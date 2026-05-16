@@ -4,4 +4,6 @@ __pycache__/
 **/__pycache__/*
 *.pyc
 *.pyo
+*.png
+*.mp4
 uv.lock
