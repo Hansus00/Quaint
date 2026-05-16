@@ -23,7 +23,7 @@ class AnimationWidget(QWidget):
         size_coarse_y: int,
         x_limit: float,
         y_limit: float,
-        z_potential_offset: int = 5,
+        z_potential_offset: int,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
