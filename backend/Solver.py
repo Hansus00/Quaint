@@ -56,7 +56,7 @@ class CrankNicolson(Solver):
         Nx, Ny = self.potential.matrix.shape
 
         # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
-        dx, dy = 1, 1
+        dx, dy = 1, 1  # FIXME: which value should be a grid step?
         D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / dx**2
         D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / dy**2
 
