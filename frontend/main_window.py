@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
 
         self.size_coarse_x: int = size_x
         self.size_coarse_y: int = size_y
-        self.z_potential_offset: int = z_potential_offset
+        self.z_potential_offset: float = z_potential_offset
 
         self.total_frames: int = 150
         self.fps: int = 30
@@ -59,6 +59,13 @@ class MainWindow(QMainWindow):
             size_x=self.size_coarse_x,
             size_y=self.size_coarse_y,
         )
+
+        # Cache for UI state to restore it in the SetupDrawer window upon reopening
+        self.current_potential_array: np.ndarray = np.zeros((self.size_coarse_x, self.size_coarse_y))
+        self.current_r0: np.ndarray = np.array([self.size_coarse_x / 2, self.size_coarse_y / 2])
+        self.current_k0: np.ndarray = np.array([0.0, 0.0])
+        self.current_sigma: np.ndarray = np.array([[1.0, 0.0], [0.0, 1.0]])
+        self.current_mass: float = 1.0
 
         # Default simulation method
         self.current_method: str = "Crank-Nicolson"
@@ -126,6 +133,12 @@ class MainWindow(QMainWindow):
             grid_size_y=self.size_coarse_y,
             x_limit=self.x_limit,
             y_limit=self.y_limit,
+            initial_potential=self.current_potential_array,
+            initial_r0=self.current_r0,
+            initial_k0=self.current_k0,
+            initial_sigma=self.current_sigma,
+            initial_mass=self.current_mass,
+            initial_method=self.current_method,
             parent=self,
         )
         drawer.setup_saved.connect(self.apply_setup)
@@ -150,6 +163,13 @@ class MainWindow(QMainWindow):
             sigma_matrix (np.ndarray): 2x2 covariance matrix for the Gaussian packet.
             mass (float): Particle mass.
         """
+        # Cache the latest UI settings to be restored when SetupDrawer is opened again
+        self.current_potential_array = potential_array.copy()
+        self.current_r0 = r0.copy()
+        self.current_k0 = k0.copy()
+        self.current_sigma = sigma_matrix.copy()
+        self.current_mass = mass
+
         # Flip the potential array along the Y-axis for standard visualization orientation
         potential_coarse = potential_array[:, ::-1]
 
@@ -196,4 +216,3 @@ class MainWindow(QMainWindow):
             self.simulation = SSFM()
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
-

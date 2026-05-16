@@ -35,6 +35,12 @@ class SetupDrawer(QDialog):
         grid_size_y: int = 35,
         x_limit: float = 5.0,
         y_limit: float = 5.0,
+        initial_potential: Optional[np.ndarray] = None,
+        initial_r0: Optional[np.ndarray] = None,
+        initial_k0: Optional[np.ndarray] = None,
+        initial_sigma: Optional[np.ndarray] = None,
+        initial_mass: float = 1.0,
+        initial_method: str = "Constant",
         parent: Optional[QWidget] = None,
     ) -> None:
         """
@@ -45,6 +51,12 @@ class SetupDrawer(QDialog):
             grid_size_y (int): Vertical resolution of the simulation grid.
             x_limit (float): Maximum physical coordinate in X.
             y_limit (float): Maximum physical coordinate in Y.
+            initial_potential (Optional[np.ndarray]): Previously saved potential matrix to restore.
+            initial_r0 (Optional[np.ndarray]): Previously saved initial position vector.
+            initial_k0 (Optional[np.ndarray]): Previously saved initial momentum vector.
+            initial_sigma (Optional[np.ndarray]): Previously saved covariance matrix.
+            initial_mass (float): Previously saved particle mass.
+            initial_method (str): Previously selected simulation method.
             parent (Optional[QWidget]): Parent widget.
         """
         super().__init__(parent)
@@ -55,6 +67,12 @@ class SetupDrawer(QDialog):
         self.x_limit: float = x_limit
         self.y_limit: float = y_limit
 
+        self.initial_sigma = initial_sigma
+        self.initial_mass = initial_mass
+        self.initial_method = initial_method
+        self.initial_r0 = initial_r0
+        self.initial_k0 = initial_k0
+
         self.canvas_width: int = 400
         self.canvas_height: int = int(400 * (grid_size_y / grid_size_x))
 
@@ -62,6 +80,10 @@ class SetupDrawer(QDialog):
             self.canvas_width, self.canvas_height, QImage.Format.Format_ARGB32
         )
         self.image.fill(Qt.GlobalColor.white)
+
+        # Restoring the potential drawing on the canvas
+        if initial_potential is not None:
+            self._restore_canvas(initial_potential)
 
         # State Variables
         self.drawing_potential: bool = False
@@ -73,6 +95,32 @@ class SetupDrawer(QDialog):
         self.k0_tip_px: Optional[QPoint] = None
 
         self._setup_ui()
+
+    def _restore_canvas(self, potential_array: np.ndarray) -> None:
+        """
+        Restores the drawn image on the canvas from the raw potential matrix.
+        Reverses the calculations performed during save_and_close to reconstruct grayscale pixels.
+
+        Args:
+            potential_array (np.ndarray): 2D array representing the saved potential landscape.
+        """
+        arr = 255 - (potential_array.T / 50.0 * 255.0)
+        arr = np.clip(arr, 0, 255).astype(np.int32)
+
+        height, width = arr.shape
+        temp_img = QImage(width, height, QImage.Format.Format_ARGB32)
+
+        for y in range(height):
+            for x in range(width):
+                v = int(arr[y, x])
+                temp_img.setPixelColor(x, y, QColor(v, v, v))
+
+        self.image = temp_img.scaled(
+            self.canvas_width,
+            self.canvas_height,
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
 
     def _setup_ui(self) -> None:
         """Sets up the radio buttons, input fields, and layouts for the canvas dialog."""
@@ -90,6 +138,7 @@ class SetupDrawer(QDialog):
         self.simulation_menu.addItem("Crank-Nicolson")
         self.simulation_menu.addItem("SSFM")
         self.simulation_menu.addItem("Constant")
+        self.simulation_menu.setCurrentText(self.initial_method)
         self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
         mode_layout.addWidget(QLabel("Simulation Method:"))
         mode_layout.addWidget(self.simulation_menu)
@@ -126,11 +175,17 @@ class SetupDrawer(QDialog):
         self.sig_yy_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_yy_input)
 
+        # Filling the fields with initial matrix values if provided
+        if self.initial_sigma is not None:
+            self.sig_xx_input.setValue(float(self.initial_sigma[0, 0]))
+            self.sig_xy_input.setValue(float(self.initial_sigma[0, 1]))
+            self.sig_yy_input.setValue(float(self.initial_sigma[1, 1]))
+
         # Mass
         params_layout.addWidget(QLabel("m:"))
         self.mass_input = QDoubleSpinBox()
         self.mass_input.setRange(0.01, 100.0)
-        self.mass_input.setValue(1.0)
+        self.mass_input.setValue(self.initial_mass)
         self.mass_input.setSingleStep(0.1)
         params_layout.addWidget(self.mass_input)
 
@@ -138,6 +193,16 @@ class SetupDrawer(QDialog):
 
         # Canvas constraints (increased height slightly for new UI row)
         self.setFixedSize(self.canvas_width, self.canvas_height + 130)
+
+        # Restoring the positions of the wavepacket indicators on the canvas
+        if self.initial_r0 is not None and self.initial_k0 is not None:
+            rx_px = int((self.initial_r0[0] / self.grid_size_x) * self.canvas_width)
+            ry_px = int((1.0 - (self.initial_r0[1] / self.grid_size_y)) * self.canvas_height)
+            self.r0_px = QPoint(rx_px, ry_px)
+
+            kx_px = int((self.initial_k0[0] / 0.1) + rx_px)
+            ky_px = int((-self.initial_k0[1] / 0.1) + ry_px)
+            self.k0_tip_px = QPoint(kx_px, ky_px)
 
         # Action Controls
         controls = QHBoxLayout()
@@ -275,4 +340,3 @@ class SetupDrawer(QDialog):
         # Emit all parameters to the main window
         self.setup_saved.emit(potential, r0, k0, sigma_matrix, mass)
         self.accept()
-
