@@ -16,8 +16,12 @@ from PyQt6.QtWidgets import (
 
 class AnimationControlsWidget(QWidget):
     """
+<<<<<<< HEAD
     Widget component containing playback UI controls (Play, Pause, Slider)
     and timer logic to drive the simulation animation.
+=======
+    Widget component containing playback UI and timer logic.
+>>>>>>> main
     """
 
     frame_changed = pyqtSignal(int)
@@ -104,4 +108,3 @@ class AnimationControlsWidget(QWidget):
 
         if self.timer.isActive():
             self.timer.setInterval(1000 // self.fps)
-

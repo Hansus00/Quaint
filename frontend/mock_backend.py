@@ -5,7 +5,6 @@
 from typing import List
 import numpy as np
 
-
 class QuantumMockBackend:
     """
     Simulation mock backend that maintains physical states and generates basic analytical wave frames.

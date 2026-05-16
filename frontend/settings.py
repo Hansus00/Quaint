@@ -16,7 +16,11 @@ from PyQt6.QtWidgets import (
 
 class Settings(QDialog):
     """
+<<<<<<< HEAD
     Dialog window for adjusting playback frames per second (FPS) and total simulation frames.
+=======
+    Dialog window for adjusting playback and simulation settings.
+>>>>>>> main
     """
 
     settings_saved = pyqtSignal(int, int)  # Emits (fps, total_frames)
@@ -56,4 +60,3 @@ class Settings(QDialog):
         """Emits the updated setting values and closes the dialog indicating acceptance."""
         self.settings_saved.emit(self.fps_spin.value(), self.frames_spin.value())
         self.accept()
-
