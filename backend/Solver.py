@@ -27,7 +27,7 @@ class Solver:
         for i in range(0, n_step):
             self.step()
 
-        return get_wave_function()
+        return self.get_wave_function()
 
     def get_wave_function(self) -> StationaryWaveFunc:
         """Returns wave function at current state at time t"""
@@ -35,12 +35,12 @@ class Solver:
 
 
 class CrankNicolson(Solver):
-    L_2D: NDArray[np.complex128] #TODO: to be removed
-    H: NDArray[np.complex128] #TODO: to be removed
+    L_2D: NDArray[np.complex128]  # TODO: to be removed
+    H: NDArray[np.complex128]  # TODO: to be removed
     A: NDArray[np.complex128]
     B: NDArray[np.complex128]
 
-    wave_state_1D: NDArray[np.complex128]
+    _wave_state_1D: NDArray[np.complex128]
 
     def __init__(
         self, potential: Potential, wave_func: StationaryWaveFunc, delta_t: float = 1e-3
@@ -72,21 +72,19 @@ class CrankNicolson(Solver):
         self.A = (I + prefactor * self.H).astype(np.complex128)
         self.B = (I - prefactor * self.H).astype(np.complex128)
 
-        self.wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
+        self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
 
     def step(self):
         # Crank Nicolson
-        psi_1d_new = spsolve(self.A, self.B.dot(self.wave_state_1D))
-        self.wave_state_1D = psi_1d_new
-        
+        self._wave_state_1D = spsolve(self.A, self.B.dot(self._wave_state_1D))
+
     def get_wave_function(self) -> StationaryWaveFunc:
-        """Returns wave function at current state at time t"""
         Nx, Ny = self.potential.matrix.shape
 
         self._wave_func = StationaryWaveFunc(
-            np.array(psi_1d_new.reshape((Nx, Ny))), self._wave_func.mass
+            np.array(self._wave_state_1D.reshape((Nx, Ny))), self._wave_func.mass
         )
-        
+
         return self._wave_func
 
 
