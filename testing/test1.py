@@ -26,7 +26,7 @@ params = {
     "sigma0": np.array([[16, 0], [0, 16]]).tolist(),
     "mass": 1e-3,
     "delta_n": 32,
-    "steps_max": 16,
+    "updates_max": 128,
 }
 with open(directory + "dump.json", "w") as f:
     json.dump(params, f, indent=4)
