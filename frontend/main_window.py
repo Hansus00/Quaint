@@ -91,9 +91,8 @@ class MainWindow(QMainWindow):
         )
 
         # Cache for UI state to restore it in the SetupDrawer window upon reopening
-        self.current_potential_array: np.ndarray = np.zeros(
-            (self.size_coarse_x, self.size_coarse_y)
-        )
+        # Potential array flipped for visualization
+        self.current_potential_array = self.initial_potential.matrix[:, ::-1].copy()
         self.current_r0: np.ndarray = np.array(
             [self.size_coarse_x / 2, self.size_coarse_y / 2]
         )
@@ -106,6 +105,8 @@ class MainWindow(QMainWindow):
         self.switch_simulation_method(self.current_method)
 
         self._setup_ui()
+        # Populate the 3D potential mesh immediately on startup
+        self.animation_widget.update_potential(self.initial_potential.matrix)
         self.calculate_all_frames()
         self.update_simulation(0)
 

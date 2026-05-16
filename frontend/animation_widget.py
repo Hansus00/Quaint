@@ -163,7 +163,9 @@ class AnimationWidget(QWidget):
                 p4 = p3 + 1
                 faces.append([p1, p2, p3])
                 faces.append([p2, p4, p3])
-        self.faces = np.array(faces, dtype=int)
+
+        # Force uint32 so it works on Linux / Mac
+        self.faces = np.array(faces, dtype=np.uint32)
 
         # Allocate static X and Y layout template
         self.verts_template = np.zeros(
