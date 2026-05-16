@@ -11,7 +11,9 @@ class CrankNicolsonTest(CrankNicolson):
         )
 
 
-def test_energy_conservation(solver: CrankNicolson, N: int = 1000, eps : float = 0.01) -> None:
+def test_energy_conservation(
+    solver: CrankNicolson, N: int = 1000, eps: float = 0.01
+) -> None:
     def current():
         solver.update()
         return solver.energy()
@@ -22,8 +24,8 @@ def test_energy_conservation(solver: CrankNicolson, N: int = 1000, eps : float =
 
     energy = np.real(energy)
 
-    energy_variation = np.abs(
-        (np.max(energy) - np.min(energy)) / (np.max(energy) + np.min(energy))
+    energy_variation = np.abs((np.max(energy) - np.min(energy))) / (
+        np.abs(np.max(energy)) + np.abs(np.min(energy))
     )
 
     assert energy_variation < eps
