@@ -2,14 +2,17 @@
 # ### --- FILE frontend/main_window.py --- ###
 # ==============================================================================
 
+from typing import Any
+
 import numpy as np
-from scipy.ndimage import zoom
-from .animation_controls_widget import AnimationControlsWidget
-from .animation_widget import AnimationWidget
 from backend.Potential import InfiniteWellPotential, Potential
 from backend.Solver import SSFM, Constant, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from scipy.ndimage import zoom
+
+from .animation_controls_widget import AnimationControlsWidget
+from .animation_widget import AnimationWidget
 from .settings import Settings
 from .setup_drawer import SetupDrawer
 
@@ -19,6 +22,33 @@ class MainWindow(QMainWindow):
     Main Application Window linking the physical data, 3D visualization, and UI controls.
     Coordinates the simulation state and passes data to the rendering widgets.
     """
+
+    # --- Class Fields ---
+    size_coarse_x: int
+    size_coarse_y: int
+    z_potential_offset: float
+    z_scale: float
+    fine_grid_scale: int
+    z_potential_scale: float
+    total_frames: int
+    fps: int
+    aspect_ratio: float
+    x_limit: float
+    y_limit: float
+    x_coarse: np.ndarray
+    y_coarse: np.ndarray
+    wave_frames: list
+    initial_potential: Potential
+    initial_wavefunc: GaussianPacket
+    current_potential_array: np.ndarray
+    current_r0: np.ndarray
+    current_k0: np.ndarray
+    current_sigma: np.ndarray
+    current_mass: float
+    current_method: str
+    animation_widget: AnimationWidget
+    controls: AnimationControlsWidget
+    simulation: Any
 
     def __init__(
         self, size_x: int = 60, size_y: int = 70, z_potential_offset: float = 0.1
@@ -93,7 +123,7 @@ class MainWindow(QMainWindow):
             self.z_potential_offset,
             self.z_scale,
             self.fine_grid_scale,
-            self.z_potential_scale
+            self.z_potential_scale,
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
@@ -128,22 +158,29 @@ class MainWindow(QMainWindow):
         """Opens the playback settings dialog."""
         self.controls.pause()
         settings_dialog = Settings(
-            self.fps, 
-            self.total_frames, 
-            self.size_coarse_x, 
-            self.size_coarse_y, 
-            self.z_scale, 
-            self.z_potential_offset, 
+            self.fps,
+            self.total_frames,
+            self.size_coarse_x,
+            self.size_coarse_y,
+            self.z_scale,
+            self.z_potential_offset,
             self.fine_grid_scale,
             self.z_potential_scale,
-            self
+            self,
         )
         settings_dialog.settings_saved.connect(self.apply_settings)
         settings_dialog.exec()
 
     def apply_settings(
-        self, fps: int, total_frames: int, size_x: int, size_y: int, 
-        z_scale: float, z_offset: float, fine_grid_scale: int, z_pot_scale: float
+        self,
+        fps: int,
+        total_frames: int,
+        size_x: int,
+        size_y: int,
+        z_scale: float,
+        z_offset: float,
+        fine_grid_scale: int,
+        z_pot_scale: float,
     ) -> None:
         """Applies new playback settings, resizes arrays if grid changed, and recalculates."""
         self.fps = fps
@@ -169,20 +206,34 @@ class MainWindow(QMainWindow):
         # Scale the cached UI map to safely match the new grid size
         zoom_x = self.size_coarse_x / old_size_x
         zoom_y = self.size_coarse_y / old_size_y
-        
-        self.current_potential_array = zoom(self.current_potential_array, (zoom_x, zoom_y), order=1)
-        self.current_r0 = np.array([self.current_r0[0] * zoom_x, self.current_r0[1] * zoom_y])
+
+        self.current_potential_array = zoom(
+            self.current_potential_array, (zoom_x, zoom_y), order=1
+        )
+        self.current_r0 = np.array(
+            [self.current_r0[0] * zoom_x, self.current_r0[1] * zoom_y]
+        )
 
         # Generate fresh components mapped to the new layout
         potential_coarse = self.current_potential_array[:, ::-1]
         self.initial_potential = Potential(potential_coarse)
         self.initial_wavefunc = GaussianPacket(
-            self.current_r0, self.current_k0, self.current_sigma, self.current_mass, self.size_coarse_x, self.size_coarse_y
+            self.current_r0,
+            self.current_k0,
+            self.current_sigma,
+            self.current_mass,
+            self.size_coarse_x,
+            self.size_coarse_y,
         )
 
         self.animation_widget.update_config(
-            self.size_coarse_x, self.size_coarse_y, self.y_limit, self.z_potential_offset, 
-            self.z_scale, self.fine_grid_scale, self.z_potential_scale
+            self.size_coarse_x,
+            self.size_coarse_y,
+            self.y_limit,
+            self.z_potential_offset,
+            self.z_scale,
+            self.fine_grid_scale,
+            self.z_potential_scale,
         )
         self.animation_widget.update_potential(self.initial_potential.matrix)
 

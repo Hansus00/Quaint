@@ -31,8 +31,39 @@ class SetupDrawer(QDialog):
     Emits a tuple upon saving containing: (potential_matrix, r0, k0, sigma_matrix, mass)
     """
 
+    # -- Class Fields --
     simulation_changed = pyqtSignal(str)
     setup_saved = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, np.ndarray, float)
+
+    grid_size_x: int
+    grid_size_y: int
+    x_limit: float
+    y_limit: float
+    initial_sigma: Optional[np.ndarray]
+    initial_mass: float
+    initial_method: str
+    initial_r0: Optional[np.ndarray]
+    initial_k0: Optional[np.ndarray]
+    canvas_width: int
+    canvas_height: int
+    image: QImage
+    drawing_potential: bool
+    mode: str
+    last_point: QPoint
+    r0_px: Optional[QPoint]
+    k0_tip_px: Optional[QPoint]
+    simulation_menu: QComboBox
+    preset_menu: QComboBox
+    radio_brush: QRadioButton
+    radio_eraser: QRadioButton
+    radio_wave: QRadioButton
+    sig_xx_input: QDoubleSpinBox
+    sig_xy_input: QDoubleSpinBox
+    sig_yy_input: QDoubleSpinBox
+    mass_input: QDoubleSpinBox
+    brush_label: QLabel
+    brush_slider: QSlider
+    save_btn: QPushButton
 
     def __init__(
         self,

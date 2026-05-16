@@ -19,10 +19,23 @@ class AnimationControlsWidget(QWidget):
     Widget component containing playback UI and timer logic.
     """
 
+    # --- Class Fields ---
     frame_changed = pyqtSignal(int)
     open_setup_requested = pyqtSignal()
     open_settings_requested = pyqtSignal()
-    toggle_potential_requested = pyqtSignal(bool)  # Emits True to show, False to hide
+    toggle_potential_requested = pyqtSignal(bool)
+
+    total_frames: int
+    fps: int
+    timer: QTimer
+    potential_visible: bool
+    play_btn: QPushButton
+    pause_btn: QPushButton
+    time_label: QLabel
+    slider: QSlider
+    toggle_pot_btn: QPushButton
+    setup_btn: QPushButton
+    settings_btn: QPushButton
 
     def __init__(
         self, total_frames: int, fps: int, parent: Optional[QWidget] = None

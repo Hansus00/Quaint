@@ -20,8 +20,17 @@ class Settings(QDialog):
     Dialog window for adjusting playback, resolution, and visualization settings.
     """
 
-    # Emits: (fps, total_frames, size_x, size_y, z_scale, z_offset, fine_scale, z_pot_scale)
+    # --- Class Fields ---
     settings_saved = pyqtSignal(int, int, int, int, float, float, int, float)
+
+    fps_spin: QSpinBox
+    frames_spin: QSpinBox
+    size_x_spin: QSpinBox
+    size_y_spin: QSpinBox
+    fine_scale_spin: QSpinBox
+    z_scale_spin: QDoubleSpinBox
+    z_pot_scale_spin: QDoubleSpinBox
+    z_offset_spin: QDoubleSpinBox
 
     def __init__(
         self,

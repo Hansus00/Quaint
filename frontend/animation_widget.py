@@ -17,6 +17,32 @@ class AnimationWidget(QWidget):
     Widget handling the 3D OpenGL rendering of the simulation.
     """
 
+    # --- Class Fields ---
+    size_coarse_x: int
+    size_coarse_y: int
+    fine_grid_scale: int
+    size_fine_x: int
+    size_fine_y: int
+    x_limit: float
+    y_limit: float
+    z_potential_offset: float
+    z_scale: float
+    z_potential_scale: float
+    x_coarse: np.ndarray
+    y_coarse: np.ndarray
+    _wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]]
+    view: gl.GLViewWidget
+    axis: gl.GLAxisItem
+    wave_mesh_item: gl.GLMeshItem
+    potential_mesh_item: gl.GLMeshItem
+    grid: gl.GLGridItem
+    x_fine: np.ndarray
+    y_fine: np.ndarray
+    X_fine: np.ndarray
+    Y_fine: np.ndarray
+    faces: np.ndarray
+    verts_template: np.ndarray
+
     def __init__(
         self,
         size_coarse_x: int,
@@ -53,8 +79,14 @@ class AnimationWidget(QWidget):
         self._setup_mesh_geometry()
 
     def update_config(
-        self, size_x: int, size_y: int, y_limit: float, z_offset: float, 
-        z_scale: float, fine_grid_scale: int, z_potential_scale: float
+        self,
+        size_x: int,
+        size_y: int,
+        y_limit: float,
+        z_offset: float,
+        z_scale: float,
+        fine_grid_scale: int,
+        z_potential_scale: float,
     ) -> None:
         """Dynamically reconfigures the widget's layout bounds and clears state."""
         self.size_coarse_x = size_x
@@ -62,7 +94,7 @@ class AnimationWidget(QWidget):
         self.fine_grid_scale = fine_grid_scale
         self.size_fine_x = self.fine_grid_scale * size_x
         self.size_fine_y = self.fine_grid_scale * size_y
-        
+
         self.y_limit = y_limit
         self.z_potential_offset = z_offset
         self.z_scale = z_scale
@@ -73,10 +105,10 @@ class AnimationWidget(QWidget):
 
         # Re-allocate mesh matrices for the new array dimensions
         self._setup_mesh_geometry()
-        
+
         # Adjust OpenGL visual bounds
         self.axis.setSize(x=self.x_limit, y=self.y_limit, z=5.0)
-        
+
         self.view.removeItem(self.grid)
         self.grid = gl.GLGridItem()
         self.grid.setSize(self.x_limit, self.y_limit, 0)
@@ -223,7 +255,7 @@ class AnimationWidget(QWidget):
         prob_fine = zoom(prob_coarse, (zoom_factor_x, zoom_factor_y), order=3)
 
         prob_fine = np.clip(prob_fine, 0.0, None)
-        
+
         Z_fine = prob_fine * self.z_scale
 
         psi_real_linear = zoom(
@@ -235,8 +267,8 @@ class AnimationWidget(QWidget):
 
         phase = np.angle(psi_real_linear + 1j * psi_imag_linear)
         hue = (phase + np.pi) / (2 * np.pi)
-        
-        # Exposure multiplier for visual brightness 
+
+        # Exposure multiplier for visual brightness
         # (Boosts the faint probability tails to be visible without exceeding 1.0)
         brightness_multiplier = 50.0
         value = np.clip(prob_fine * brightness_multiplier, 0.0, 1.0)
