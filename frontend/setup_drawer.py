@@ -216,7 +216,7 @@ class SetupDrawer(QDialog):
 
         arr = np.frombuffer(ptr, dtype=np.uint8).reshape((height, bpl))
         arr = arr[:, :width]
-        potential = (255 - arr) / 255.0
+        potential = (255 - arr) / 255.0 * 50
         potential = potential.T
 
         # 2. Process Wavepacket Parameters
