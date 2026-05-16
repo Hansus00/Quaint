@@ -98,6 +98,7 @@ class AnimationControlsWidget(QWidget):
         """Starts animation playback. Resets to frame 0 if at the final frame."""
         if self.slider.value() >= self.total_frames - 1:
             self.slider.setValue(0)
+        # Wait for the delay duration (in milliseconds) before emitting the second frame
         self.timer.start(1000 // self.fps)
 
     def pause(self) -> None:
@@ -135,4 +136,5 @@ class AnimationControlsWidget(QWidget):
         self.slider.setRange(0, self.total_frames - 1)
 
         if self.timer.isActive():
+            # Delay in between frames in milliseconds
             self.timer.setInterval(1000 // self.fps)
