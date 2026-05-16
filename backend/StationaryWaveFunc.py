@@ -13,6 +13,11 @@ class StationaryWaveFunc:
     ):
         self.matrix = matrix
         self.mass = mass
+    def total_probability(self) -> float:
+        """Returns total probability.
+           Calculated as integral of |Psi|^2.
+           Should be 1 for normalized wfs."""
+        return np.sum(np.abs(self.matrix)**2)
 
 
 class GaussianPacket(StationaryWaveFunc):

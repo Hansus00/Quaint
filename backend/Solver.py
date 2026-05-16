@@ -10,6 +10,7 @@ class Solver:
     potential: Potential
     delta_t: float
     _wave_func: StationaryWaveFunc
+    _steps_evolved: int = 0
 
     def __init__(
         self, potential: Potential, wave_func: StationaryWaveFunc, delta_t: float = 1e-3
@@ -20,7 +21,11 @@ class Solver:
 
     def step(self) -> None:
         """Evolves on step of wave function after t + Delta t"""
-        raise NotImplementedError
+        self._steps_evolved += 1
+
+    def get_steps_evolved(self) -> int:
+        """Returns number ov evolves steps"""
+        return self._steps_evolved
 
     def update(self, n_step: int = 1) -> StationaryWaveFunc:
         """Returns evolved n steps of wave function after time t + n * Delta t"""
@@ -76,6 +81,7 @@ class CrankNicolson(Solver):
 
     def step(self):
         # Crank Nicolson
+        super().step()
         self._wave_state_1D = spsolve(self.A, self.B.dot(self._wave_state_1D))
 
     def get_wave_function(self) -> StationaryWaveFunc:
@@ -95,7 +101,7 @@ class Constant(Solver):
         super().__init__(potential, wave_func, delta_t)
 
     def step(self):
-        pass
+        super().step()
 
 
 class SSFM(Solver):
