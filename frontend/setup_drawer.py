@@ -1,12 +1,14 @@
 # ==============================================================================
-# ### --- FILE setup_drawer.py --- ###
+# ### --- FILE frontend/setup_drawer.py --- ###
 # ==============================================================================
 
 from typing import Optional
+
 import numpy as np
 from PyQt6.QtCore import QPoint, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen
 from PyQt6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QHBoxLayout,
@@ -14,8 +16,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QRadioButton,
     QVBoxLayout,
-    QComboBox,
-    QWidget
+    QWidget,
 )
 
 
@@ -29,12 +30,12 @@ class SetupDrawer(QDialog):
     setup_saved = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, np.ndarray, float)
 
     def __init__(
-        self, 
-        grid_size_x: int = 25, 
-        grid_size_y: int = 35, 
-        x_limit: float = 5.0, 
-        y_limit: float = 5.0, 
-        parent: Optional[QWidget] = None
+        self,
+        grid_size_x: int = 25,
+        grid_size_y: int = 35,
+        x_limit: float = 5.0,
+        y_limit: float = 5.0,
+        parent: Optional[QWidget] = None,
     ) -> None:
         """
         Initializes the drawing canvas.
@@ -274,3 +275,4 @@ class SetupDrawer(QDialog):
         # Emit all parameters to the main window
         self.setup_saved.emit(potential, r0, k0, sigma_matrix, mass)
         self.accept()
+

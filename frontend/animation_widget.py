@@ -1,21 +1,20 @@
 # ==============================================================================
-# ### --- FILE animation_widget.py --- ###
+# ### --- FILE frontend/animation_widget.py --- ###
 # ==============================================================================
 
-from typing import Optional, Any
+from typing import Any, Dict, Optional, Tuple
+
 import numpy as np
 import pyqtgraph.opengl as gl
-from matplotlib.colors import hsv_to_rgb
 from PyQt6.QtGui import QVector3D
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from scipy.interpolate import RectBivariateSpline
+from scipy.ndimage import zoom
 
 
 class AnimationWidget(QWidget):
     """
     Widget handling the 3D OpenGL rendering of the simulation.
-    Takes coarse physics data, interpolates it for a smoother look, 
-    and renders it using OpenGL meshes.
     """
 
     def __init__(
@@ -27,24 +26,12 @@ class AnimationWidget(QWidget):
         z_potential_offset: int = 5,
         parent: Optional[QWidget] = None,
     ) -> None:
-        """
-        Initializes the 3D rendering environment.
-
-        Args:
-            size_coarse_x (int): Coarse physics grid X dimension.
-            size_coarse_y (int): Coarse physics grid Y dimension.
-            x_limit (float): Physical limit of X axis.
-            y_limit (float): Physical limit of Y axis.
-            z_potential_offset (int): Offset below Z=0 to render the potential floor.
-            parent (Optional[QWidget]): Parent widget.
-        """
         super().__init__(parent)
         self.size_coarse_x: int = size_coarse_x
         self.size_coarse_y: int = size_coarse_y
-        
-        # Scaling factor for smoother visual mesh rendering
-        self.size_fine_x: int = 3 * self.size_coarse_x
-        self.size_fine_y: int = 3 * self.size_coarse_y
+
+        self.size_fine_x: int = 4 * self.size_coarse_x
+        self.size_fine_y: int = 4 * self.size_coarse_y
 
         self.x_limit: float = x_limit
         self.y_limit: float = y_limit
@@ -53,17 +40,18 @@ class AnimationWidget(QWidget):
         self.x_coarse: np.ndarray = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse: np.ndarray = np.linspace(0.0, self.y_limit, self.size_coarse_y)
 
+        # Lazy memory cache mapping frame object IDs -> pre-computed (verts, rgba)
+        self._wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
+
         self._setup_ui()
         self._setup_mesh_geometry()
 
     def _setup_ui(self) -> None:
-        """Sets up the OpenGL View and basic scene objects (axes, grid)."""
+        """Sets up the OpenGL View and basic scene objects."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.view = gl.GLViewWidget()
-
-        # Center the camera exactly at the middle of the physical coordinate bounds
         self.view.setCameraPosition(
             pos=QVector3D(self.x_limit / 2.0, self.y_limit / 2.0, 0.0),
             distance=20,
@@ -72,15 +60,14 @@ class AnimationWidget(QWidget):
         )
         layout.addWidget(self.view)
 
-        # Add 3D Coordinate Axes (X=Red, Y=Green, Z=Blue)
         self.axis = gl.GLAxisItem()
         self.axis.setSize(x=self.x_limit, y=self.y_limit, z=5.0)
         self.view.addItem(self.axis)
 
-        self.wave_mesh_item = gl.GLMeshItem(smooth=True, computeNormals=True)
+        self.wave_mesh_item = gl.GLMeshItem(smooth=True, computeNormals=False)
         self.view.addItem(self.wave_mesh_item)
 
-        self.potential_mesh_item = gl.GLMeshItem(smooth=True, computeNormals=True)
+        self.potential_mesh_item = gl.GLMeshItem(smooth=True, computeNormals=False)
         self.view.addItem(self.potential_mesh_item)
 
         grid = gl.GLGridItem()
@@ -90,7 +77,7 @@ class AnimationWidget(QWidget):
         self.view.addItem(grid)
 
     def _setup_mesh_geometry(self) -> None:
-        """Pre-calculates the geometry (vertices and faces) for the smooth interpolation meshes."""
+        """Pre-calculates static coordinates to eliminate runtime memory allocations."""
         self.x_fine = np.linspace(0.0, self.x_limit, self.size_fine_x)
         self.y_fine = np.linspace(0.0, self.y_limit, self.size_fine_y)
         self.X_fine, self.Y_fine = np.meshgrid(self.x_fine, self.y_fine, indexing="ij")
@@ -106,75 +93,112 @@ class AnimationWidget(QWidget):
                 faces.append([p2, p4, p3])
         self.faces = np.array(faces, dtype=int)
 
-    def update_potential(self, potential_coarse: np.ndarray) -> None:
-        """
-        Updates the 3D potential mesh landscape.
+        # Allocate static X and Y layout template
+        self.verts_template = np.zeros(
+            (self.size_fine_x * self.size_fine_y, 3), dtype=np.float32
+        )
+        self.verts_template[:, 0] = self.X_fine.ravel()
+        self.verts_template[:, 1] = self.Y_fine.ravel()
 
-        Args:
-            potential_coarse (np.ndarray): 2D array of the coarse potential values.
-        """
+    def update_potential(self, potential_coarse: np.ndarray) -> None:
+        """Updates the 3D potential landscape and evicts outdated cache tracking."""
+        self._wave_cache.clear()
+
         spline = RectBivariateSpline(self.x_coarse, self.y_coarse, potential_coarse)
         potential_fine = spline(self.x_fine, self.y_fine)
 
-        # Scale down the physical potential so it fits the visual Z-axis
-        visual_scale_factor: float = 3.5 / 50.0 
+        visual_scale_factor: float = 3.5 / 50.0
         Z_potential = potential_fine * visual_scale_factor
 
         base_gray: float = 0.7
         gray_values = base_gray - ((potential_fine / 50.0) * 0.5)
         gray_values = np.clip(gray_values, 0, 1)
 
-        rgba = np.zeros((self.size_fine_x * self.size_fine_y, 4))
-        
-        rgba[:, 0] = gray_values.reshape(-1) 
-        rgba[:, 1] = gray_values.reshape(-1) 
-        rgba[:, 2] = gray_values.reshape(-1) 
-        rgba[:, 3] = 0.9      
+        rgba = np.zeros((self.size_fine_x * self.size_fine_y, 4), dtype=np.float32)
+        rgba[:, 0] = gray_values.reshape(-1)
+        rgba[:, 1] = gray_values.reshape(-1)
+        rgba[:, 2] = gray_values.reshape(-1)
+        rgba[:, 3] = 0.9
 
-        verts = np.column_stack(
-            (
-                self.X_fine.reshape(-1),
-                self.Y_fine.reshape(-1),
-                Z_potential.reshape(-1) - self.z_potential_offset,
-            )
-        )
+        verts = self.verts_template.copy()
+        verts[:, 2] = Z_potential.reshape(-1) - self.z_potential_offset
 
         mesh_data = gl.MeshData(vertexes=verts, faces=self.faces, vertexColors=rgba)
         self.potential_mesh_item.setMeshData(meshdata=mesh_data)
 
+    def _fast_hsv_to_rgb(self, hue: np.ndarray, value: np.ndarray) -> np.ndarray:
+        """High-speed vectorized HSV converter optimized for Saturation=1.0."""
+        h6 = hue * 6.0
+        i = h6.astype(np.int32) % 6
+        f = h6 - np.floor(h6)
+
+        q = value * (1.0 - f)
+        t = value * f
+
+        rgb = np.zeros((self.size_fine_x, self.size_fine_y, 3), dtype=np.float32)
+
+        for k in range(6):
+            mask = i == k
+            if not np.any(mask):
+                continue
+            if k == 0:
+                rgb[mask, 0], rgb[mask, 1] = value[mask], t[mask]
+            elif k == 1:
+                rgb[mask, 0], rgb[mask, 1] = q[mask], value[mask]
+            elif k == 2:
+                rgb[mask, 1], rgb[mask, 2] = value[mask], t[mask]
+            elif k == 3:
+                rgb[mask, 1], rgb[mask, 2] = q[mask], value[mask]
+            elif k == 4:
+                rgb[mask, 0], rgb[mask, 2] = t[mask], value[mask]
+            elif k == 5:
+                rgb[mask, 0], rgb[mask, 2] = value[mask], q[mask]
+
+        return rgb
+
     def update_wave(self, psi_coarse: Any) -> None:
-        """
-        Updates the 3D wave function mesh. 
-        Calculates probability (Z height) and phase (HSV Hue).
+        """Updates the 3D wave function mesh. Utilizes instant cache lookup if frame is known."""
+        cache_key = id(psi_coarse)
 
-        Args:
-            psi_coarse (StationaryWaveFunc): Complex wave packet state from backend.
-        """
+        # Instant execution if this frame instance was drawn before
+        if cache_key in self._wave_cache:
+            verts, rgba = self._wave_cache[cache_key]
+            mesh_data = gl.MeshData(vertexes=verts, faces=self.faces, vertexColors=rgba)
+            self.wave_mesh_item.setMeshData(meshdata=mesh_data)
+            return
+
+        # Cache miss: Run high-quality calculations ONCE for this frame instance
         wave_matrix = psi_coarse.matrix
-        spline_real = RectBivariateSpline(self.x_coarse, self.y_coarse, wave_matrix.real)
-        spline_imag = RectBivariateSpline(self.x_coarse, self.y_coarse, wave_matrix.imag)
+        zoom_factor_x = self.size_fine_x / wave_matrix.shape[0]
+        zoom_factor_y = self.size_fine_y / wave_matrix.shape[1]
 
-        psi_interp = spline_real(self.x_fine, self.y_fine) + 1j * spline_imag(self.x_fine, self.y_fine)
+        psi_real_interp = zoom(
+            wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=3
+        )
+        psi_imag_interp = zoom(
+            wave_matrix.imag, (zoom_factor_x, zoom_factor_y), order=3
+        )
+
+        psi_interp = psi_real_interp + 1j * psi_imag_interp
         prob = np.abs(psi_interp) ** 2
 
-        # Exaggerate height to make spreading wave visible
         Z_fine = prob * 15.0
 
         phase = np.angle(psi_interp)
         hue = (phase + np.pi) / (2 * np.pi)
-        saturation = np.ones_like(hue)
-        
-        value = np.clip(prob, 0, 1)
+        value = np.clip(prob * 50, 0.25, 1.0)
 
-        hsv = np.dstack((hue, saturation, value))
-        rgb = hsv_to_rgb(hsv)
-        rgba = np.dstack((rgb, np.ones_like(hue)))
+        rgb = self._fast_hsv_to_rgb(hue, value)
 
-        verts = np.column_stack(
-            (self.X_fine.reshape(-1), self.Y_fine.reshape(-1), Z_fine.reshape(-1))
-        )
+        verts = self.verts_template.copy()
+        verts[:, 2] = Z_fine.ravel()
 
-        mesh_data = gl.MeshData(
-            vertexes=verts, faces=self.faces, vertexColors=rgba.reshape(-1, 4)
-        )
+        rgba = np.empty((self.size_fine_x * self.size_fine_y, 4), dtype=np.float32)
+        rgba[:, :3] = rgb.reshape(-1, 3)
+        rgba[:, 3] = 1.0
+
+        # Save to lazy cache for lookups on the next animation pass
+        self._wave_cache[cache_key] = (verts, rgba)
+
+        mesh_data = gl.MeshData(vertexes=verts, faces=self.faces, vertexColors=rgba)
         self.wave_mesh_item.setMeshData(meshdata=mesh_data)
