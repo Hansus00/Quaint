@@ -95,15 +95,19 @@ class AnimationWidget(QWidget):
         spline = RectBivariateSpline(self.x_coarse, self.y_coarse, potential_coarse)
         potential_fine = spline(self.x_fine, self.y_fine)
 
-        Z_potential = -potential_fine * 2.0
+        visual_scale_factor = 3.5 / 50.0 
+        Z_potential = potential_fine * visual_scale_factor
+
         base_gray = 0.7
-        gray_values = base_gray - (potential_fine * 0.5)
+        gray_values = base_gray - ((potential_fine / 50.0) * 0.5)
+        gray_values = np.clip(gray_values, 0, 1)
 
         rgba = np.zeros((self.size_fine_x * self.size_fine_y, 4))
-        rgba[:, 0] = gray_values.reshape(-1)
-        rgba[:, 1] = gray_values.reshape(-1)
-        rgba[:, 2] = gray_values.reshape(-1)
-        rgba[:, 3] = 0.9
+        
+        rgba[:, 0] = gray_values.reshape(-1) 
+        rgba[:, 1] = gray_values.reshape(-1) 
+        rgba[:, 2] = gray_values.reshape(-1) 
+        rgba[:, 3] = 0.9      
 
         verts = np.column_stack(
             (
@@ -126,12 +130,13 @@ class AnimationWidget(QWidget):
     )
         prob = np.abs(psi_interp) ** 2
 
-        Z_fine = prob * 4.0
+        Z_fine = prob * 15.0
 
         phase = np.angle(psi_interp)
         hue = (phase + np.pi) / (2 * np.pi)
         saturation = np.ones_like(hue)
-        value = np.clip(prob * 4.0, 0, 1)
+        
+        value = np.clip(prob, 0, 1)
 
         hsv = np.dstack((hue, saturation, value))
         rgb = hsv_to_rgb(hsv)
