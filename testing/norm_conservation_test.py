@@ -36,6 +36,6 @@ plt.title(f'Total probability in time, delta_t = {delta_t}')
 plt.xlabel('t')
 plt.ylabel('P')
 plt.ylim(0.99, 1.01)
-plt.savefig(f'pic/prob-in-time_delta-t={delta_t}_N={N}.png')
+plt.savefig(f'pic/probability/prob-in-time_delta-t={delta_t}_N={N}.png')
 plt.show()
 # %%
