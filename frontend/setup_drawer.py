@@ -160,7 +160,7 @@ class SetupDrawer(QDialog):
         params_layout = QHBoxLayout()
 
         # Sigma xx
-        params_layout.addWidget(QLabel("s_xx:"))
+        params_layout.addWidget(QLabel("s<sub>xx</sub>:"))
         self.sig_xx_input = QDoubleSpinBox()
         self.sig_xx_input.setRange(0.1, 20.0)
         self.sig_xx_input.setValue(1.0)
@@ -168,7 +168,7 @@ class SetupDrawer(QDialog):
         params_layout.addWidget(self.sig_xx_input)
 
         # Sigma xy
-        params_layout.addWidget(QLabel("s_xy:"))
+        params_layout.addWidget(QLabel("s<sub>xy</sub>:"))
         self.sig_xy_input = QDoubleSpinBox()
         self.sig_xy_input.setRange(-10.0, 10.0)
         self.sig_xy_input.setValue(0.0)
@@ -176,7 +176,7 @@ class SetupDrawer(QDialog):
         params_layout.addWidget(self.sig_xy_input)
 
         # Sigma yy
-        params_layout.addWidget(QLabel("s_yy:"))
+        params_layout.addWidget(QLabel("s<sub>yy</sub>:"))
         self.sig_yy_input = QDoubleSpinBox()
         self.sig_yy_input.setRange(0.1, 20.0)
         self.sig_yy_input.setValue(1.0)
