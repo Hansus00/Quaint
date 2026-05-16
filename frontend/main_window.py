@@ -102,6 +102,8 @@ class MainWindow(QMainWindow):
         """
         self.wave_frames = []
 
+        self.animation_widget.clear_cache()
+
         self.switch_simulation_method(self.current_method)
         self.wave_frames.append(self.simulation.get_wave_function())
 

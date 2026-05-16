@@ -102,7 +102,7 @@ class AnimationWidget(QWidget):
 
     def update_potential(self, potential_coarse: np.ndarray) -> None:
         """Updates the 3D potential landscape and evicts outdated cache tracking."""
-        self._wave_cache.clear()
+        self.clear_cache()
 
         spline = RectBivariateSpline(self.x_coarse, self.y_coarse, potential_coarse)
         potential_fine = spline(self.x_fine, self.y_fine)
@@ -155,6 +155,10 @@ class AnimationWidget(QWidget):
                 rgb[mask, 0], rgb[mask, 2] = value[mask], q[mask]
 
         return rgb
+
+    def clear_cache(self) -> None:
+        """Clears the rendered frames cache to prevent memory address collisions."""
+        self._wave_cache.clear()
 
     def update_wave(self, psi_coarse: Any) -> None:
         """Updates the 3D wave function mesh. Utilizes instant cache lookup if frame is known."""
