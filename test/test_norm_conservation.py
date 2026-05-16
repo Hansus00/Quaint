@@ -1,6 +1,10 @@
 # %%
 import sys
+import os
 from pathlib import Path
+
+os.makedirs("pic", exist_ok=True)
+os.makedirs("pic/probability", exist_ok=True)
 
 # to call backend module from current directory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
