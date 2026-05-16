@@ -2,6 +2,7 @@
 # ### --- FILE setup_drawer.py --- ###
 # ==============================================================================
 
+from typing import Optional
 import numpy as np
 from PyQt6.QtCore import QPoint, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen
@@ -14,32 +15,47 @@ from PyQt6.QtWidgets import (
     QRadioButton,
     QVBoxLayout,
     QComboBox,
+    QWidget
 )
 
 
 class SetupDrawer(QDialog):
     """
-    A 2D canvas for drawing a potential field and setting wavepacket starting states.
-    Emits a tuple upon saving: (potential_matrix, r0, k0, sigma_matrix, mass)
+    A 2D canvas dialog for drawing a potential field and setting wavepacket starting states.
+    Emits a tuple upon saving containing: (potential_matrix, r0, k0, sigma_matrix, mass)
     """
 
-    # Updated signal: potential, r0, k0, sigma (2x2 array), mass (float)
     simulation_changed = pyqtSignal(str)
     setup_saved = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, np.ndarray, float)
 
     def __init__(
-        self, grid_size_x=25, grid_size_y=35, x_limit=5.0, y_limit=5.0, parent=None
-    ):
+        self, 
+        grid_size_x: int = 25, 
+        grid_size_y: int = 35, 
+        x_limit: float = 5.0, 
+        y_limit: float = 5.0, 
+        parent: Optional[QWidget] = None
+    ) -> None:
+        """
+        Initializes the drawing canvas.
+
+        Args:
+            grid_size_x (int): Horizontal resolution of the simulation grid.
+            grid_size_y (int): Vertical resolution of the simulation grid.
+            x_limit (float): Maximum physical coordinate in X.
+            y_limit (float): Maximum physical coordinate in Y.
+            parent (Optional[QWidget]): Parent widget.
+        """
         super().__init__(parent)
         self.setWindowTitle("Simulation Setup: Potential & Wavepacket")
 
-        self.grid_size_x = grid_size_x
-        self.grid_size_y = grid_size_y
-        self.x_limit = x_limit
-        self.y_limit = y_limit
+        self.grid_size_x: int = grid_size_x
+        self.grid_size_y: int = grid_size_y
+        self.x_limit: float = x_limit
+        self.y_limit: float = y_limit
 
-        self.canvas_width = 400
-        self.canvas_height = int(400 * (grid_size_y / grid_size_x))
+        self.canvas_width: int = 400
+        self.canvas_height: int = int(400 * (grid_size_y / grid_size_x))
 
         self.image = QImage(
             self.canvas_width, self.canvas_height, QImage.Format.Format_ARGB32
@@ -47,17 +63,18 @@ class SetupDrawer(QDialog):
         self.image.fill(Qt.GlobalColor.white)
 
         # State Variables
-        self.drawing_potential = False
-        self.last_point = QPoint()
-        self.mode = "potential"  # Options: "potential", "wavepacket"
+        self.drawing_potential: bool = False
+        self.last_point: QPoint = QPoint()
+        self.mode: str = "potential"  # Options: "potential", "wavepacket"
 
         # Wavepacket vector state (stored in pixel coordinates for the UI)
-        self.r0_px = None
-        self.k0_tip_px = None
+        self.r0_px: Optional[QPoint] = None
+        self.k0_tip_px: Optional[QPoint] = None
 
         self._setup_ui()
 
-    def _setup_ui(self):
+    def _setup_ui(self) -> None:
+        """Sets up the radio buttons, input fields, and layouts for the canvas dialog."""
         layout = QVBoxLayout(self)
 
         # Mode Selection
@@ -75,7 +92,6 @@ class SetupDrawer(QDialog):
         self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
         mode_layout.addWidget(QLabel("Simulation Method:"))
         mode_layout.addWidget(self.simulation_menu)
-
 
         mode_layout.addWidget(self.radio_pot)
         mode_layout.addWidget(self.radio_wave)
@@ -134,13 +150,15 @@ class SetupDrawer(QDialog):
         layout.addStretch()
         layout.addLayout(controls)
 
-    def update_mode(self):
+    def update_mode(self) -> None:
+        """Updates the drawing state based on radio button selection."""
         if self.radio_pot.isChecked():
             self.mode = "potential"
         else:
             self.mode = "wavepacket"
 
-    def paintEvent(self, event):
+    def paintEvent(self, event) -> None:
+        """Handles the rendering of the canvas and overlay objects like the wave vector."""
         canvas_painter = QPainter(self)
 
         # Offset Y to account for top UI controls (now roughly 80px)
@@ -155,7 +173,7 @@ class SetupDrawer(QDialog):
             canvas_painter.drawLine(self.r0_px, self.k0_tip_px)
             canvas_painter.drawEllipse(self.r0_px, 4, 4)
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event) -> None:
         pos = event.position().toPoint() - QPoint(0, 80)
 
         if pos.y() < 0 or pos.y() > self.canvas_height:
@@ -170,7 +188,7 @@ class SetupDrawer(QDialog):
                 self.k0_tip_px = pos
                 self.update()
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event) -> None:
         pos = event.position().toPoint() - QPoint(0, 80)
 
         if event.buttons() & Qt.MouseButton.LeftButton:
@@ -192,15 +210,19 @@ class SetupDrawer(QDialog):
                 self.k0_tip_px = pos
                 self.update()
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.drawing_potential = False
 
-    def clear_canvas(self):
+    def clear_canvas(self) -> None:
+        """Clears the drawn potential to a blank white canvas."""
         self.image.fill(Qt.GlobalColor.white)
         self.update()
 
-    def save_and_close(self):
+    def save_and_close(self) -> None:
+        """
+        Parses canvas drawing and physics inputs, emits them, and closes the dialog.
+        """
         # 1. Process Potential Matrix
         scaled_img = self.image.scaled(
             self.grid_size_x,

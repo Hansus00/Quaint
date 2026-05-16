@@ -2,6 +2,7 @@
 # ### --- FILE animation_controls_widget.py --- ###
 # ==============================================================================
 
+from typing import Optional
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QHBoxLayout,
@@ -14,24 +15,34 @@ from PyQt6.QtWidgets import (
 
 class AnimationControlsWidget(QWidget):
     """
-    Widget component containing playback UI and timer logic.
+    Widget component containing playback UI controls (Play, Pause, Slider)
+    and timer logic to drive the simulation animation.
     """
 
     frame_changed = pyqtSignal(int)
     open_setup_requested = pyqtSignal()
     open_settings_requested = pyqtSignal()
 
-    def __init__(self, total_frames, fps, parent=None):
-        super().__init__(parent)
-        self.total_frames = total_frames
-        self.fps = fps
+    def __init__(self, total_frames: int, fps: int, parent: Optional[QWidget] = None) -> None:
+        """
+        Initializes the playback controls widget.
 
-        self.timer = QTimer(self)
+        Args:
+            total_frames (int): Total number of frames in the animation buffer.
+            fps (int): Frames per second playback rate.
+            parent (Optional[QWidget]): Parent widget.
+        """
+        super().__init__(parent)
+        self.total_frames: int = total_frames
+        self.fps: int = fps
+
+        self.timer: QTimer = QTimer(self)
         self.timer.timeout.connect(self.advance_frame)
 
         self._setup_ui()
 
-    def _setup_ui(self):
+    def _setup_ui(self) -> None:
+        """Sets up buttons, labels, and the horizontal slider layout."""
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -59,30 +70,34 @@ class AnimationControlsWidget(QWidget):
         self.settings_btn.clicked.connect(self.open_settings_requested.emit)
         layout.addWidget(self.settings_btn)
 
-    def play(self):
+    def play(self) -> None:
+        """Starts animation playback. Resets to frame 0 if at the final frame."""
         if self.slider.value() >= self.total_frames - 1:
             self.slider.setValue(0)
         self.timer.start(1000 // self.fps)
 
-    def pause(self):
+    def pause(self) -> None:
+        """Pauses animation playback by stopping the internal timer."""
         self.timer.stop()
 
-    def advance_frame(self):
-        current_frame = self.slider.value()
+    def advance_frame(self) -> None:
+        """Advances playback to the next frame or pauses if the simulation ends."""
+        current_frame: int = self.slider.value()
         if current_frame < self.total_frames - 1:
             self.slider.setValue(current_frame + 1)
         else:
             self.pause()
 
-    def on_slider_changed(self, value):
+    def on_slider_changed(self, value: int) -> None:
+        """Handles slider position changes, updates UI label text, and emits current frame index."""
         self.time_label.setText(f"Time: {value}")
         self.frame_changed.emit(value)
 
-    def update_settings(self, fps, total_frames):
+    def update_settings(self, fps: int, total_frames: int) -> None:
+        """Updates internal playback settings and smoothly adjusts the active timer interval."""
         self.fps = fps
         self.total_frames = total_frames
         self.slider.setRange(0, self.total_frames - 1)
 
-        # If currently playing, update the timer interval smoothly
         if self.timer.isActive():
             self.timer.setInterval(1000 // self.fps)
