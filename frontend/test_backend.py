@@ -7,15 +7,29 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 # calling backend module
 from backend.Potential import InfiniteWellPotential
 from backend.StationaryWaveFunc import GaussianPacket
-from backend.Solver import CrankNicolson
+from backend.Solver import CrankNicolson, Constant
 import numpy as np
 
 # tests
 ipw = InfiniteWellPotential(10, 10, 1e5)
-cn = CrankNicolson(ipw)
-# print(cn.L_2D)
-wf = GaussianPacket(
+gauss = GaussianPacket(
     (10, 10), np.array([1, 1]), np.array([[1, 0], [0, 1]]), 1, *ipw.matrix.shape
 )
-wf = cn(wf)
+cn = CrankNicolson(ipw, gauss)
+print(cn.L_2D)
+print("\n\n\n")
+
+print(cn.get_wave_function().matrix)
+print("\n\n\n")
+cn.step()
+print(cn.get_wave_function().matrix)
+print("\n\n\n")
+
+wf = cn.update(2)
 print(wf.matrix)
+
+const = Constant(ipw, wf)
+const.step()
+const.step()
+const.update(10)
+print(const.get_wave_function().matrix == wf.matrix)
