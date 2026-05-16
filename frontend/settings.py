@@ -21,7 +21,7 @@ class Settings(QDialog):
     """
 
     # Emits: (fps, total_frames, size_x, size_y, z_scale, z_offset)
-    settings_saved = pyqtSignal(int, int, int, int, float, float)  
+    settings_saved = pyqtSignal(int, int, int, int, float, float)
 
     def __init__(
         self,
@@ -88,6 +88,6 @@ class Settings(QDialog):
             self.size_x_spin.value(),
             self.size_y_spin.value(),
             self.z_scale_spin.value(),
-            self.z_offset_spin.value()
+            self.z_offset_spin.value(),
         )
         self.accept()
