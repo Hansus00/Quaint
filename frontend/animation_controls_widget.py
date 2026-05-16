@@ -16,17 +16,13 @@ from PyQt6.QtWidgets import (
 
 class AnimationControlsWidget(QWidget):
     """
-<<<<<<< HEAD
-    Widget component containing playback UI controls (Play, Pause, Slider)
-    and timer logic to drive the simulation animation.
-=======
     Widget component containing playback UI and timer logic.
->>>>>>> main
     """
 
     frame_changed = pyqtSignal(int)
     open_setup_requested = pyqtSignal()
     open_settings_requested = pyqtSignal()
+    toggle_potential_requested = pyqtSignal(bool)  # Emits True to show, False to hide
 
     def __init__(
         self, total_frames: int, fps: int, parent: Optional[QWidget] = None
@@ -45,6 +41,10 @@ class AnimationControlsWidget(QWidget):
 
         self.timer: QTimer = QTimer(self)
         self.timer.timeout.connect(self.advance_frame)
+
+        self.potential_visible: bool = (
+            True  # Track the current state of the potential mesh
+        )
 
         self._setup_ui()
 
@@ -68,6 +68,10 @@ class AnimationControlsWidget(QWidget):
         self.slider.setRange(0, self.total_frames - 1)
         self.slider.valueChanged.connect(self.on_slider_changed)
         layout.addWidget(self.slider)
+
+        self.toggle_pot_btn = QPushButton("Hide Potential")
+        self.toggle_pot_btn.clicked.connect(self.toggle_potential)
+        layout.addWidget(self.toggle_pot_btn)
 
         self.setup_btn = QPushButton("Simulation Setup")
         self.setup_btn.clicked.connect(self.open_setup_requested.emit)
@@ -99,6 +103,17 @@ class AnimationControlsWidget(QWidget):
         """Handles slider position changes, updates UI label text, and emits current frame index."""
         self.time_label.setText(f"Time: {value}")
         self.frame_changed.emit(value)
+
+    def toggle_potential(self) -> None:
+        """Toggles the visibility state of the potential and updates the button text."""
+        self.potential_visible = not self.potential_visible
+
+        if self.potential_visible:
+            self.toggle_pot_btn.setText("Hide Potential")
+        else:
+            self.toggle_pot_btn.setText("Show Potential")
+
+        self.toggle_potential_requested.emit(self.potential_visible)
 
     def update_settings(self, fps: int, total_frames: int) -> None:
         """Updates internal playback settings and smoothly adjusts the active timer interval."""

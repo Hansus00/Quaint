@@ -1,6 +1,7 @@
 # ==============================================================================
 # ### --- FILE frontend/main_window.py --- ###
 # ==============================================================================
+
 import numpy as np
 from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
@@ -98,6 +99,9 @@ class MainWindow(QMainWindow):
         self.controls.frame_changed.connect(self.update_simulation)
         self.controls.open_setup_requested.connect(self.open_setup_drawer)
         self.controls.open_settings_requested.connect(self.open_settings_window)
+        self.controls.toggle_potential_requested.connect(
+            self.animation_widget.set_potential_visible
+        )
         layout.addWidget(self.controls, stretch=0)
 
     def calculate_all_frames(self) -> None:

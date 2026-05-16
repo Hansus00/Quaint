@@ -100,6 +100,10 @@ class AnimationWidget(QWidget):
         self.verts_template[:, 0] = self.X_fine.ravel()
         self.verts_template[:, 1] = self.Y_fine.ravel()
 
+    def set_potential_visible(self, visible: bool) -> None:
+        """Shows or hides the 3D potential mesh."""
+        self.potential_mesh_item.setVisible(visible)
+
     def update_potential(self, potential_coarse: np.ndarray) -> None:
         """Updates the 3D potential landscape and evicts outdated cache tracking."""
         self.clear_cache()
