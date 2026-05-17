@@ -29,7 +29,7 @@ class Params:
     well_height: float = 1e6
 
     solver: SolverType = SolverType.SSFM
-    r0: list[float] = field(default_factory=lambda: [64, 64])
+    r0: list[int] = field(default_factory=lambda: [64, 64])
     k0: list[float] = field(default_factory=lambda: [1, 0])
     sigma0: list[list[float]] = field(default_factory=lambda: [[16, 0], [0, 16]])
     mass: float = 2e-3
