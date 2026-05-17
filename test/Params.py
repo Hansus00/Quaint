@@ -38,6 +38,7 @@ class Params:
     mass: float = 2e-3
     delta_n: int = 32
     delta_t: float = 1e-3
+    delta_r: float = 1
     updates_max: int = 4  # how many updates, each one changes by delta_n
 
     @classmethod

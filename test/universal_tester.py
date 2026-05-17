@@ -77,7 +77,7 @@ p.add_argument(
     help="Set how many updates, each of delta_n, should happen (overrides --config)",
 )
 p.add_argument(
-    "--dr",
+    "--delta-r",
     type=float,
     default=1.0,
     required=False,
@@ -118,6 +118,8 @@ if args.solver is not None:
     params.solver = args.solver
 if args.updates_max is not None:
     params.updates_max = args.updates_max
+if args.delta_r is not None:
+    params.delta_r = args.delta_r
 params.write(str(directory / "params.json"))
 
 # set potential
@@ -180,14 +182,13 @@ gauss = GaussianPacket(
 # %%
 # run test
 # %matplotlib widget
-print("dr", args.dr)
 solver: _Solver
 if params.solver == SolverType.CN:
-    solver = CrankNicolson(well, gauss, params.delta_t, args.dr)
+    solver = CrankNicolson(well, gauss, params.delta_t, params.delta_r)
 elif params.solver == SolverType.SSFM:
-    solver = SSFM(well, gauss, params.delta_t, args.dr)
+    solver = SSFM(well, gauss, params.delta_t, params.delta_r)
 elif params.solver == SolverType.SYM_SSFM:
-    solver = SSFMSymmetric(well, gauss, params.delta_t, args.dr)
+    solver = SSFMSymmetric(well, gauss, params.delta_t, args.delta_r)
 else:
     assert False, "Solver must be specified!"
 

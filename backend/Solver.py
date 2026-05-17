@@ -19,12 +19,12 @@ class _Solver:
         potential: Potential,
         wave_func: StationaryWaveFunc,
         delta_t: float = 1e-3,
-        dr: float = 1,
+        delta_r: float = 1,
     ):
         self.potential = potential
         self._wave_func = wave_func
         self.delta_t = delta_t
-        self.dx, self.dy = dr, dr  # FIXME: Fine tune the grid step size
+        self.dx, self.dy = delta_r, delta_r  # FIXME: Fine tune the grid step size
 
     def step(self) -> None:
         """Evolves on step of wave function after t + Delta t"""
@@ -79,9 +79,9 @@ class CrankNicolson(_Solver):
         potential: Potential,
         wave_func: StationaryWaveFunc,
         delta_t: float = 1e-3,
-        dr: float = 1,
+        delta_r: float = 1,
     ):
-        super().__init__(potential, wave_func, delta_t, dr)
+        super().__init__(potential, wave_func, delta_t, delta_r)
 
         Nx, Ny = self.potential.matrix.shape
 
@@ -140,9 +140,9 @@ class _BaseSSFM(_Solver):
         potential: Potential,
         wave_func: StationaryWaveFunc,
         delta_t: float = 1e-3,
-        dr: float = 1,
+        delta_r: float = 1,
     ):
-        super().__init__(potential, wave_func, delta_t, dr)
+        super().__init__(potential, wave_func, delta_t, delta_r)
 
         Nx, Ny = self.potential.matrix.shape
 
