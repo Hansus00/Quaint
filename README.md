@@ -1,4 +1,4 @@
-# 3D Quantum Wave Function Simulation (zps)
+# Quaint
 
 ## What is this program?
 This is a Python-based desktop application that visualizes the time-dependent 2D Schrödinger equation in 3D. Built with **PyQt6**, **PyQtGraph**, and **SciPy**, it provides a real-time, interactive environment to explore quantum mechanics, specifically focusing on how wave packets interact with various potential energy landscapes.
