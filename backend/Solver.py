@@ -82,7 +82,7 @@ class CrankNicolson(_Solver):
         self.A, self.B = self._create_cayley_matrices(Nx * Ny, self.H)
         self._factorized_A = factorized(
             self.A.tocsc()
-        )  # factorize once for whole simulation
+        )  # factorize once for whole simulation, idk why, but factorisation is faster than inversion
 
         self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
 

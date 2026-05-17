@@ -39,19 +39,21 @@ class Params:
 
     @classmethod
     def _from_dict(self, data: dict):
-        if "well-type" in data:
+        if "well_type" in data:
             data["well_type"] = WellType(data["well_type"])
         if "solver" in data:
             data["solver"] = SolverType(data["solver"])
         return self(**data)
 
     def read(self, filepath: str) -> None:
+        """Read simulation parameters from file located at filepath"""
         with open(filepath, "r") as f:
             raw_data = json.load(f)
         new_params = Params._from_dict(raw_data)
         self.__dict__.update(new_params.__dict__)
 
     def write(self, filepath: str) -> None:
+        """Write simulation parameters into file located at filepath"""
         p_dict = asdict(self, dict_factory=_enum_dict_factory)
         with open(filepath, "w") as f:
             json.dump(p_dict, f, indent=4)
