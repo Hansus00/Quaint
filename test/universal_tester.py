@@ -171,8 +171,10 @@ with open(directory + "out.json", "w") as f:
     out = {
         "time_of_execution": (end - start),
         "time_of_execution_per_step": (end - start) / solver.get_steps_evolved(),
-        "energy_abs_stdev": [np.std(np.abs(Energies))],
-        "energies": [[complex(z).real, complex(z).imag] for z in np.array(Energies)],
+        "energy__exp_val_abs_stdev": float(np.std(np.abs(Energies))),
+        "energy_exp_val": [
+            [complex(z).real, complex(z).imag] for z in np.array(Energies)
+        ],
         "probabilities": np.array(np.abs(Probabilities), dtype=float).tolist(),
     }
     json.dump(out, f, indent=4)

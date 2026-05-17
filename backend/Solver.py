@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 import scipy.sparse as sp
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import spsolve, factorized
 
 from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
@@ -66,6 +66,7 @@ class CrankNicolson(_Solver):
     H: sp.spmatrix
     A: sp.spmatrix | sp.sparray
     B: sp.spmatrix | sp.sparray
+    _factorized_A: sp.spmatrix | sp.sparray
 
     _wave_state_1D: NDArray[np.complex128]
 
@@ -79,6 +80,9 @@ class CrankNicolson(_Solver):
         self.L_2D = self._create_laplace_operator(Nx, Ny)
         self.H = self._create_hamilton_operator(self.L_2D, wave_func.mass)
         self.A, self.B = self._create_cayley_matrices(Nx * Ny, self.H)
+        self._factorized_A = factorized(
+            self.A.tocsc()
+        )  # factorize once for whole simulation
 
         self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
 
@@ -94,7 +98,8 @@ class CrankNicolson(_Solver):
     def step(self):
         # Crank Nicolson
         super().step()
-        self._wave_state_1D = np.asarray(spsolve(self.A, self.B @ self._wave_state_1D))  # type: ignore
+        # does the same as np.asarray(spsolve(self.A, self.B @ self._wave_state_1D)), but with pre-factorized matrix A
+        self._wave_state_1D = np.asarray(self._factorized_A(self.B @ self._wave_state_1D))  # type: ignore
 
     def get_wave_function(self) -> StationaryWaveFunc:
         Nx, Ny = self.potential.matrix.shape
@@ -124,6 +129,7 @@ class Constant(_Solver):
 
 class _BaseSSFM(_Solver):
     """Base class for Split-Step Fourier Methods."""
+
     _U_T: NDArray[np.complex128]
     _U_V: NDArray[np.complex128]
 
@@ -154,6 +160,7 @@ class _BaseSSFM(_Solver):
 
 class SSFM(_BaseSSFM):
     """Standard Split-Step Fourier Method. Accurate to O(delta_t**2)."""
+
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         """Creates the full-step real space propagator."""
         return np.exp(-1j * self.potential.matrix * self.delta_t)
@@ -172,6 +179,7 @@ class SSFM(_BaseSSFM):
 
 class SSFMSymmetric(_BaseSSFM):
     """Symmetric Split-Step Fourier Method. Accurate to O(delta_t**3)."""
+
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         """Creates the half-step real space propagator."""
         return np.exp(-1j * self.potential.matrix * self.delta_t / 2)
@@ -188,4 +196,3 @@ class SSFMSymmetric(_BaseSSFM):
         psi *= self._U_V
 
         self._wave_func = StationaryWaveFunc(psi, self._wave_func.mass)
-
