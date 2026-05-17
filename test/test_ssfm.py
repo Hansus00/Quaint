@@ -7,7 +7,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from backend.Potential import InfiniteWellPotential
 from backend.StationaryWaveFunc import GaussianPacket
-from backend.Solver import SSFM
+from backend.Solver import Solver, SSFM, SSFMSymetric
 import numpy as np
 import json
 import matplotlib.pyplot as plt
@@ -67,19 +67,20 @@ plt.savefig(directory + "gauss_evolved_0001.png")
 plt.show()
 
 # %%
-ssfm = SSFM(ipw, gauss)
+solver :Solver
+solver = SSFMSymetric(ipw, gauss)
 delta_n = params["delta_n"]
 
 for i in range(0, params["steps_max"]):
-    ssfm.update(delta_n)
+    solver.update(delta_n)
     plt.title(
-        "Evolved gaussian packet SSFM n="
-        + str(ssfm.get_steps_evolved())
+        "Evolved gaussian packet SSFM Sym n="
+        + str(solver.get_steps_evolved())
         + ",\t"
         + r"$\sum_i\,|\psi_i|^2=$"
-        + "%.4f" % (ssfm.get_wave_function().total_probability())
+        + "%.4f" % (solver.get_wave_function().total_probability())
     )
-    im = plt.imshow(np.abs(ssfm.get_wave_function().matrix) ** 2)
+    im = plt.imshow(np.abs(solver.get_wave_function().matrix) ** 2)
     cbar = plt.colorbar(
         im, format="%.4f"
     )  # FIXME: make it look good, maybe scientific notation?
@@ -88,7 +89,7 @@ for i in range(0, params["steps_max"]):
     plt.ylabel("y")
 
     plt.savefig(
-        directory + "gauss_evolved_n" + f"{ssfm.get_steps_evolved():04d}" + ".png"
+        directory + "gauss_evolved_n" + f"{solver.get_steps_evolved():04d}" + ".png"
     )
     plt.show()
 
