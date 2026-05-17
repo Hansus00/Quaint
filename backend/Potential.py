@@ -76,7 +76,7 @@ class HarmonicPotential(Potential):
         super().__init__(matrix)
 
 
-class PotentialInsideGrid(Potential):
+class EmbeddedPotential(Potential):
     """Put smaller potential (left upper corner has position (pos_x, pos_y))
     inside empty frame of bigger one (size_x, size_y), make sure it fits!"""
 

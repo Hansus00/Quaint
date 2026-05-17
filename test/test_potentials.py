@@ -11,13 +11,13 @@ if __name__ == "__main__":
     ws = WShaped(20, 20, 3, 1)
     print(ws)
 
-    inside = PotentialInsideGrid(35, 35, 5, 5, ws)
+    inside = EmbeddedPotential(35, 35, 5, 5, ws)
     print(inside)
 
     ipw = InfiniteWellPotential(10, 10, 1)
     print(ipw)
 
-    inside2 = PotentialInsideGrid(20, 20, 5, 5, ipw)
+    inside2 = EmbeddedPotential(20, 20, 5, 5, ipw)
     print(inside2)
 
     ipw2 = InfiniteWellPotential(20, 20, 1)

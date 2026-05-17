@@ -5,7 +5,7 @@ from pathlib import Path
 # to call backend module from current directory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from backend.Potential import InfiniteWellPotential, WShaped
+from backend.Potential import InfiniteWellPotential, WShaped, EmbeddedPotential
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, Constant
 import numpy as np
@@ -20,28 +20,42 @@ Path(directory).mkdir(parents=True, exist_ok=False)
 params = {
     "size_x": 128,
     "size_y": 128,
-    "well-type": "infiniteWell",
+    "well-type": "w-shaped",
     "well_height": 1e6,
-    "r0": (64, 64),
+    "r0": (32, 64),
     "k0": np.array([1, 0]).tolist(),
     "sigma0": np.array([[16, 0], [0, 16]]).tolist(),
     "mass": 2e-3,
     "delta_n": 32,
-    "steps_max": 128,
+    "steps_max": 16,
 }
 with open(directory + "dump.json", "w") as f:
     json.dump(params, f, indent=4)
 
+well = InfiniteWellPotential(params["size_x"], params["size_y"], params["well_height"])
+if params["well-type"] == "infiniteWell":
+    pass
+elif params["well-type"] == "w-shaped":
+    ws = WShaped(params["size_x"] // 4, params["size_y"] // 4, 3, params["well_height"])
+    ws_inside_grid = EmbeddedPotential(
+        params["size_x"],
+        params["size_y"],
+        (params["size_x"] - params["size_x"] // 4) / 2,
+        (params["size_y"] - params["size_y"] // 4) / 2,
+        ws,
+    )
+    well += ws_inside_grid
+
+
 plt.style.use("JK_W.mplstyle")
-ipw = InfiniteWellPotential(params["size_x"], params["size_y"], params["well_height"])
 plt.title("Potential well")
-im = plt.imshow(ipw.matrix)
+im = plt.imshow(well.matrix)
 cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
 plt.xlabel("x")
 plt.ylabel("y")
 
-plt.savefig(directory + "gauss_evolved_0000.png")
+plt.savefig(directory + "gauss_evolved_n0000.png")
 plt.show()
 
 gauss = GaussianPacket(
@@ -49,7 +63,7 @@ gauss = GaussianPacket(
     params["k0"],
     params["sigma0"],
     params["mass"],
-    *ipw.matrix.shape,
+    *well.matrix.shape,
 )
 plt.title(
     "Gaussian packet at start\t"
@@ -64,11 +78,11 @@ cbar.set_label(r"$|\psi|^2$")
 plt.xlabel("x")
 plt.ylabel("y")
 
-plt.savefig(directory + "gauss_evolved_0001.png")
+plt.savefig(directory + "gauss_evolved_n0001.png")
 plt.show()
 
 # %%
-cn = CrankNicolson(ipw, gauss)
+cn = CrankNicolson(well, gauss)
 delta_n = params["delta_n"]
 
 for i in range(0, params["steps_max"]):
