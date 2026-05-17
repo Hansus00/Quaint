@@ -66,9 +66,16 @@ p.add_argument(
 p.add_argument(
     "--solver",
     choices=[e.value for e in SolverType],
-    default=SolverType.CN,
+    default=Params().solver,
     required=False,
     help="Set solving algorithm (overrides --config)",
+)
+p.add_argument(
+    "--updates-max",
+    type=int,
+    default=Params().updates_max,
+    required=False,
+    help="Set how many updates, each of delta_n, should happen (overrides --config)",
 )
 p.add_argument(
     "--params",
@@ -103,6 +110,8 @@ if args.config is not None:
     params.read(args.config)
 if args.solver is not None:
     params.solver = args.solver
+if args.updates_max is not None:
+    params.updates_max = args.updates_max
 params.write(str(directory / "params.json"))
 
 # set potential
@@ -188,7 +197,8 @@ def update(frame):
     else:
         solver.update(params.delta_n)
         if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
-            Energies.append(solver.energy())  # type: ignore
+            # Energies.append(solver.energy())  # type: ignore
+            Energies.append(1)
         else:
             Energies.append(1)
         Probabilities.append(solver.get_wave_function().total_probability())
@@ -225,7 +235,7 @@ else:
     else:
         plt.show()
 end = time.perf_counter()
-print("time_of_execution", float(end - start))
+print("time_of_execution/", float(end - start), sep="\t")
 
 
 # %%
