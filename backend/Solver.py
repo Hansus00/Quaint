@@ -7,7 +7,7 @@ from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
 
 
-class Solver:
+class _Solver:
     potential: Potential
     delta_t: float
     _wave_func: StationaryWaveFunc
@@ -59,7 +59,7 @@ class Solver:
         return T_matrix + V_matrix
 
 
-class CrankNicolson(Solver):
+class CrankNicolson(_Solver):
     L_2D: sp.spmatrix  # TODO: to be removed
     H: sp.spmatrix  # TODO: to be removed
     A: sp.spmatrix | sp.sparray
@@ -104,7 +104,7 @@ class CrankNicolson(Solver):
         return self._wave_func
 
 
-class Constant(Solver):
+class Constant(_Solver):
     def __init__(
         self, potential: Potential, wave_func: StationaryWaveFunc, delta_t: float = 1e-3
     ):
@@ -114,7 +114,8 @@ class Constant(Solver):
         super().step()
 
 
-class BaseSSFM(Solver):
+class _BaseSSFM(_Solver):
+    """Base class for Split-Step Fourier Methods."""
     _U_T: NDArray[np.complex128]
     _U_V: NDArray[np.complex128]
 
@@ -144,7 +145,7 @@ class BaseSSFM(Solver):
         return np.exp(-1j * T * self.delta_t)
 
 
-class SSFM(BaseSSFM):
+class SSFM(_BaseSSFM):
     """Standard Split-Step Fourier Method. Accurate to O(delta_t**2)."""
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         """Creates the full-step real space propagator."""
@@ -162,7 +163,7 @@ class SSFM(BaseSSFM):
         self._wave_func = StationaryWaveFunc(psi, self._wave_func.mass)
 
 
-class SSFMSymetric(BaseSSFM):
+class SSFMSymetric(_BaseSSFM):
     """Symmetric Split-Step Fourier Method. Accurate to O(delta_t**3)."""
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         """Creates the half-step real space propagator."""
