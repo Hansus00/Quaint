@@ -25,5 +25,5 @@
     "mass": 0.001,
     "delta_n": 32,
     "delta_t": 0.001,
-    "steps_max": 128
+    "updates_max": 128
 }

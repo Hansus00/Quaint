@@ -37,7 +37,7 @@ class Params:
     mass: float = 2e-3
     delta_n: int = 32
     delta_t: float = 1e-3
-    steps_max: int = 4
+    updates_max: int = 4  # how many updates, each one changes by delta_n
 
     @classmethod
     def _from_dict(cls, data: dict):

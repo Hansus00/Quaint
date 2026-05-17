@@ -3,8 +3,6 @@
 import sys
 from pathlib import Path
 
-from pytest import param
-
 # to call backend module from current directory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -23,6 +21,7 @@ import time
 import argparse
 import json
 from Params import Params, WellType, SolverType
+import matplotlib.animation as animation
 
 # load or use default params
 p = argparse.ArgumentParser(description="Testing program for Quaint by Jaclav")
@@ -97,16 +96,15 @@ else:
 
 # draw potential
 plt.style.use("JK_W.mplstyle")
-plt.title("Potential well")
-im = plt.imshow(np.float64(well.matrix))
+fig, ax = plt.subplots(layout="tight")
+fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
+
+ax.set_title("Potential well")
+im = ax.imshow(np.float64(well.matrix), aspect="auto")
 cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
-plt.xlabel("x")
-plt.ylabel("y")
-plt.savefig(directory / "gauss_evolved_n0000.png")
-if insideInteractive:
-    plt.show()
-plt.close()
+ax.set_xlabel("x")
+ax.set_ylabel("y")
 
 # set and draw psi(0)
 gauss = GaussianPacket(
@@ -116,21 +114,11 @@ gauss = GaussianPacket(
     params.mass,
     *well.matrix.shape,
 )  # TODO: Test Airy wave train #33
-plt.title("Gaussian packet at the start")
-im = plt.imshow(np.float64(np.abs(gauss.matrix) ** 2))
-cbar = plt.colorbar(
-    im, format="%.4f"
-)  # FIXME: make it look good, maybe scientific notation?
-cbar.set_label(r"$|\psi|^2$")
-plt.xlabel("x")
-plt.ylabel("y")
-plt.savefig(directory / "gauss_evolved_n0001.png")
-if insideInteractive:
-    plt.show()
-plt.close()
+
 
 # %%
 # run test
+# %matplotlib widget
 solver: _Solver
 if params.solver == SolverType.CN:
     solver = CrankNicolson(well, gauss, params.delta_t)
@@ -142,28 +130,42 @@ else:
 Energies: list[complex] = []
 Probabilities = []
 start = time.perf_counter()
-for i in range(0, params.steps_max):
-    solver.update(params.delta_n)
-    if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
-        Energies.append(solver.energy())
+
+
+def update(frame):
+    """0th frame is potential"""
+    if frame < 1:
+        return (im,)
+    elif frame == 1:
+        cbar.set_label(r"$|\psi|^2$")
     else:
-        Energies.append(1)
-    Probabilities.append(solver.get_wave_function().total_probability())
+        solver.update(params.delta_n)
+        if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
+            Energies.append(solver.energy())  # type: ignore
+        else:
+            Energies.append(1)
+        Probabilities.append(solver.get_wave_function().total_probability())
 
-    plt.title("Evolved gaussian packet n=" + str(solver.get_steps_evolved()))
-    im = plt.imshow(np.float64(np.abs(solver.get_wave_function().matrix) ** 2))
-    cbar = plt.colorbar(
-        im, format="%.4f"
-    )  # FIXME: make it look good, maybe scientific notation?
-    cbar.set_label(r"$|\psi|^2$")
-    plt.xlabel("x")
-    plt.ylabel("y")
+    new_data = np.float64(np.abs(solver.get_wave_function().matrix) ** 2)
+    im.set_clim(vmin=new_data.min(), vmax=new_data.max())
+    cbar.update_normal(im)
+    ax.set_title("Evolved gaussian packet n=" + str(solver.get_steps_evolved()))
+    im.set_data(new_data)
+    return (im,)
 
-    plt.savefig(directory / f"gauss_evolved_n{solver.get_steps_evolved():04d}.png")
-    if insideInteractive:
-        plt.show()
-    plt.close()
+
+ani = animation.FuncAnimation(
+    fig, update, frames=range(0, params.updates_max + 3), interval=200, blit=False
+)  # type: ignore
+
 end = time.perf_counter()
+ani.save(
+    directory / f"gauss_evolution.mp4",
+    writer="ffmpeg",
+    fps=10,
+    dpi=300,
+    savefig_kwargs={"pad_inches": 0},
+)
 
 # %%
 # save output
