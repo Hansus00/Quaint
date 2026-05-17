@@ -18,6 +18,7 @@ import numpy as np
 import json
 import matplotlib.pyplot as plt
 from datetime import datetime
+import time
 import argparse
 
 # load or use default params
@@ -59,8 +60,8 @@ if args.params != None:
 insideInteractive = args.f != None
 
 # create directory for simulation data
-now = datetime.now() if args.name == None else args.name
-directory = "pic/" + str(now) + "/"
+now = datetime.now()
+directory = ("pic/" if args.name == None else args.name + "/") + str(now) + "/"
 assert not Path(directory).exists(), "Cannot override directory!"
 Path(directory).mkdir(parents=True, exist_ok=False)
 
@@ -157,10 +158,13 @@ else:
 
 Energies = []
 Probabilities = []
+start = time.perf_counter()
 for i in range(0, params["steps_max"]):
     solver.update(delta_n)
     if params["solver"] == "cn":  # TODO: add .energy() to ssfm
         Energies.append(solver.energy())
+    else:
+        Energies.append(0)
     Probabilities.append(solver.get_wave_function().total_probability())
 
     plt.title("Evolved gaussian packet n=" + str(solver.get_steps_evolved()))
@@ -178,16 +182,20 @@ for i in range(0, params["steps_max"]):
     if insideInteractive:
         plt.show()
     plt.close()
-
+end = time.perf_counter()
 
 # %%
 # save output
-with open(directory + "Energies.out.json", "w") as f:
-    out = np.array(Energies)
-    json.dump([[complex(z).real, complex(z).imag] for z in out], f, indent=4)
-with open(directory + "Probabilities.out.json", "w") as f:
-    out = np.array(Probabilities)
-    json.dump([[complex(z).real, complex(z).imag] for z in out], f, indent=4)
+with open(directory + "out.json", "w") as f:
+    out = {
+        "TimeOfExecution": (end - start),
+        "TimeOfExecutionPerStep": (end - start) / solver.get_steps_evolved(),
+        "Energies": [[complex(z).real, complex(z).imag] for z in np.array(Energies)],
+        "Probabilities": [
+            [complex(z).real, complex(z).imag] for z in np.array(Probabilities)
+        ],
+    }
+    json.dump(out, f, indent=4)
 # %%
 # Plot P(t) and E(t)
 N = [i * delta_n * params["delta_t"] for i, e in enumerate(Energies)]
