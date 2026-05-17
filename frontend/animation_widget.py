@@ -140,6 +140,7 @@ class AnimationWidget(QWidget):
         self.view.addItem(self.wave_mesh_item)
 
         self.potential_mesh_item = gl.GLMeshItem(smooth=True, computeNormals=False)
+        self.potential_mesh_item.setGLOptions("translucent")
         self.view.addItem(self.potential_mesh_item)
 
         self.grid = gl.GLGridItem()
@@ -195,7 +196,7 @@ class AnimationWidget(QWidget):
         rgba[:, 0] = gray_values.reshape(-1)
         rgba[:, 1] = gray_values.reshape(-1)
         rgba[:, 2] = gray_values.reshape(-1)
-        rgba[:, 3] = 0.9
+        rgba[:, 3] = 0.4
 
         verts = self.verts_template.copy()
         verts[:, 2] = Z_potential.reshape(-1) - self.z_potential_offset

@@ -21,8 +21,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-# --- NEW: Predefined potentials imported from the backend module ---
-from backend.Potential import GaussianBumpPotential, HarmonicPotential
+from backend.Potential import Potential, GaussianBumpPotential, HarmonicPotential, WShaped, EmbeddedPotential
 
 
 class SetupDrawer(QDialog):
@@ -175,12 +174,14 @@ class SetupDrawer(QDialog):
         sim_layout.addStretch()
         layout.addLayout(sim_layout)
 
-        # --- NEW: Preset Potential Selection Layout with Gaussian Bump option ---
+        # Preset Potential Selection Layout
         preset_layout = QHBoxLayout()
         self.preset_menu = QComboBox()
         self.preset_menu.addItem("Custom / Clear")
         self.preset_menu.addItem("Gaussian Bump")
         self.preset_menu.addItem("Harmonic Oscillator")
+        self.preset_menu.addItem("W-shape")
+        self.preset_menu.addItem("Embedded")
         self.preset_menu.currentTextChanged.connect(self.load_preset_potential)
         preset_layout.addWidget(QLabel("Preset Potential:"))
         preset_layout.addWidget(self.preset_menu)
@@ -341,6 +342,71 @@ class SetupDrawer(QDialog):
             max_dist_sq = r0[0] ** 2 + r0[1] ** 2
             k = 100.0 / max_dist_sq if max_dist_sq > 0 else 1.0
             pot = HarmonicPotential(self.grid_size_x, self.grid_size_y, k=k, r0=r0)
+            potential_matrix = pot.matrix
+
+        elif text == "W-shape":
+            # Custom W-shaped potential in the middle of the grid space
+            w_size_x = self.grid_size_x // 2
+            w_size_y = self.grid_size_y // 2
+            
+            pot = WShaped(w_size_x, w_size_y, thickness=3, wall_value=50.0)
+            
+            w_matrix = pot.matrix.T
+            
+            pos_x = (self.grid_size_x - w_size_x) // 2
+            pos_y = (self.grid_size_y - w_size_y) // 2
+            
+            zero_pot = np.zeros((self.grid_size_x, self.grid_size_y))
+            
+            zero_pot[pos_x:pos_x + w_size_x, pos_y:pos_y + w_size_y] = w_matrix
+            potential_matrix = zero_pot
+
+            # Setting initial wavepacket position and momentum
+            rx_px = int(self.canvas_width * 0.5)
+            ry_px = int(self.canvas_height * 0.2)
+            self.r0_px = QPoint(rx_px, ry_px)
+            self.k0_tip_px = QPoint(rx_px, ry_px + 80)
+            self.sig_xx_input.setValue(4.0)
+            self.sig_yy_input.setValue(4.0)
+        
+        elif text == "Embedded":
+            # Custom Embedded potential with a central well and surrounding barriers
+
+            # Calculating the inner potential from previous potential data
+            scaled_img = self.image.scaled(
+                self.grid_size_x // 2,
+                self.grid_size_y // 2,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            gray_img = scaled_img.convertToFormat(QImage.Format.Format_Grayscale8)
+            width, height = gray_img.width(), gray_img.height()
+            bpl = gray_img.bytesPerLine()
+            buffer = gray_img.constBits().asarray(height * bpl)
+            
+            arr = np.frombuffer(buffer, dtype=np.uint8).reshape((height, bpl)).copy()
+            arr = arr[:, :width]
+            
+            inner_matrix = ((255 - arr) / 255.0 * 50).T
+
+            # Setting boundaries
+            inner_matrix[0, :] = 50.0
+            inner_matrix[-1, :] = 50.0
+            inner_matrix[:, 0] = 50.0
+            inner_matrix[:, -1] = 50.0
+            
+            inner_pot_obj = Potential(inner_matrix)
+            
+            pos_x = self.grid_size_x // 4
+            pos_y = self.grid_size_y // 4
+            
+            pot = EmbeddedPotential(
+                self.grid_size_x, 
+                self.grid_size_y, 
+                pos_x, 
+                pos_y, 
+                inner_pot_obj
+            )
             potential_matrix = pot.matrix
 
         if potential_matrix is not None:
