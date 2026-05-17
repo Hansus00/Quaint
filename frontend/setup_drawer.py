@@ -181,8 +181,9 @@ class SetupDrawer(QDialog):
         self.preset_menu.addItem("Gaussian Bump")
         self.preset_menu.addItem("Harmonic Oscillator")
         self.preset_menu.addItem("W-shape")
-        self.preset_menu.addItem("Embedded")
-        self.preset_menu.currentTextChanged.connect(self.load_preset_potential)
+        self.preset_menu.addItem("Matryoshka")
+        
+        self.preset_menu.textActivated.connect(self.load_preset_potential)
         preset_layout.addWidget(QLabel("Preset Potential:"))
         preset_layout.addWidget(self.preset_menu)
         preset_layout.addStretch()
@@ -369,8 +370,8 @@ class SetupDrawer(QDialog):
             self.sig_xx_input.setValue(4.0)
             self.sig_yy_input.setValue(4.0)
         
-        elif text == "Embedded":
-            # Custom Embedded potential with a central well and surrounding barriers
+        elif text == "Matryoshka":
+            # Custom embedded potential with a central well and surrounding barriers
 
             # Calculating the inner potential from previous potential data
             scaled_img = self.image.scaled(

@@ -30,6 +30,7 @@ class MainWindow(QMainWindow):
     z_scale: float
     fine_grid_scale: int
     z_potential_scale: float
+    brightness_multiplier: float
     total_frames: int
     fps: int
     aspect_ratio: float
@@ -66,6 +67,7 @@ class MainWindow(QMainWindow):
         self.z_scale: float = 15.0
         self.fine_grid_scale: int = 4
         self.z_potential_scale: float = 0.07
+        self.brightness_multiplier: float = 20.0
 
         self.total_frames: int = 150
         self.fps: int = 30
@@ -125,6 +127,7 @@ class MainWindow(QMainWindow):
             self.z_scale,
             self.fine_grid_scale,
             self.z_potential_scale,
+            self.brightness_multiplier,
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
@@ -167,6 +170,7 @@ class MainWindow(QMainWindow):
             self.z_potential_offset,
             self.fine_grid_scale,
             self.z_potential_scale,
+            self.brightness_multiplier,
             self,
         )
         settings_dialog.settings_saved.connect(self.apply_settings)
@@ -182,6 +186,7 @@ class MainWindow(QMainWindow):
         z_offset: float,
         fine_grid_scale: int,
         z_pot_scale: float,
+        brightness: float,
     ) -> None:
         """Applies new playback settings, resizes arrays if grid changed, and recalculates."""
         self.fps = fps
@@ -197,6 +202,7 @@ class MainWindow(QMainWindow):
         self.z_potential_offset = z_offset
         self.fine_grid_scale = fine_grid_scale
         self.z_potential_scale = z_pot_scale
+        self.brightness_multiplier = brightness
 
         self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
         self.y_limit = 10.0 * self.aspect_ratio
@@ -235,6 +241,7 @@ class MainWindow(QMainWindow):
             self.z_scale,
             self.fine_grid_scale,
             self.z_potential_scale,
+            self.brightness_multiplier,
         )
         self.animation_widget.update_potential(self.initial_potential.matrix)
 

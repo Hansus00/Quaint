@@ -21,7 +21,7 @@ class Settings(QDialog):
     """
 
     # --- Class Fields ---
-    settings_saved = pyqtSignal(int, int, int, int, float, float, int, float)
+    settings_saved = pyqtSignal(int, int, int, int, float, float, int, float, float)
 
     fps_spin: QSpinBox
     frames_spin: QSpinBox
@@ -42,6 +42,7 @@ class Settings(QDialog):
         current_z_offset: float,
         current_fine_scale: int,
         current_z_pot_scale: float,
+        current_brightness: float,
         parent: Optional[QWidget] = None,
     ) -> None:
         """
@@ -103,6 +104,12 @@ class Settings(QDialog):
         self.z_offset_spin.setSingleStep(0.5)
         layout.addRow("Potential Depth Offset:", self.z_offset_spin)
 
+        self.brightness_spin = QDoubleSpinBox()
+        self.brightness_spin.setRange(1.0, 1000.0)
+        self.brightness_spin.setValue(current_brightness)
+        self.brightness_spin.setSingleStep(5.0)
+        layout.addRow("Brightness Multiplier:", self.brightness_spin)
+
         btn_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -121,5 +128,6 @@ class Settings(QDialog):
             self.z_offset_spin.value(),
             self.fine_scale_spin.value(),
             self.z_pot_scale_spin.value(),
+            self.brightness_spin.value(),
         )
         self.accept()

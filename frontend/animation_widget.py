@@ -28,6 +28,7 @@ class AnimationWidget(QWidget):
     z_potential_offset: float
     z_scale: float
     z_potential_scale: float
+    brightness_multiplier: float
     x_coarse: np.ndarray
     y_coarse: np.ndarray
     _wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]]
@@ -53,6 +54,7 @@ class AnimationWidget(QWidget):
         z_scale: float = 15.0,
         fine_grid_scale: int = 4,
         z_potential_scale: float = 0.05,
+        brightness_multiplier: float = 20.0,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -68,6 +70,7 @@ class AnimationWidget(QWidget):
         self.z_potential_offset: float = z_potential_offset
         self.z_scale: float = z_scale
         self.z_potential_scale: float = z_potential_scale
+        self.brightness_multiplier: float = brightness_multiplier
 
         self.x_coarse: np.ndarray = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse: np.ndarray = np.linspace(0.0, self.y_limit, self.size_coarse_y)
@@ -87,6 +90,7 @@ class AnimationWidget(QWidget):
         z_scale: float,
         fine_grid_scale: int,
         z_potential_scale: float,
+        brightness_multiplier: float,
     ) -> None:
         """Dynamically reconfigures the widget's layout bounds and clears state."""
         self.size_coarse_x = size_x
@@ -99,6 +103,7 @@ class AnimationWidget(QWidget):
         self.z_potential_offset = z_offset
         self.z_scale = z_scale
         self.z_potential_scale = z_potential_scale
+        self.brightness_multiplier = brightness_multiplier
 
         self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
@@ -274,7 +279,7 @@ class AnimationWidget(QWidget):
         # Exposure multiplier for visual brightness
         # (Boosts the faint probability tails to be visible without exceeding 1.0)
         brightness_multiplier = 50.0
-        value = np.clip(prob_fine * brightness_multiplier, 0.0, 1.0)
+        value = np.clip(np.sqrt(prob_fine) * brightness_multiplier, 0.0, 1.0)
 
         rgb = self._fast_hsv_to_rgb(hue, value)
 
