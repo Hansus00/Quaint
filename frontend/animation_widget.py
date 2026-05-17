@@ -226,10 +226,13 @@ class AnimationWidget(QWidget):
 
         self.potential_verts[:, 2] = Z_potential.reshape(-1) - self.z_potential_offset
 
-        self.potential_mesh_data.setVertexes(self.potential_verts)
-        self.potential_mesh_data.setVertexColors(self.potential_rgba)
 
-        self.potential_mesh_item.meshDataChanged()
+        mesh_data = gl.MeshData(
+            vertexes=self.potential_verts,
+            faces=self.faces,
+            vertexColors=self.potential_rgba
+        )
+        self.potential_mesh_item.setMeshData(meshdata=mesh_data)
 
     def _fast_hsv_to_rgb(self, hue: np.ndarray, value: np.ndarray) -> np.ndarray:
         """High-speed vectorized HSV converter optimized for Saturation=1.0."""
