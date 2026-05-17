@@ -1,3 +1,4 @@
+#!/bin/python3
 # %%
 import sys
 from pathlib import Path
@@ -35,11 +36,26 @@ params = {
     "steps_max": 4,
 }
 
-p = argparse.ArgumentParser()
-p.add_argument("--config", type=str, required=False)
-p.add_argument("--f", type=str, required=False)
-p.add_argument("--name", type=str, required=False)
+p = argparse.ArgumentParser(description="Testing program for Quaint by Jaclav")
+p.add_argument(
+    "--config",
+    type=str,
+    required=False,
+    help="path to config file",
+)
+p.add_argument("--f", type=str, required=False, help="show all plots at live")
+p.add_argument(
+    "--name", type=str, required=False, help="output directory for simulation"
+)
+p.add_argument(
+    "--params",
+    type=bool,
+    required=False,
+    help="Show structure and default values of simulation configuration",
+)
 args = p.parse_args()
+if args.params != None:
+    print("Default params:", params)
 insideInteractive = args.f != None
 
 # create directory for simulation data
@@ -129,6 +145,7 @@ if insideInteractive:
 plt.close()
 
 # %%
+# run test
 delta_n = params["delta_n"]
 solver: _Solver
 if params["solver"] == "cn":
@@ -172,17 +189,16 @@ with open(directory + "Probabilities.out.json", "w") as f:
     out = np.array(Probabilities)
     json.dump([[complex(z).real, complex(z).imag] for z in out], f, indent=4)
 # %%
+# Plot P(t) and E(t)
 N = [i * delta_n * params["delta_t"] for i, e in enumerate(Energies)]
 
 fig, ax1 = plt.subplots()
 
-# oś Y: energie
 ax1.plot(N, np.array(Energies) / Energies[0] - 1, label=r"$E(t)$", color="tab:blue")
 ax1.set_xlabel("t")
 ax1.set_ylabel("$E(t)/E(0) - 1$", color="tab:blue")
 ax1.tick_params(axis="y", labelcolor="tab:blue")
 
-# druga oś Y: prawdopodobieństwo
 ax2 = ax1.twinx()
 ax2.plot(N, np.array(Probabilities) - 1, label=r"$P(t)$", color="tab:red")
 ax2.set_ylabel("$P(t)/P(0) - 1$", color="tab:red")
