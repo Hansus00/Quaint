@@ -94,7 +94,7 @@ else:
 # draw potential
 plt.style.use("JK_W.mplstyle")
 plt.title("Potential well")
-im = plt.imshow(well.matrix)
+im = plt.imshow(np.float64(well.matrix))
 cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
 plt.xlabel("x")
@@ -113,7 +113,7 @@ gauss = GaussianPacket(
     *well.matrix.shape,
 )  # TODO: Test Airy wave train #33
 plt.title("Gaussian packet at start")
-im = plt.imshow(np.abs(gauss.matrix) ** 2)
+im = plt.imshow(np.float64(np.abs(gauss.matrix) ** 2))
 cbar = plt.colorbar(
     im, format="%.4f"
 )  # FIXME: make it look good, maybe scientific notation?
@@ -143,11 +143,11 @@ for i in range(0, params.steps_max):
     if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
         Energies.append(solver.energy())
     else:
-        Energies.append(0)
+        Energies.append(1)
     Probabilities.append(solver.get_wave_function().total_probability())
 
     plt.title("Evolved gaussian packet n=" + str(solver.get_steps_evolved()))
-    im = plt.imshow(np.abs(solver.get_wave_function().matrix) ** 2)
+    im = plt.imshow(np.float64(np.abs(solver.get_wave_function().matrix) ** 2))
     cbar = plt.colorbar(
         im, format="%.4f"
     )  # FIXME: make it look good, maybe scientific notation?
@@ -169,12 +169,11 @@ import json
 
 with open(directory + "out.json", "w") as f:
     out = {
-        "TimeOfExecution": (end - start),
-        "TimeOfExecutionPerStep": (end - start) / solver.get_steps_evolved(),
-        "Energies": [[complex(z).real, complex(z).imag] for z in np.array(Energies)],
-        "Probabilities": [
-            [complex(z).real, complex(z).imag] for z in np.array(Probabilities)
-        ],
+        "time_of_execution": (end - start),
+        "time_of_execution_per_step": (end - start) / solver.get_steps_evolved(),
+        "energy_abs_stdev": [np.std(np.abs(Energies))],
+        "energies": [[complex(z).real, complex(z).imag] for z in np.array(Energies)],
+        "probabilities": np.array(np.abs(Probabilities), dtype=float).tolist(),
     }
     json.dump(out, f, indent=4)
 # %%
@@ -183,15 +182,41 @@ N = [i * params.delta_n * params.delta_t for i, e in enumerate(Energies)]
 
 fig, ax1 = plt.subplots()
 
-ax1.plot(N, np.array(Energies) / Energies[0] - 1, label=r"$E(t)$", color="tab:blue")
+ax1.plot(
+    N,
+    np.array(Energies).real / np.abs(Energies[0]) - 1,
+    label=r"$\Re \left(E(t)/|E(0)|-1\right)$",
+    color="tab:blue",
+)
+
+assert np.allclose(
+    np.imag(Energies), np.zeros_like(Energies)
+), "\nERROR: Expected values of hermitian operators are real"
+
+ax1.plot(
+    N,
+    np.array(Energies).imag / np.abs(Energies[0]),
+    label=r"$\Im E(t)/|E(0)|$",
+    linestyle="--",
+    color="tab:blue",
+)
 ax1.set_xlabel("t")
-ax1.set_ylabel("$E(t)/E(0) - 1$", color="tab:blue")
+ax1.set_ylabel("Energy $E$ (arb. u.)", color="tab:blue")
 ax1.tick_params(axis="y", labelcolor="tab:blue")
 
 ax2 = ax1.twinx()
 ax2.plot(N, np.array(Probabilities) - 1, label=r"$P(t)$", color="tab:red")
-ax2.set_ylabel("$P(t)/P(0) - 1$", color="tab:red")
+ax2.set_ylabel("Probability change $P(t)- 1$", color="tab:red")
 ax2.tick_params(axis="y", labelcolor="tab:red")
+
+ax1.set_zorder(2)
+ax2.set_zorder(1)
+ax1.patch.set_alpha(0)
+ax2.patch.set_alpha(0)
+
+leg = ax1.legend(frameon=True, framealpha=1)
+leg.set_zorder(100)
+
 plt.savefig(directory + "EPplot.png")
 
 if insideInteractive:

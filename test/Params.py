@@ -26,9 +26,9 @@ class Params:
     well_type: WellType = WellType.INFINITE_WELL
     well_height: float = 1e6
 
-    solver: SolverType = SolverType.CN
-    r0: tuple[int, int] = (64, 64)
-    k0: NDArray[np.float64] = (np.array([1, 0]).tolist(),)
+    solver: SolverType = SolverType.SSFM
+    r0: list = field(default_factory=lambda: np.array([64, 64]).tolist())
+    k0: list = field(default_factory=lambda: np.array([1, 0]).tolist())
     sigma0: list = field(default_factory=lambda: np.array([[16, 0], [0, 16]]).tolist())
     mass: float = 2e-3
     delta_n: int = 32
