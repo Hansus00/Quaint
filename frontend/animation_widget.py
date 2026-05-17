@@ -78,6 +78,9 @@ class AnimationWidget(QWidget):
 
         # Lazy memory cache mapping frame object IDs -> pre-computed (verts, rgba)
         self._wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
+        # Maximum cache limit
+        # TODO: put in settings
+        self.max_cache_size: int = 150
 
         self._setup_ui()
         self._setup_mesh_geometry()
@@ -307,6 +310,12 @@ class AnimationWidget(QWidget):
         rgba = np.empty((self.size_fine_x * self.size_fine_y, 4), dtype=np.float32)
         rgba[:, :3] = rgb.reshape(-1, 3)
         rgba[:, 3] = 1.0
+
+        # Enforce cache size limit to prevent memory leaks
+        if len(self._wave_cache) >= self.max_cache_size:
+            # Fetches the oldest key
+            oldest_key = next(iter(self._wave_cache))
+            del self._wave_cache[oldest_key]
 
         # Save to lazy cache for lookups on the next animation pass
         self._wave_cache[cache_key] = (verts, rgba)
