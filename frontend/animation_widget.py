@@ -188,15 +188,16 @@ class AnimationWidget(QWidget):
         self.verts_template[:, 1] = self.Y_fine.ravel()
 
         self.potential_verts = self.verts_template.copy()
-        self.potential_rgba = np.zeros((self.size_fine_x * self.size_fine_y, 4), dtype=np.float32)
-        
+        self.potential_rgba = np.zeros(
+            (self.size_fine_x * self.size_fine_y, 4), dtype=np.float32
+        )
+
         self.potential_mesh_data = gl.MeshData(
-            vertexes=self.potential_verts, 
-            faces=self.faces, 
-            vertexColors=self.potential_rgba
+            vertexes=self.potential_verts,
+            faces=self.faces,
+            vertexColors=self.potential_rgba,
         )
         self.potential_mesh_item.setMeshData(meshdata=self.potential_mesh_data)
-
 
     def set_potential_visible(self, visible: bool) -> None:
         """Shows or hides the 3D potential mesh."""
@@ -215,20 +216,16 @@ class AnimationWidget(QWidget):
         gray_values = base_gray - ((potential_fine / 50.0) * 0.5)
         gray_values = np.clip(gray_values, 0, 1)
 
-        # 1. Bezpośrednio nadpisujemy naszą "recyklingowaną" macierz kolorów (modyfikacja In-place)
         self.potential_rgba[:, 0] = gray_values.reshape(-1)
         self.potential_rgba[:, 1] = gray_values.reshape(-1)
         self.potential_rgba[:, 2] = gray_values.reshape(-1)
         self.potential_rgba[:, 3] = 0.4  # Alpha
 
-        # 2. Bezpośrednio nadpisujemy wierzchołki
         self.potential_verts[:, 2] = Z_potential.reshape(-1) - self.z_potential_offset
 
-        # 3. Wstrzykujemy nowe dane do ISTNIEJĄCEGO obiektu (zero alokacji nowej pamięci!)
         self.potential_mesh_data.setVertexes(self.potential_verts)
         self.potential_mesh_data.setVertexColors(self.potential_rgba)
-        
-        # 4. Informujemy OpenGL, że dane uległy zmianie i trzeba je narysować od nowa
+
         self.potential_mesh_item.meshDataChanged()
 
     def _fast_hsv_to_rgb(self, hue: np.ndarray, value: np.ndarray) -> np.ndarray:
