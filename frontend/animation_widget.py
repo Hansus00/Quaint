@@ -201,6 +201,8 @@ class AnimationWidget(QWidget):
         rgba[:, 0] = gray_values.reshape(-1)
         rgba[:, 1] = gray_values.reshape(-1)
         rgba[:, 2] = gray_values.reshape(-1)
+        # Potential alpha value
+        # TODO: move to settings
         rgba[:, 3] = 0.4
 
         verts = self.verts_template.copy()
