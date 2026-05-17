@@ -36,10 +36,17 @@ p.add_argument(
     type=str,
     required=False,
     metavar="CONFIG_FILE",
-    help="path to config file",
+    help="Path to the configuration file",
 )
 p.add_argument(
-    "--f", type=str, required=False, help="show some plots at live"
+    "--f",
+    type=str,
+    required=False,
+    default="",
+    help="Show plots live, will not save output .mp4, is faster",
+)  # required by interactive mode
+p.add_argument(
+    "-f", action="store_true", help="Same as --f"
 )  # required by interactive mode
 p.add_argument(
     "--out",
@@ -49,20 +56,44 @@ p.add_argument(
     metavar="OUTPUT_PATH",
 )
 p.add_argument(
+    "--fps",
+    type=int,
+    default=15,
+    required=False,
+    help="Set FPS rate for animation",
+    metavar="FPS",
+)
+p.add_argument(
+    "--solver",
+    choices=[e.value for e in SolverType],
+    default=SolverType.CN,
+    required=False,
+    help="Set solving algorithm (overrides --config)",
+)
+p.add_argument(
     "--params",
     action="store_true",
     required=False,
     help="Show structure and default values of simulation configuration",
 )
+p.add_argument(
+    "--do-not-animate",
+    action="store_true",
+    required=False,
+    help="Will produce no animation, as it requires ffmpeg",
+)
 args = p.parse_args()
-if args.params is not None:
+if args.params:
     print("Default params:\n", Params())
     exit(0)
-insideInteractive = args.f is not None
+
+insideInteractive = args.f != ""
+if args.do_not_animate:
+    insideInteractive = False
 
 # create directory for simulation data
 now = datetime.now()
-base_dir = Path("pic") if args.name is None else Path(args.name)
+base_dir = Path("pic") if args.out is None else Path(args.out)
 directory = base_dir / str(now)
 assert not directory.exists(), "Cannot override directory!"
 directory.mkdir(parents=True, exist_ok=False)
@@ -70,6 +101,8 @@ directory.mkdir(parents=True, exist_ok=False)
 params = Params()
 if args.config is not None:
     params.read(args.config)
+if args.solver is not None:
+    params.solver = args.solver
 params.write(str(directory / "params.json"))
 
 # set potential
@@ -168,18 +201,32 @@ def update(frame):
     return (im,)
 
 
-ani = animation.FuncAnimation(
-    fig, update, frames=range(0, params.updates_max + 3), interval=200, blit=False
-)  # type: ignore
+if args.do_not_animate:
+    for i in range(0, params.updates_max + 3):
+        update(i)
+else:
+    ani = animation.FuncAnimation(
+        fig,
+        update,
+        frames=range(0, params.updates_max + 3),
+        interval=1e3 / args.fps,
+        blit=False,
+        repeat=False,
+    )  # type: ignore
 
+    if not insideInteractive:
+        ani.save(
+            directory / f"gauss_evolution.mp4",
+            writer="ffmpeg",
+            fps=10,
+            dpi=300,
+            savefig_kwargs={"pad_inches": 0},
+        )
+    else:
+        plt.show()
 end = time.perf_counter()
-ani.save(
-    directory / f"gauss_evolution.mp4",
-    writer="ffmpeg",
-    fps=10,
-    dpi=300,
-    savefig_kwargs={"pad_inches": 0},
-)
+print("time_of_execution", float(end - start))
+
 
 # %%
 # save output
