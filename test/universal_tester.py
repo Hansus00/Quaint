@@ -61,7 +61,7 @@ params.write(directory + "params.json")
 well: Potential
 if params.well_type == WellType.INFINITE_WELL:
     well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
-elif params.well_type == Params.WellType.W_SHAPED:
+elif params.well_type == WellType.W_SHAPED:
     well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
     ws = WShaped(params.size_x // 4, params.size_y // 4, 3, params.well_height)
     ws_inside_grid = EmbeddedPotential(
@@ -74,7 +74,7 @@ elif params.well_type == Params.WellType.W_SHAPED:
     well += ws_inside_grid
 elif params.well_type == WellType.MATRYOSHKA:
     well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
-    inside_size = (32, 32)
+    inside_size = (params.size_x // 3, params.size_y // 3)
     inside_well = InfiniteWellPotential(
         inside_size[0], inside_size[1], params.well_height
     )
