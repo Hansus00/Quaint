@@ -164,7 +164,7 @@ class AnimationWidget(QWidget):
         Nx = self.size_fine_x
         Ny = self.size_fine_y
 
-        I, J = np.meshgrid(np.arange(Nx - 1), np.arange(Ny - 1), indexing="ij")
+        I, J = np.meshgrid(np.arange(Nx - 1), np.arange(Ny - 1), indexing="ij")  # noqa: E741
 
         P1 = I * Ny + J
         P2 = P1 + 1

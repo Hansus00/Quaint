@@ -8,7 +8,7 @@ import numpy as np
 from backend.Potential import InfiniteWellPotential, Potential
 from backend.Solver import SSFM, Constant, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
@@ -166,10 +166,11 @@ class MainWindow(QMainWindow):
         Receives the calculated frames from the worker thread
         """
         self.wave_frames = generated_frames
-        
+
         # Unlocking the controls after the simulation is ready
+        self.controls.time_label.setText(f"Time: {self.controls.slider.value()}")
         self.controls.setEnabled(True)
-        
+
         # Updating the simulation
         self.animation_widget.update_potential(self.initial_potential.matrix)
         self.update_simulation(self.controls.slider.value())
