@@ -14,6 +14,7 @@ from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
 from .settings import Settings
 from .setup_drawer import SetupDrawer
+from .simulation_thread import SimulationThread
 
 
 class MainWindow(QMainWindow):
@@ -146,19 +147,32 @@ class MainWindow(QMainWindow):
 
     def calculate_all_frames(self) -> None:
         """
-        Pre-calculates all simulation frames using the currently selected backend solver
-        so that subsequent rendering has zero computational lag.
+        Initiates a new thread to calculate the entire simulation sequence based on the current setup and method.
+        This is necessary to prevent UI freezing during heavy computations.
         """
-        self.wave_frames = []
         self.animation_widget.clear_cache()
         self.switch_simulation_method(self.current_method)
-        self.wave_frames.append(self.simulation.get_wave_function())
 
-        for _ in range(1, self.total_frames):
-            self.simulation.step()
-            self.wave_frames.append(self.simulation.get_wave_function())
-            # Don't freeze the application UI while the simulation runs its heavy math loop
-            QApplication.processEvents()
+        # Block the UI controls while the simulation is being calculated
+        self.controls.setEnabled(False)
+        self.controls.time_label.setText("Calculating...")
+
+        self.worker = SimulationThread(self.simulation, self.total_frames)
+        self.worker.calculation_finished.connect(self.on_calculation_finished)
+        self.worker.start()
+
+    def on_calculation_finished(self, generated_frames: list) -> None:
+        """
+        Receives the calculated frames from the worker thread
+        """
+        self.wave_frames = generated_frames
+        
+        # Unlocking the controls after the simulation is ready
+        self.controls.setEnabled(True)
+        
+        # Updating the simulation
+        self.animation_widget.update_potential(self.initial_potential.matrix)
+        self.update_simulation(self.controls.slider.value())
 
     def open_settings_window(self) -> None:
         """

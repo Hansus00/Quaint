@@ -10,6 +10,7 @@ from PyQt6.QtGui import QVector3D
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from scipy.interpolate import RectBivariateSpline
 from scipy.ndimage import zoom
+from backend.StationaryWaveFunc import StationaryWaveFunc
 
 
 class AnimationWidget(QWidget):
@@ -160,32 +161,49 @@ class AnimationWidget(QWidget):
         self.y_fine = np.linspace(0.0, self.y_limit, self.size_fine_y)
         self.X_fine, self.Y_fine = np.meshgrid(self.x_fine, self.y_fine, indexing="ij")
 
-        faces = []
-        for i in range(self.size_fine_x - 1):
-            for j in range(self.size_fine_y - 1):
-                p1 = i * self.size_fine_y + j
-                p2 = p1 + 1
-                p3 = (i + 1) * self.size_fine_y + j
-                p4 = p3 + 1
-                faces.append([p1, p2, p3])
-                faces.append([p2, p4, p3])
+        Nx = self.size_fine_x
+        Ny = self.size_fine_y
+
+        I, J = np.meshgrid(np.arange(Nx - 1), np.arange(Ny - 1), indexing="ij")
+
+        P1 = I * Ny + J
+        P2 = P1 + 1
+        P3 = (I + 1) * Ny + J
+        P4 = P3 + 1
+
+        triangles1 = np.stack((P1, P2, P3), axis=-1).reshape(-1, 3)
+        triangles2 = np.stack((P2, P4, P3), axis=-1).reshape(-1, 3)
+
+        faces = np.empty((P1.size * 2, 3), dtype=np.uint32)
+        faces[0::2] = triangles1
+        faces[1::2] = triangles2
 
         # Force uint32 so it works on Linux / Mac
         self.faces = np.array(faces, dtype=np.uint32)
 
-        # Allocate static X and Y layout template
         self.verts_template = np.zeros(
             (self.size_fine_x * self.size_fine_y, 3), dtype=np.float32
         )
         self.verts_template[:, 0] = self.X_fine.ravel()
         self.verts_template[:, 1] = self.Y_fine.ravel()
 
+        self.potential_verts = self.verts_template.copy()
+        self.potential_rgba = np.zeros((self.size_fine_x * self.size_fine_y, 4), dtype=np.float32)
+        
+        self.potential_mesh_data = gl.MeshData(
+            vertexes=self.potential_verts, 
+            faces=self.faces, 
+            vertexColors=self.potential_rgba
+        )
+        self.potential_mesh_item.setMeshData(meshdata=self.potential_mesh_data)
+
+
     def set_potential_visible(self, visible: bool) -> None:
         """Shows or hides the 3D potential mesh."""
         self.potential_mesh_item.setVisible(visible)
 
     def update_potential(self, potential_coarse: np.ndarray) -> None:
-        """Updates the 3D potential landscape and evicts outdated cache tracking."""
+        """Updates the 3D potential landscape"""
         self.clear_cache()
 
         spline = RectBivariateSpline(self.x_coarse, self.y_coarse, potential_coarse)
@@ -197,19 +215,21 @@ class AnimationWidget(QWidget):
         gray_values = base_gray - ((potential_fine / 50.0) * 0.5)
         gray_values = np.clip(gray_values, 0, 1)
 
-        rgba = np.zeros((self.size_fine_x * self.size_fine_y, 4), dtype=np.float32)
-        rgba[:, 0] = gray_values.reshape(-1)
-        rgba[:, 1] = gray_values.reshape(-1)
-        rgba[:, 2] = gray_values.reshape(-1)
-        # Potential alpha value
-        # TODO: move to settings
-        rgba[:, 3] = 0.4
+        # 1. Bezpośrednio nadpisujemy naszą "recyklingowaną" macierz kolorów (modyfikacja In-place)
+        self.potential_rgba[:, 0] = gray_values.reshape(-1)
+        self.potential_rgba[:, 1] = gray_values.reshape(-1)
+        self.potential_rgba[:, 2] = gray_values.reshape(-1)
+        self.potential_rgba[:, 3] = 0.4  # Alpha
 
-        verts = self.verts_template.copy()
-        verts[:, 2] = Z_potential.reshape(-1) - self.z_potential_offset
+        # 2. Bezpośrednio nadpisujemy wierzchołki
+        self.potential_verts[:, 2] = Z_potential.reshape(-1) - self.z_potential_offset
 
-        mesh_data = gl.MeshData(vertexes=verts, faces=self.faces, vertexColors=rgba)
-        self.potential_mesh_item.setMeshData(meshdata=mesh_data)
+        # 3. Wstrzykujemy nowe dane do ISTNIEJĄCEGO obiektu (zero alokacji nowej pamięci!)
+        self.potential_mesh_data.setVertexes(self.potential_verts)
+        self.potential_mesh_data.setVertexColors(self.potential_rgba)
+        
+        # 4. Informujemy OpenGL, że dane uległy zmianie i trzeba je narysować od nowa
+        self.potential_mesh_item.meshDataChanged()
 
     def _fast_hsv_to_rgb(self, hue: np.ndarray, value: np.ndarray) -> np.ndarray:
         """High-speed vectorized HSV converter optimized for Saturation=1.0."""
@@ -245,7 +265,7 @@ class AnimationWidget(QWidget):
         """Clears the rendered frames cache to prevent memory address collisions."""
         self._wave_cache.clear()
 
-    def update_wave(self, psi_coarse: np.ndarray[np.complex128]) -> None:
+    def update_wave(self, psi_coarse: StationaryWaveFunc) -> None:
         """Updates the 3D wave function mesh. Utilizes instant cache lookup if frame is known."""
         cache_key = id(psi_coarse)
 
