@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import time
 import argparse
+import json
 from Params import Params, WellType, SolverType
 
 # load or use default params
@@ -40,24 +41,25 @@ p.add_argument(
     help="Show structure and default values of simulation configuration",
 )
 args = p.parse_args()
-if args.params != None:
+if args.params is not None:
     print("Default params:\n", Params())
     exit(0)
-insideInteractive = args.f != None
+insideInteractive = args.f is not None
 
 # create directory for simulation data
 now = datetime.now()
-directory = ("pic/" if args.name == None else args.name + "/") + str(now) + "/"
-assert not Path(directory).exists(), "Cannot override directory!"
-Path(directory).mkdir(parents=True, exist_ok=False)
+base_dir = Path("pic") if args.name is None else Path(args.name)
+directory = base_dir / str(now)
+assert not directory.exists(), "Cannot override directory!"
+directory.mkdir(parents=True, exist_ok=False)
 
 params = Params()
-if args.config != None:
+if args.config is not None:
     params.read(args.config)
-params.write(directory + "params.json")
+params.write(str(directory / "params.json"))
 
 # set potential
-# TODO: maybe make separate Potential instances fot this?
+# TODO: maybe make separate Potential instances for this?
 well: Potential
 if params.well_type == WellType.INFINITE_WELL:
     well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
@@ -99,7 +101,7 @@ cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
 plt.xlabel("x")
 plt.ylabel("y")
-plt.savefig(directory + "gauss_evolved_n0000.png")
+plt.savefig(directory / "gauss_evolved_n0000.png")
 if insideInteractive:
     plt.show()
 plt.close()
@@ -112,7 +114,7 @@ gauss = GaussianPacket(
     params.mass,
     *well.matrix.shape,
 )  # TODO: Test Airy wave train #33
-plt.title("Gaussian packet at start")
+plt.title("Gaussian packet at the start")
 im = plt.imshow(np.float64(np.abs(gauss.matrix) ** 2))
 cbar = plt.colorbar(
     im, format="%.4f"
@@ -120,7 +122,7 @@ cbar = plt.colorbar(
 cbar.set_label(r"$|\psi|^2$")
 plt.xlabel("x")
 plt.ylabel("y")
-plt.savefig(directory + "gauss_evolved_n0001.png")
+plt.savefig(directory / "gauss_evolved_n0001.png")
 if insideInteractive:
     plt.show()
 plt.close()
@@ -156,7 +158,7 @@ for i in range(0, params.steps_max):
     plt.ylabel("y")
 
     plt.savefig(
-        directory + "gauss_evolved_n" + f"{solver.get_steps_evolved():04d}" + ".png"
+        directory / f"gauss_evolved_n{solver.get_steps_evolved():04d}.png"
     )
     if insideInteractive:
         plt.show()
@@ -165,15 +167,13 @@ end = time.perf_counter()
 
 # %%
 # save output
-import json
-
-with open(directory + "out.json", "w") as f:
+with open(directory / "out.json", "w") as f:
     out = {
         "time_of_execution": (end - start),
         "time_of_execution_per_step": (end - start) / solver.get_steps_evolved(),
         "energy__exp_val_abs_stdev": float(np.std(np.abs(Energies))),
         "energy_exp_val": [
-            [complex(z).real, complex(z).imag] for z in np.array(Energies)
+            [z.real, z.imag] for z in np.array(Energies)
         ],
         "probabilities": np.array(np.abs(Probabilities), dtype=float).tolist(),
     }
@@ -219,7 +219,7 @@ ax2.patch.set_alpha(0)
 leg = ax1.legend(frameon=True, framealpha=1)
 leg.set_zorder(100)
 
-plt.savefig(directory + "EPplot.png")
+plt.savefig(directory / "EPplot.png")
 
 if insideInteractive:
     plt.show()
