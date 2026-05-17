@@ -81,7 +81,9 @@ class CrankNicolson(_Solver):
         self.L_2D = self._create_laplace_operator(Nx, Ny)
         self.H = self._create_hamilton_operator(self.L_2D, wave_func.mass)
         self.A, self.B = self._create_cayley_matrices(Nx * Ny, self.H)
-        self._factorized_A = factorized(sp.csc_matrix(self.A))  # factorize once for the whole simulation
+        self._factorized_A = factorized(
+            sp.csc_matrix(self.A)
+        )  # factorize once for the whole simulation
 
         self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
 
