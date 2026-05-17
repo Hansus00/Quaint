@@ -19,6 +19,8 @@ class _Solver:
         self.potential = potential
         self._wave_func = wave_func
         self.delta_t = delta_t
+        self.dx = 1  # FIXME: Fine tune the grid step size
+        self.dy = 1  # FIXME: Fine tune the grid step size
 
     def step(self) -> None:
         """Evolves on step of wave function after t + Delta t"""
@@ -41,7 +43,7 @@ class _Solver:
 
     def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
         # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
-        dx, dy = 1, 1  # FIXME: which value should be a grid step?
+        dx, dy = self.dx, self.dy
         D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / dx**2  # type: ignore
         D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / dy**2  # type: ignore
 
@@ -125,7 +127,7 @@ class _BaseSSFM(_Solver):
         super().__init__(potential, wave_func, delta_t)
 
         Nx, Ny = self.potential.matrix.shape
-        dx, dy = 1, 1  # FIXME: which value should be a grid step?
+        dx, dy = self.dx, self.dy
 
         self._U_V = self._create_real_space_propagator()
         self._U_T = self._create_momentum_propagator(Nx, Ny, dx, dy, wave_func.mass)
