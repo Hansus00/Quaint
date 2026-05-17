@@ -3,6 +3,8 @@
 import sys
 from pathlib import Path
 
+from pytest import param
+
 # to call backend module from current directory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -137,7 +139,7 @@ elif params.solver == SolverType.SSFM:
 else:
     assert False, "Solver must be specified!"
 
-Energies = []
+Energies: list[complex] = []
 Probabilities = []
 start = time.perf_counter()
 for i in range(0, params.steps_max):
@@ -157,9 +159,7 @@ for i in range(0, params.steps_max):
     plt.xlabel("x")
     plt.ylabel("y")
 
-    plt.savefig(
-        directory / f"gauss_evolved_n{solver.get_steps_evolved():04d}.png"
-    )
+    plt.savefig(directory / f"gauss_evolved_n{solver.get_steps_evolved():04d}.png")
     if insideInteractive:
         plt.show()
     plt.close()
@@ -169,12 +169,10 @@ end = time.perf_counter()
 # save output
 with open(directory / "out.json", "w") as f:
     out = {
-        "time_of_execution": (end - start),
-        "time_of_execution_per_step": (end - start) / solver.get_steps_evolved(),
+        "time_of_execution": float(end - start),
+        "time_of_execution_per_step": float((end - start) / solver.get_steps_evolved()),
         "energy__exp_val_abs_stdev": float(np.std(np.abs(Energies))),
-        "energy_exp_val": [
-            [z.real, z.imag] for z in np.array(Energies)
-        ],
+        "energy_exp_val": [[z.real, z.imag] for z in np.array(Energies).tolist()],
         "probabilities": np.array(np.abs(Probabilities), dtype=float).tolist(),
     }
     json.dump(out, f, indent=4)
@@ -186,7 +184,7 @@ fig, ax1 = plt.subplots()
 
 ax1.plot(
     N,
-    np.array(Energies).real / np.abs(Energies[0]) - 1,
+    np.array(Energies).real / np.abs(Energies[0]) - 1,  # type: ignore
     label=r"$\Re \left(E(t)/|E(0)|-1\right)$",
     color="tab:blue",
 )
@@ -197,7 +195,7 @@ assert np.allclose(
 
 ax1.plot(
     N,
-    np.array(Energies).imag / np.abs(Energies[0]),
+    np.array(Energies).imag / np.abs(Energies[0]),  # type: ignore
     label=r"$\Im E(t)/|E(0)|$",
     linestyle="--",
     color="tab:blue",
