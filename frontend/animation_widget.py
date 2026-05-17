@@ -2,7 +2,7 @@
 # ### --- FILE frontend/animation_widget.py --- ###
 # ==============================================================================
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pyqtgraph.opengl as gl
@@ -54,7 +54,7 @@ class AnimationWidget(QWidget):
         z_scale: float = 15.0,
         fine_grid_scale: int = 4,
         z_potential_scale: float = 0.05,
-        brightness_multiplier: float = 20.0,
+        brightness_multiplier: float = 50.0,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -277,9 +277,8 @@ class AnimationWidget(QWidget):
         hue = (phase + np.pi) / (2 * np.pi)
 
         # Exposure multiplier for visual brightness
-        # (Boosts the faint probability tails to be visible without exceeding 1.0)
-        brightness_multiplier = 50.0
-        value = np.clip(np.sqrt(prob_fine) * brightness_multiplier, 0.0, 1.0)
+        # Boosts the faint probability tails to be visible without exceeding 1.0 and set minimum brightness 0.01
+        value = np.clip(np.sqrt(prob_fine) * self.brightness_multiplier, 0.01, 1.0)
 
         rgb = self._fast_hsv_to_rgb(hue, value)
 

@@ -5,6 +5,13 @@
 from typing import Optional
 
 import numpy as np
+from backend.Potential import (
+    EmbeddedPotential,
+    GaussianBumpPotential,
+    HarmonicPotential,
+    Potential,
+    WShaped,
+)
 from PyQt6.QtCore import QPoint, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen
 from PyQt6.QtWidgets import (
@@ -17,23 +24,27 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QRadioButton,
     QSlider,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
-
-from backend.Potential import Potential, GaussianBumpPotential, HarmonicPotential, WShaped, EmbeddedPotential
 
 
 class SetupDrawer(QDialog):
     """
     A 2D canvas dialog for drawing a potential field and setting wavepacket starting states.
-    Emits a tuple upon saving containing: (potential_matrix, r0, k0, sigma_matrix, mass)
+    Emits a tuple upon saving containing:
+    (potential_matrix, r0, k0, sigma_matrix, mass, fps, total_frames, size_x, size_y)
     """
 
     # -- Class Fields --
     simulation_changed = pyqtSignal(str)
-    setup_saved = pyqtSignal(np.ndarray, np.ndarray, np.ndarray, np.ndarray, float)
+    setup_saved = pyqtSignal(
+        np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, int, int, int, int
+    )
 
+    current_fps: int
+    current_frames: int
     grid_size_x: int
     grid_size_y: int
     x_limit: float
@@ -53,6 +64,11 @@ class SetupDrawer(QDialog):
     k0_tip_px: Optional[QPoint]
     simulation_menu: QComboBox
     preset_menu: QComboBox
+    fps_input: QSpinBox
+    frames_input: QSpinBox
+    size_x_input: QSpinBox
+    size_y_input: QSpinBox
+    update_grid_btn: QPushButton
     radio_brush: QRadioButton
     radio_eraser: QRadioButton
     radio_wave: QRadioButton
@@ -62,10 +78,14 @@ class SetupDrawer(QDialog):
     mass_input: QDoubleSpinBox
     brush_strength_label: QLabel
     brush_strength_slider: QSlider
+    brush_width_label: QLabel
+    brush_width_slider: QSlider
     save_btn: QPushButton
 
     def __init__(
         self,
+        current_fps: int = 30,
+        current_frames: int = 150,
         grid_size_x: int = 25,
         grid_size_y: int = 35,
         x_limit: float = 5.0,
@@ -79,9 +99,11 @@ class SetupDrawer(QDialog):
         parent: Optional[QWidget] = None,
     ) -> None:
         """
-        Initializes the drawing canvas.
+        Initializes the drawing canvas and internal state.
 
         Args:
+            current_fps (int): Currently active FPS configuration limit.
+            current_frames (int): Currently active frame buffer duration limit.
             grid_size_x (int): Horizontal resolution of the simulation grid.
             grid_size_y (int): Vertical resolution of the simulation grid.
             x_limit (float): Maximum physical coordinate in X.
@@ -97,10 +119,12 @@ class SetupDrawer(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Simulation Setup: Potential & Wavepacket")
 
-        self.grid_size_x: int = grid_size_x
-        self.grid_size_y: int = grid_size_y
-        self.x_limit: float = x_limit
-        self.y_limit: float = y_limit
+        self.current_fps = current_fps
+        self.current_frames = current_frames
+        self.grid_size_x = grid_size_x
+        self.grid_size_y = grid_size_y
+        self.x_limit = x_limit
+        self.y_limit = y_limit
 
         self.initial_sigma = initial_sigma
         self.initial_mass = initial_mass
@@ -108,8 +132,8 @@ class SetupDrawer(QDialog):
         self.initial_r0 = initial_r0
         self.initial_k0 = initial_k0
 
-        self.canvas_width: int = 400
-        self.canvas_height: int = int(400 * (grid_size_y / grid_size_x))
+        self.canvas_width = 400
+        self.canvas_height = int(400 * (grid_size_y / grid_size_x))
 
         self.image = QImage(
             self.canvas_width, self.canvas_height, QImage.Format.Format_ARGB32
@@ -121,13 +145,13 @@ class SetupDrawer(QDialog):
             self._restore_canvas(initial_potential)
 
         # State Variables
-        self.drawing_potential: bool = False
-        self.mode: str = "brush"  # Options: "brush", "eraser", "wavepacket"
-        self.last_point: QPoint = QPoint()
+        self.drawing_potential = False
+        self.mode = "brush"  # Options: "brush", "eraser", "wavepacket"
+        self.last_point = QPoint()
 
         # Wavepacket vector state (stored in pixel coordinates for the UI)
-        self.r0_px: Optional[QPoint] = None
-        self.k0_tip_px: Optional[QPoint] = None
+        self.r0_px = None
+        self.k0_tip_px = None
 
         self._setup_ui()
 
@@ -158,7 +182,9 @@ class SetupDrawer(QDialog):
         )
 
     def _setup_ui(self) -> None:
-        """Sets up the radio buttons, input fields, and layouts for the canvas dialog."""
+        """
+        Sets up the radio buttons, input fields, and layouts for the canvas dialog.
+        """
         layout = QVBoxLayout(self)
 
         # Simulation Method Layout
@@ -174,6 +200,40 @@ class SetupDrawer(QDialog):
         sim_layout.addStretch()
         layout.addLayout(sim_layout)
 
+        # Simulation Parameters Layout
+        sim_params_layout = QHBoxLayout()
+
+        sim_params_layout.addWidget(QLabel("FPS:"))
+        self.fps_input = QSpinBox()
+        self.fps_input.setRange(1, 120)
+        self.fps_input.setValue(self.current_fps)
+        sim_params_layout.addWidget(self.fps_input)
+
+        sim_params_layout.addWidget(QLabel("Frames:"))
+        self.frames_input = QSpinBox()
+        self.frames_input.setRange(10, 10000)
+        self.frames_input.setValue(self.current_frames)
+        sim_params_layout.addWidget(self.frames_input)
+
+        sim_params_layout.addWidget(QLabel("Grid X:"))
+        self.size_x_input = QSpinBox()
+        self.size_x_input.setRange(10, 500)
+        self.size_x_input.setValue(self.grid_size_x)
+        sim_params_layout.addWidget(self.size_x_input)
+
+        sim_params_layout.addWidget(QLabel("Grid Y:"))
+        self.size_y_input = QSpinBox()
+        self.size_y_input.setRange(10, 500)
+        self.size_y_input.setValue(self.grid_size_y)
+        sim_params_layout.addWidget(self.size_y_input)
+
+        # Dynamic Grid Resize Button
+        self.update_grid_btn = QPushButton("Update Canvas")
+        self.update_grid_btn.clicked.connect(self.update_canvas_size)
+        sim_params_layout.addWidget(self.update_grid_btn)
+
+        layout.addLayout(sim_params_layout)
+
         # Preset Potential Selection Layout
         preset_layout = QHBoxLayout()
         self.preset_menu = QComboBox()
@@ -182,7 +242,7 @@ class SetupDrawer(QDialog):
         self.preset_menu.addItem("Harmonic Oscillator")
         self.preset_menu.addItem("W-shape")
         self.preset_menu.addItem("Matryoshka")
-        
+
         self.preset_menu.textActivated.connect(self.load_preset_potential)
         preset_layout.addWidget(QLabel("Preset Potential:"))
         preset_layout.addWidget(self.preset_menu)
@@ -287,16 +347,18 @@ class SetupDrawer(QDialog):
 
         canvas_area.addLayout(slider_layout)
         canvas_area.addStretch()
-        
+
         layout.addLayout(canvas_area)
 
-        # Canvas constraints (Increased height due to new preset row)
-        self.setFixedSize(600, self.canvas_height + 200)
+        # Canvas constraints (Increased height to fit the new simulation parameters row)
+        self.setFixedSize(620, self.canvas_height + 240)
 
         # Restoring the positions of the wavepacket indicators on the canvas
         if self.initial_r0 is not None and self.initial_k0 is not None:
             rx_px = int((self.initial_r0[0] / self.grid_size_x) * self.canvas_width)
-            ry_px = int((1.0 - (self.initial_r0[1] / self.grid_size_y)) * self.canvas_height)
+            ry_px = int(
+                (1.0 - (self.initial_r0[1] / self.grid_size_y)) * self.canvas_height
+            )
             self.r0_px = QPoint(rx_px, ry_px)
 
             kx_px = int((self.initial_k0[0] / 0.1) + rx_px)
@@ -317,6 +379,43 @@ class SetupDrawer(QDialog):
         layout.addStretch()
         layout.addLayout(controls)
 
+    def update_canvas_size(self) -> None:
+        """
+        Dynamically resizes the drawing canvas based on the specified grid resolution.
+        Ensures the drawing aspect ratio immediately reflects the target physical simulation.
+        """
+        new_x = self.size_x_input.value()
+        new_y = self.size_y_input.value()
+
+        self.grid_size_x = new_x
+        self.grid_size_y = new_y
+
+        new_height = int(self.canvas_width * (new_y / new_x))
+
+        # Rescale the drawn image to match the new physical proportions
+        self.image = self.image.scaled(
+            self.canvas_width,
+            new_height,
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+
+        # Remap the wavepacket interaction positions so they stay in roughly the same visual spot
+        if self.r0_px:
+            self.r0_px.setY(int((self.r0_px.y() / self.canvas_height) * new_height))
+        if self.k0_tip_px:
+            self.k0_tip_px.setY(
+                int((self.k0_tip_px.y() / self.canvas_height) * new_height)
+            )
+
+        self.canvas_height = new_height
+
+        # Re-adjust window minimum boundaries and slider sizes dynamically
+        self.setFixedSize(620, self.canvas_height + 240)
+        self.brush_strength_slider.setMinimumHeight(self.canvas_height - 60)
+        self.brush_width_slider.setMinimumHeight(self.canvas_height - 60)
+        self.update()
+
     def load_preset_potential(self, text: str) -> None:
         """
         Loads a predefined mathematical potential from the backend onto the canvas.
@@ -334,7 +433,9 @@ class SetupDrawer(QDialog):
             V0 = 40.0
             # Symmetric covariance matrix creating a smooth circular hill obstacle
             sigma0 = np.array([[36.0, 0.0], [0.0, 36.0]], dtype=np.float64)
-            pot = GaussianBumpPotential(self.grid_size_x, self.grid_size_y, r0=r0, V0=V0, sigma0=sigma0)
+            pot = GaussianBumpPotential(
+                self.grid_size_x, self.grid_size_y, r0=r0, V0=V0, sigma0=sigma0
+            )
             potential_matrix = pot.matrix
 
         elif text == "Harmonic Oscillator":
@@ -349,17 +450,17 @@ class SetupDrawer(QDialog):
             # Custom W-shaped potential in the middle of the grid space
             w_size_x = self.grid_size_x // 2
             w_size_y = self.grid_size_y // 2
-            
+
             pot = WShaped(w_size_x, w_size_y, thickness=3, wall_value=50.0)
-            
+
             w_matrix = pot.matrix.T
-            
+
             pos_x = (self.grid_size_x - w_size_x) // 2
             pos_y = (self.grid_size_y - w_size_y) // 2
-            
+
             zero_pot = np.zeros((self.grid_size_x, self.grid_size_y))
-            
-            zero_pot[pos_x:pos_x + w_size_x, pos_y:pos_y + w_size_y] = w_matrix
+
+            zero_pot[pos_x : pos_x + w_size_x, pos_y : pos_y + w_size_y] = w_matrix
             potential_matrix = zero_pot
 
             # Setting initial wavepacket position and momentum
@@ -369,7 +470,7 @@ class SetupDrawer(QDialog):
             self.k0_tip_px = QPoint(rx_px, ry_px + 80)
             self.sig_xx_input.setValue(4.0)
             self.sig_yy_input.setValue(4.0)
-        
+
         elif text == "Matryoshka":
             # Custom embedded potential with a central well and surrounding barriers
 
@@ -384,10 +485,10 @@ class SetupDrawer(QDialog):
             width, height = gray_img.width(), gray_img.height()
             bpl = gray_img.bytesPerLine()
             buffer = gray_img.constBits().asarray(height * bpl)
-            
+
             arr = np.frombuffer(buffer, dtype=np.uint8).reshape((height, bpl)).copy()
             arr = arr[:, :width]
-            
+
             inner_matrix = ((255 - arr) / 255.0 * 50).T
 
             # Setting boundaries
@@ -395,18 +496,14 @@ class SetupDrawer(QDialog):
             inner_matrix[-1, :] = 50.0
             inner_matrix[:, 0] = 50.0
             inner_matrix[:, -1] = 50.0
-            
+
             inner_pot_obj = Potential(inner_matrix)
-            
+
             pos_x = self.grid_size_x // 4
             pos_y = self.grid_size_y // 4
-            
+
             pot = EmbeddedPotential(
-                self.grid_size_x, 
-                self.grid_size_y, 
-                pos_x, 
-                pos_y, 
-                inner_pot_obj
+                self.grid_size_x, self.grid_size_y, pos_x, pos_y, inner_pot_obj
             )
             potential_matrix = pot.matrix
 
@@ -416,7 +513,9 @@ class SetupDrawer(QDialog):
             self.update()
 
     def update_mode(self) -> None:
-        """Updates the drawing state based on radio button selection."""
+        """
+        Updates the drawing state based on the current radio button selection.
+        """
         if self.radio_brush.isChecked():
             self.mode = "brush"
         elif self.radio_eraser.isChecked():
@@ -425,11 +524,16 @@ class SetupDrawer(QDialog):
             self.mode = "wavepacket"
 
     def paintEvent(self, event) -> None:
-        """Handles the rendering of the canvas and overlay objects like the wave vector."""
+        """
+        Handles the rendering of the canvas and overlay objects like the wave vector.
+
+        Args:
+            event: The QPaintEvent triggered by the Qt framework.
+        """
         canvas_painter = QPainter(self)
 
-        # Offset Y to account for top UI controls (adjusted for new row layout)
-        offset_y = 135
+        # Offset Y adjusted for new UI row
+        offset_y = 165
         canvas_painter.translate(0, offset_y)
         canvas_painter.drawImage(0, 0, self.image)
 
@@ -441,10 +545,21 @@ class SetupDrawer(QDialog):
             canvas_painter.drawEllipse(self.r0_px, 4, 4)
 
     def mousePressEvent(self, event) -> None:
-        pos = event.position().toPoint() - QPoint(0, 135)
+        """
+        Handles initial mouse click to begin brushing, erasing, or placing a wavepacket.
+
+        Args:
+            event: The QMouseEvent containing the click position and button state.
+        """
+        pos = event.position().toPoint() - QPoint(0, 165)
 
         # Stop interactions if clicked outside the canvas bounds
-        if pos.x() < 0 or pos.x() > self.canvas_width or pos.y() < 0 or pos.y() > self.canvas_height:
+        if (
+            pos.x() < 0
+            or pos.x() > self.canvas_width
+            or pos.y() < 0
+            or pos.y() > self.canvas_height
+        ):
             return
 
         if event.button() == Qt.MouseButton.LeftButton:
@@ -457,10 +572,21 @@ class SetupDrawer(QDialog):
                 self.update()
 
     def mouseMoveEvent(self, event) -> None:
-        pos = event.position().toPoint() - QPoint(0, 135)
+        """
+        Handles drawing continuous brush/eraser strokes and dragging the momentum vector.
+
+        Args:
+            event: The QMouseEvent containing the cursor position over the canvas.
+        """
+        pos = event.position().toPoint() - QPoint(0, 165)
 
         # Stop interactions if cursor moves outside the canvas bounds
-        if pos.x() < 0 or pos.x() > self.canvas_width or pos.y() < 0 or pos.y() > self.canvas_height:
+        if (
+            pos.x() < 0
+            or pos.x() > self.canvas_width
+            or pos.y() < 0
+            or pos.y() > self.canvas_height
+        ):
             return
 
         if event.buttons() & Qt.MouseButton.LeftButton:
@@ -473,7 +599,7 @@ class SetupDrawer(QDialog):
                     color = QColor(0, 0, 0, strength)
                 else:
                     color = QColor(255, 255, 255, 255)
-                    
+
                 pen = QPen(
                     color,
                     width,
@@ -491,11 +617,19 @@ class SetupDrawer(QDialog):
                 self.update()
 
     def mouseReleaseEvent(self, event) -> None:
+        """
+        Stops the drawing loop upon releasing the mouse button.
+
+        Args:
+            event: The QMouseEvent triggering the release.
+        """
         if event.button() == Qt.MouseButton.LeftButton:
             self.drawing_potential = False
 
     def clear_canvas(self) -> None:
-        """Clears the drawn potential to a blank white canvas and resets the preset dropdown."""
+        """
+        Clears the drawn potential to a blank white canvas and resets the preset dropdown.
+        """
         self.preset_menu.setCurrentText("Custom / Clear")
         self.image.fill(Qt.GlobalColor.white)
         self.update()
@@ -505,13 +639,18 @@ class SetupDrawer(QDialog):
         Parses canvas drawing and physics inputs, emits them, and closes the dialog.
         """
         self.save_btn.setText("Loading...")
-        self.save_btn.setEnabled(False) 
+        self.save_btn.setEnabled(False)
         QApplication.processEvents()
 
+        # Capture the newly desired grid sizes from user input
+        new_size_x = self.size_x_input.value()
+        new_size_y = self.size_y_input.value()
+
         # 1. Process Potential Matrix
+        # Scale canvas directly to the newly selected grid size
         scaled_img = self.image.scaled(
-            self.grid_size_x,
-            self.grid_size_y,
+            new_size_x,
+            new_size_y,
             Qt.AspectRatioMode.IgnoreAspectRatio,
             Qt.TransformationMode.SmoothTransformation,
         )
@@ -519,7 +658,7 @@ class SetupDrawer(QDialog):
         width, height = gray_img.width(), gray_img.height()
         bpl = gray_img.bytesPerLine()
         buffer = gray_img.constBits().asarray(height * bpl)
-        
+
         arr = np.frombuffer(buffer, dtype=np.uint8).reshape((height, bpl)).copy()
         arr = arr[:, :width]
         potential = (255 - arr) / 255.0 * 50
@@ -527,13 +666,13 @@ class SetupDrawer(QDialog):
 
         # 2. Process Wavepacket Parameters
         if self.r0_px and self.k0_tip_px:
-            # Map Pixel X to a natural number [0, grid_size_x - 1]
-            rx_float = (self.r0_px.x() / self.canvas_width) * self.grid_size_x
-            rx = int(np.clip(rx_float, 0, self.grid_size_x - 1))
+            # Map Pixel X to new_size_x
+            rx_float = (self.r0_px.x() / self.canvas_width) * new_size_x
+            rx = int(np.clip(rx_float, 0, new_size_x - 1))
 
-            # Map Pixel Y to a natural number [0, grid_size_y - 1] (Inverting so 0 is at bottom)
-            ry_float = (1.0 - (self.r0_px.y() / self.canvas_height)) * self.grid_size_y
-            ry = int(np.clip(ry_float, 0, self.grid_size_y - 1))
+            # Map Pixel Y to new_size_y (Inverting so 0 is at bottom)
+            ry_float = (1.0 - (self.r0_px.y() / self.canvas_height)) * new_size_y
+            ry = int(np.clip(ry_float, 0, new_size_y - 1))
 
             r0 = np.array([rx, ry])
 
@@ -555,6 +694,11 @@ class SetupDrawer(QDialog):
 
         mass = self.mass_input.value()
 
+        fps = self.fps_input.value()
+        frames = self.frames_input.value()
+
         # Emit all parameters to the main window
-        self.setup_saved.emit(potential, r0, k0, sigma_matrix, mass)
+        self.setup_saved.emit(
+            potential, r0, k0, sigma_matrix, mass, fps, frames, new_size_x, new_size_y
+        )
         self.accept()
