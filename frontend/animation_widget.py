@@ -237,7 +237,7 @@ class AnimationWidget(QWidget):
         """Clears the rendered frames cache to prevent memory address collisions."""
         self._wave_cache.clear()
 
-    def update_wave(self, psi_coarse: Any) -> None:
+    def update_wave(self, psi_coarse: np.ndarray[np.complex128]) -> None:
         """Updates the 3D wave function mesh. Utilizes instant cache lookup if frame is known."""
         cache_key = id(psi_coarse)
 

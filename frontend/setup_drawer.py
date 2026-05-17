@@ -61,8 +61,8 @@ class SetupDrawer(QDialog):
     sig_xy_input: QDoubleSpinBox
     sig_yy_input: QDoubleSpinBox
     mass_input: QDoubleSpinBox
-    brush_label: QLabel
-    brush_slider: QSlider
+    brush_strength_label: QLabel
+    brush_strength_slider: QSlider
     save_btn: QPushButton
 
     def __init__(
@@ -253,19 +253,34 @@ class SetupDrawer(QDialog):
         canvas_area.addSpacing(self.canvas_width + 20)
 
         # Build the vertical slider layout
-        slider_layout = QVBoxLayout()
-        self.brush_label = QLabel("Brush\nStrength: 15")
-        self.brush_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        slider_layout.addWidget(self.brush_label)
+        slider_layout = QHBoxLayout()
 
-        self.brush_slider = QSlider(Qt.Orientation.Vertical)
-        self.brush_slider.setRange(1, 100)
-        self.brush_slider.setValue(15)  # Default starting alpha
-        self.brush_slider.setMinimumHeight(self.canvas_height - 60)
-        self.brush_slider.valueChanged.connect(
-            lambda v: self.brush_label.setText(f"Brush\nStrength: {v}")
+        self.brush_strength_label = QLabel("Brush\nStrength: 15")
+        self.brush_strength_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.brush_width_label = QLabel("Brush\nWidth: 15")
+        self.brush_width_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.brush_strength_slider = QSlider(Qt.Orientation.Vertical)
+        self.brush_strength_slider.setRange(1, 100)
+        self.brush_strength_slider.setValue(15)  # Default starting alpha
+        self.brush_strength_slider.setMinimumHeight(self.canvas_height - 60)
+        self.brush_strength_slider.valueChanged.connect(
+            lambda v: self.brush_strength_label.setText(f"Brush\nStrength: {v}")
         )
-        slider_layout.addWidget(self.brush_slider, alignment=Qt.AlignmentFlag.AlignHCenter)
+
+        self.brush_width_slider = QSlider(Qt.Orientation.Vertical)
+        self.brush_width_slider.setRange(10, 100)
+        self.brush_width_slider.setValue(30)  # Default starting alpha
+        self.brush_width_slider.setMinimumHeight(self.canvas_height - 60)
+        self.brush_width_slider.valueChanged.connect(
+            lambda v: self.brush_width_label.setText(f"Brush\nWidth: {v}")
+        )
+
+        slider_layout.addWidget(self.brush_strength_label)
+        slider_layout.addWidget(self.brush_strength_slider)
+        slider_layout.addWidget(self.brush_width_slider)
+        slider_layout.addWidget(self.brush_width_label)
         slider_layout.addStretch()
 
         canvas_area.addLayout(slider_layout)
@@ -384,17 +399,17 @@ class SetupDrawer(QDialog):
         if event.buttons() & Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser") and self.drawing_potential:
                 painter = QPainter(self.image)
-                
+                width = self.brush_width_slider.value()
                 # Brush adds dark semi-transparent strokes; Eraser overwrites with solid white
                 if self.mode == "brush":
-                    strength = self.brush_slider.value()
+                    strength = self.brush_strength_slider.value()
                     color = QColor(0, 0, 0, strength)
                 else:
                     color = QColor(255, 255, 255, 255)
                     
                 pen = QPen(
                     color,
-                    30,
+                    width,
                     Qt.PenStyle.SolidLine,
                     Qt.PenCapStyle.RoundCap,
                     Qt.PenJoinStyle.RoundJoin,
@@ -436,10 +451,9 @@ class SetupDrawer(QDialog):
         gray_img = scaled_img.convertToFormat(QImage.Format.Format_Grayscale8)
         width, height = gray_img.width(), gray_img.height()
         bpl = gray_img.bytesPerLine()
-        ptr = gray_img.constBits()
-        ptr.setsize(height * bpl)
-
-        arr = np.frombuffer(ptr, dtype=np.uint8).reshape((height, bpl))
+        buffer = gray_img.constBits().asarray(height * bpl)
+        
+        arr = np.frombuffer(buffer, dtype=np.uint8).reshape((height, bpl)).copy()
         arr = arr[:, :width]
         potential = (255 - arr) / 255.0 * 50
         potential = potential.T
