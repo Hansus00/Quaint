@@ -20,9 +20,9 @@ Path(directory).mkdir(parents=True, exist_ok=False)
 params = {
     "size_x": 128,
     "size_y": 128,
-    "well-type": "w-shaped",
+    "well-type": "matryoshka",
     "well_height": 1e6,
-    "r0": (32, 64),
+    "r0": (64, 64),
     "k0": np.array([1, 0]).tolist(),
     "sigma0": np.array([[16, 0], [0, 16]]).tolist(),
     "mass": 2e-3,
@@ -45,7 +45,19 @@ elif params["well-type"] == "w-shaped":
         ws,
     )
     well += ws_inside_grid
-
+elif params["well-type"] == "matryoshka":
+    inside_size = (32, 32)
+    inside_well = InfiniteWellPotential(
+        inside_size[0], inside_size[1], params["well_height"]
+    )
+    inside_well_resized = EmbeddedPotential(
+        params["size_x"],
+        params["size_y"],
+        (params["size_x"] - inside_size[0]) // 2,
+        (params["size_y"] - inside_size[1]) // 2,
+        inside_well,
+    )
+    well += inside_well_resized
 
 plt.style.use("JK_W.mplstyle")
 plt.title("Potential well")
