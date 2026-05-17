@@ -127,20 +127,19 @@ class _BaseSSFM(_Solver):
         super().__init__(potential, wave_func, delta_t)
 
         Nx, Ny = self.potential.matrix.shape
-        dx, dy = self.dx, self.dy
 
         self._U_V = self._create_real_space_propagator()
-        self._U_T = self._create_momentum_propagator(Nx, Ny, dx, dy, wave_func.mass)
+        self._U_T = self._create_momentum_propagator(Nx, Ny, wave_func.mass)
 
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         raise NotImplementedError
 
     def _create_momentum_propagator(
-        self, Nx: int, Ny: int, dx: float, dy: float, mass: float
+        self, Nx: int, Ny: int, mass: float
     ) -> NDArray[np.complex128]:
         """Creates the momentum space propagator."""
-        kx = np.fft.fftfreq(Nx, d=dx) * 2 * np.pi
-        ky = np.fft.fftfreq(Ny, d=dy) * 2 * np.pi
+        kx = np.fft.fftfreq(Nx, d=self.dx) * 2 * np.pi
+        ky = np.fft.fftfreq(Ny, d=self.dy) * 2 * np.pi
         kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
 
         T = (kx2 + ky2) / (2 * mass)
