@@ -1,3 +1,4 @@
+from typing import Callable
 import numpy as np
 from numpy.typing import NDArray
 import scipy.sparse as sp
@@ -66,7 +67,7 @@ class CrankNicolson(_Solver):
     H: sp.spmatrix
     A: sp.spmatrix | sp.sparray
     B: sp.spmatrix | sp.sparray
-    _factorized_A: sp.spmatrix | sp.sparray
+    _factorized_A: Callable
 
     _wave_state_1D: NDArray[np.complex128]
 
@@ -80,9 +81,7 @@ class CrankNicolson(_Solver):
         self.L_2D = self._create_laplace_operator(Nx, Ny)
         self.H = self._create_hamilton_operator(self.L_2D, wave_func.mass)
         self.A, self.B = self._create_cayley_matrices(Nx * Ny, self.H)
-        self._factorized_A = factorized(
-            self.A.tocsc()
-        )  # factorize once for whole simulation, idk why, but factorisation is faster than inversion
+        self._factorized_A = factorized(sp.csc_matrix(self.A))  # factorize once for the whole simulation
 
         self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
 
@@ -96,7 +95,6 @@ class CrankNicolson(_Solver):
         return A, B
 
     def step(self):
-        # Crank Nicolson
         super().step()
         # does the same as np.asarray(spsolve(self.A, self.B @ self._wave_state_1D)), but with pre-factorized matrix A
         self._wave_state_1D = np.asarray(self._factorized_A(self.B @ self._wave_state_1D))  # type: ignore
@@ -111,10 +109,10 @@ class CrankNicolson(_Solver):
         return self._wave_func
 
     def energy(self) -> np.complex128:
-        """Returns expected value of the hamiltonian."""
-        """There may be some cases where H is not hermitian"""
+        """Returns expected value of the hamiltonian.
+        There may be some cases where H is not hermitian."""
         return np.sum(
-            np.conjugate(self._wave_state_1D) * (self.H @ self._wave_state_1D)
+            np.conjugate(self._wave_state_1D) * (self.H @ self._wave_state_1D)  # type: ignore
         )
 
 
