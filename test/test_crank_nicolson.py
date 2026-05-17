@@ -5,7 +5,7 @@ from pathlib import Path
 # to call backend module from current directory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from backend.Potential import InfiniteWellPotential
+from backend.Potential import InfiniteWellPotential, WShaped
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, Constant
 import numpy as np
@@ -20,6 +20,7 @@ Path(directory).mkdir(parents=True, exist_ok=False)
 params = {
     "size_x": 128,
     "size_y": 128,
+    "well-type": "infiniteWell",
     "well_height": 1e6,
     "r0": (64, 64),
     "k0": np.array([1, 0]).tolist(),

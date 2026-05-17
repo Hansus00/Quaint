@@ -99,7 +99,9 @@ class PotentialInsideGrid(Potential):
         self.matrix[pos_x : pos_x + inner_x, pos_y : pos_y + inner_y] = potential.matrix
 
 
-class SharpWShapedPotential(Potential):
+class WShaped(Potential):
+    "W-shaped potential with given thickness and size, grid of that shape has wall_value"
+
     def __init__(self, size_x: int, size_y: int, thickness=3, wall_value: float = 100):
         self.matrix = np.array([[0 for _ in range(size_x)] for _ in range(size_y)])
 
