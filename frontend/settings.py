@@ -22,14 +22,15 @@ class Settings(QDialog):
     """
 
     # --- Class Fields ---
-    # Emits: (z_scale, z_offset, fine_scale, z_pot_scale, brightness)
-    settings_saved = pyqtSignal(float, float, int, float, float)
+    # Emits: (z_scale, z_offset, fine_scale, z_pot_scale, brightness, potential_alpha)
+    settings_saved = pyqtSignal(float, float, int, float, float, float)
 
     fine_scale_spin: QSpinBox
     z_scale_spin: QDoubleSpinBox
     z_pot_scale_spin: QDoubleSpinBox
     z_offset_spin: QDoubleSpinBox
     brightness_spin: QDoubleSpinBox
+    alpha_spin: QDoubleSpinBox
 
     def __init__(
         self,
@@ -38,6 +39,7 @@ class Settings(QDialog):
         current_fine_scale: int,
         current_z_pot_scale: float,
         current_brightness: float,
+        current_potential_alpha: float,
         parent: Optional[QWidget] = None,
     ) -> None:
         """
@@ -49,6 +51,7 @@ class Settings(QDialog):
             current_fine_scale (int): Current interpolation multiplier for visual smoothness.
             current_z_pot_scale (float): Current vertical amplitude multiplier for the potential mesh.
             current_brightness (float): Current exposure multiplier for the wave packet colors.
+            current_potential_alpha (float): Current transparency level for the potential mesh (0.0 to 1.0).
             parent (Optional[QWidget]): Parent widget to center the dialog on.
         """
         super().__init__(parent)
@@ -92,6 +95,13 @@ class Settings(QDialog):
         self.brightness_spin.setSingleStep(5.0)
         layout.addRow("Brightness Multiplier:", self.brightness_spin)
 
+        # Transparency level for the drawn potential fields
+        self.alpha_spin = QDoubleSpinBox()
+        self.alpha_spin.setRange(0.0, 1.0)
+        self.alpha_spin.setValue(current_potential_alpha)
+        self.alpha_spin.setSingleStep(0.05)
+        layout.addRow("Potential Alpha (Transparency):", self.alpha_spin)
+
         # Standard Ok / Cancel buttons
         btn_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -111,5 +121,6 @@ class Settings(QDialog):
             self.fine_scale_spin.value(),
             self.z_pot_scale_spin.value(),
             self.brightness_spin.value(),
+            self.alpha_spin.value(),
         )
         self.accept()

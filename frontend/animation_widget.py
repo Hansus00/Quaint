@@ -30,6 +30,7 @@ class AnimationWidget(QWidget):
     z_scale: float
     z_potential_scale: float
     brightness_multiplier: float
+    potential_alpha: float
     x_coarse: np.ndarray
     y_coarse: np.ndarray
     _wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]]
@@ -56,6 +57,7 @@ class AnimationWidget(QWidget):
         fine_grid_scale: int = 4,
         z_potential_scale: float = 0.05,
         brightness_multiplier: float = 50.0,
+        potential_alpha: float = 0.4,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -72,14 +74,13 @@ class AnimationWidget(QWidget):
         self.z_scale: float = z_scale
         self.z_potential_scale: float = z_potential_scale
         self.brightness_multiplier: float = brightness_multiplier
+        self.potential_alpha: float = potential_alpha
 
         self.x_coarse: np.ndarray = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse: np.ndarray = np.linspace(0.0, self.y_limit, self.size_coarse_y)
 
         # Lazy memory cache mapping frame object IDs -> pre-computed (verts, rgba)
         self._wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
-        # Maximum cache limit
-        # TODO: put in settings
         self.max_cache_size: int = 150
 
         self._setup_ui()
@@ -95,6 +96,7 @@ class AnimationWidget(QWidget):
         fine_grid_scale: int,
         z_potential_scale: float,
         brightness_multiplier: float,
+        potential_alpha: float,
     ) -> None:
         """Dynamically reconfigures the widget's layout bounds and clears state."""
         self.size_coarse_x = size_x
@@ -108,6 +110,7 @@ class AnimationWidget(QWidget):
         self.z_scale = z_scale
         self.z_potential_scale = z_potential_scale
         self.brightness_multiplier = brightness_multiplier
+        self.potential_alpha = potential_alpha
 
         self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
@@ -222,10 +225,10 @@ class AnimationWidget(QWidget):
         self.potential_rgba[:, 0] = gray_values.reshape(-1)
         self.potential_rgba[:, 1] = gray_values.reshape(-1)
         self.potential_rgba[:, 2] = gray_values.reshape(-1)
-        self.potential_rgba[:, 3] = 0.4  # Alpha
+        # Use dynamic alpha value from the user settings
+        self.potential_rgba[:, 3] = self.potential_alpha
 
         self.potential_verts[:, 2] = Z_potential.reshape(-1) - self.z_potential_offset
-
 
         mesh_data = gl.MeshData(
             vertexes=self.potential_verts,
@@ -272,14 +275,12 @@ class AnimationWidget(QWidget):
         """Updates the 3D wave function mesh. Utilizes instant cache lookup if frame is known."""
         cache_key = id(psi_coarse)
 
-        # Instant execution if this frame instance was drawn before
         if cache_key in self._wave_cache:
             verts, rgba = self._wave_cache[cache_key]
             mesh_data = gl.MeshData(vertexes=verts, faces=self.faces, vertexColors=rgba)
             self.wave_mesh_item.setMeshData(meshdata=mesh_data)
             return
 
-        # Cache miss: Run calculations ONCE for this frame instance
         wave_matrix = psi_coarse.matrix
         zoom_factor_x = self.size_fine_x / wave_matrix.shape[0]
         zoom_factor_y = self.size_fine_y / wave_matrix.shape[1]
@@ -301,8 +302,6 @@ class AnimationWidget(QWidget):
         phase = np.angle(psi_real_linear + 1j * psi_imag_linear)
         hue = (phase + np.pi) / (2 * np.pi)
 
-        # Exposure multiplier for visual brightness
-        # Boosts the faint probability tails to be visible without exceeding 1.0 and set minimum brightness 0.01
         value = np.clip(np.sqrt(prob_fine) * self.brightness_multiplier, 0.01, 1.0)
 
         rgb = self._fast_hsv_to_rgb(hue, value)
@@ -314,13 +313,10 @@ class AnimationWidget(QWidget):
         rgba[:, :3] = rgb.reshape(-1, 3)
         rgba[:, 3] = 1.0
 
-        # Enforce cache size limit to prevent memory leaks
         if len(self._wave_cache) >= self.max_cache_size:
-            # Fetches the oldest key
             oldest_key = next(iter(self._wave_cache))
             del self._wave_cache[oldest_key]
 
-        # Save to lazy cache for lookups on the next animation pass
         self._wave_cache[cache_key] = (verts, rgba)
 
         mesh_data = gl.MeshData(vertexes=verts, faces=self.faces, vertexColors=rgba)

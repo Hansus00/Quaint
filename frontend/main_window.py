@@ -31,6 +31,7 @@ class MainWindow(QMainWindow):
     fine_grid_scale: int
     z_potential_scale: float
     brightness_multiplier: float
+    potential_alpha: float
     total_frames: int
     fps: int
     aspect_ratio: float
@@ -73,6 +74,7 @@ class MainWindow(QMainWindow):
         self.fine_grid_scale = 4
         self.z_potential_scale = 0.07
         self.brightness_multiplier = 25.0
+        self.potential_alpha = 0.4  # Default opacity level
 
         self.total_frames = 150
         self.fps = 30
@@ -133,6 +135,7 @@ class MainWindow(QMainWindow):
             self.fine_grid_scale,
             self.z_potential_scale,
             self.brightness_multiplier,
+            self.potential_alpha,
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
@@ -186,6 +189,7 @@ class MainWindow(QMainWindow):
             self.fine_grid_scale,
             self.z_potential_scale,
             self.brightness_multiplier,
+            self.potential_alpha,
             self,
         )
         settings_dialog.settings_saved.connect(self.apply_settings)
@@ -198,6 +202,7 @@ class MainWindow(QMainWindow):
         fine_grid_scale: int,
         z_pot_scale: float,
         brightness: float,
+        potential_alpha: float,
     ) -> None:
         """
         Applies visual settings instantly without recalculating the physics backend.
@@ -208,12 +213,14 @@ class MainWindow(QMainWindow):
             fine_grid_scale (int): Number of sub-pixels per physical grid point.
             z_pot_scale (float): Upward multiplier for the drawn potential structure.
             brightness (float): Scalar applied prior to value clip to expose wave tails.
+            potential_alpha (float): Transparency multiplier for the potential 3D mesh.
         """
         self.z_scale = z_scale
         self.z_potential_offset = z_offset
         self.fine_grid_scale = fine_grid_scale
         self.z_potential_scale = z_pot_scale
         self.brightness_multiplier = brightness
+        self.potential_alpha = potential_alpha
 
         self.animation_widget.update_config(
             self.size_coarse_x,
@@ -224,6 +231,7 @@ class MainWindow(QMainWindow):
             self.fine_grid_scale,
             self.z_potential_scale,
             self.brightness_multiplier,
+            self.potential_alpha,
         )
 
         self.animation_widget.update_potential(self.initial_potential.matrix)
@@ -270,17 +278,6 @@ class MainWindow(QMainWindow):
         """
         Applies physics configuration, rebuilds the internal arrays if resolution changes,
         and triggers a complete simulation recalculation.
-
-        Args:
-            potential_array (np.ndarray): The 2D numerical mapping of potential energy barriers.
-            r0 (np.ndarray): Physical X/Y coordinate starting vector.
-            k0 (np.ndarray): Physical X/Y momentum vector defining wave trajectory.
-            sigma_matrix (np.ndarray): Covariance matrix defining quantum spatial spread.
-            mass (float): Mass of the particle.
-            fps (int): Playback speed.
-            total_frames (int): Maximum limit of simulation cycles.
-            size_x (int): Horizontal computational points.
-            size_y (int): Vertical computational points.
         """
         self.fps = fps
         self.total_frames = total_frames
@@ -328,18 +325,14 @@ class MainWindow(QMainWindow):
             self.fine_grid_scale,
             self.z_potential_scale,
             self.brightness_multiplier,
+            self.potential_alpha,
         )
 
         self.calculate_all_frames()
-        self.animation_widget.update_potential(self.initial_potential.matrix)
-        self.update_simulation(self.controls.slider.value())
 
     def update_simulation(self, frame_idx: int) -> None:
         """
         Pushes a specific frame from the calculated buffer to the rendering widget.
-
-        Args:
-            frame_idx (int): The index in `self.wave_frames` to map to the 3D widget.
         """
         if not self.wave_frames or frame_idx >= len(self.wave_frames):
             return
@@ -350,9 +343,6 @@ class MainWindow(QMainWindow):
     def switch_simulation_method(self, method_name: str) -> None:
         """
         Switches the backend solver instance used for calculating the wave evolution.
-
-        Args:
-            method_name (str): Dropdown key corresponding to physics solvers (e.g. "Crank-Nicolson").
         """
         self.current_method = method_name
         delta_t: float = 1 / self.fps
