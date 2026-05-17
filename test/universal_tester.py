@@ -17,7 +17,9 @@ import numpy as np
 import json
 import matplotlib.pyplot as plt
 from datetime import datetime
+import argparse
 
+# load or use default params
 params = {
     "size_x": 128,
     "size_y": 128,
@@ -30,12 +32,25 @@ params = {
     "mass": 2e-3,
     "delta_n": 32,
     "delta_t": 1e-3,
-    "steps_max": 128,
+    "steps_max": 4,
 }
 
-now = datetime.now()
+p = argparse.ArgumentParser()
+p.add_argument("--config", type=str, required=False)
+p.add_argument("--f", type=str, required=False)
+p.add_argument("--name", type=str, required=False)
+args = p.parse_args()
+insideInteractive = args.f != None
+
+# create directory for simulation data
+now = datetime.now() if args.name == None else args.name
 directory = "pic/" + str(now) + "/"
+assert not Path(directory).exists(), "Cannot override directory!"
 Path(directory).mkdir(parents=True, exist_ok=False)
+
+if args.config != None:
+    with open(args.config, "r") as f:
+        params = json.load(f)
 with open(directory + "params.json", "w") as f:
     json.dump(params, f, indent=4)
 
@@ -88,7 +103,9 @@ cbar.set_label(r"$V(x,y)$")
 plt.xlabel("x")
 plt.ylabel("y")
 plt.savefig(directory + "gauss_evolved_n0000.png")
-plt.show()
+if insideInteractive:
+    plt.show()
+plt.close()
 
 # set and draw psi(0)
 gauss = GaussianPacket(
@@ -98,11 +115,7 @@ gauss = GaussianPacket(
     params["mass"],
     *well.matrix.shape,
 )  # TODO: Test Airy wave train #33
-plt.title(
-    "Gaussian packet at start\t"
-    + r"$\sum_i\,|\psi_i|^2=$"
-    + "%.4f" % (gauss.total_probability())
-)
+plt.title("Gaussian packet at start")
 im = plt.imshow(np.abs(gauss.matrix) ** 2)
 cbar = plt.colorbar(
     im, format="%.4f"
@@ -111,7 +124,9 @@ cbar.set_label(r"$|\psi|^2$")
 plt.xlabel("x")
 plt.ylabel("y")
 plt.savefig(directory + "gauss_evolved_n0001.png")
-plt.show()
+if insideInteractive:
+    plt.show()
+plt.close()
 
 # %%
 delta_n = params["delta_n"]
@@ -131,13 +146,7 @@ for i in range(0, params["steps_max"]):
         Energies.append(solver.energy())
     Probabilities.append(solver.get_wave_function().total_probability())
 
-    plt.title(
-        "Evolved gaussian packet n="
-        + str(solver.get_steps_evolved())
-        + ",\t"
-        + r"$\sum_i\,|\psi_i|^2=$"
-        + "%.4f" % (solver.get_wave_function().total_probability())
-    )
+    plt.title("Evolved gaussian packet n=" + str(solver.get_steps_evolved()))
     im = plt.imshow(np.abs(solver.get_wave_function().matrix) ** 2)
     cbar = plt.colorbar(
         im, format="%.4f"
@@ -149,10 +158,13 @@ for i in range(0, params["steps_max"]):
     plt.savefig(
         directory + "gauss_evolved_n" + f"{solver.get_steps_evolved():04d}" + ".png"
     )
-    plt.show()
+    if insideInteractive:
+        plt.show()
+    plt.close()
 
 
 # %%
+# save output
 with open(directory + "Energies.out.json", "w") as f:
     out = np.array(Energies)
     json.dump([[complex(z).real, complex(z).imag] for z in out], f, indent=4)
@@ -165,18 +177,20 @@ N = [i * delta_n * params["delta_t"] for i, e in enumerate(Energies)]
 fig, ax1 = plt.subplots()
 
 # oś Y: energie
-ax1.plot(N, Energies / Energies[0] - 1, label=r"$E(t)$", color="tab:blue")
+ax1.plot(N, np.array(Energies) / Energies[0] - 1, label=r"$E(t)$", color="tab:blue")
 ax1.set_xlabel("t")
 ax1.set_ylabel("$E(t)/E(0) - 1$", color="tab:blue")
 ax1.tick_params(axis="y", labelcolor="tab:blue")
 
 # druga oś Y: prawdopodobieństwo
 ax2 = ax1.twinx()
-ax2.plot(N, Probabilities - 1, label=r"$P(t)$", color="tab:red")
+ax2.plot(N, np.array(Probabilities) - 1, label=r"$P(t)$", color="tab:red")
 ax2.set_ylabel("$P(t)/P(0) - 1$", color="tab:red")
 ax2.tick_params(axis="y", labelcolor="tab:red")
+plt.savefig(directory + "EPplot.png")
 
-
-plt.show()
+if insideInteractive:
+    plt.show()
+plt.close()
 
 # %%

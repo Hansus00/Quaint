@@ -1,7 +1,7 @@
 {
     "size_x": 128,
     "size_y": 128,
-    "well-type": "w-shaped",
+    "well-type": "infiniteWell",
     "well_height": 1000000.0,
     "solver": "cn",
     "r0": [
@@ -9,7 +9,7 @@
         64
     ],
     "k0": [
-        1,
+        0,
         0
     ],
     "sigma0": [
@@ -25,5 +25,5 @@
     "mass": 0.002,
     "delta_n": 32,
     "delta_t": 0.001,
-    "steps_max": 128
+    "steps_max": 16
 }
