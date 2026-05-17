@@ -3,32 +3,26 @@ import numpy as np
 
 
 class Potential:
-    matrix: NDArray[np.float128]
+    matrix: NDArray[np.float64]
 
-    def __init__(self, matrix: NDArray[np.float128]):
+    def __init__(self, matrix: NDArray[np.float64]):
         self.matrix = matrix
 
     def __add__(self, other: "Potential") -> "Potential":
         return Potential(self.matrix + other.matrix)
 
     def __str__(self) -> str:
-        ret = ""
-        for k in self.matrix:
-            ret += str(k) + "\n"
-        return ret
+        return str(self.matrix)
 
 
 class InfiniteWellPotential(Potential):
     def __init__(self, size_x: int, size_y: int, wall_value: float = 100):
-        matrix = np.zeros((size_x, size_y), dtype=np.float128)
+        matrix = np.zeros((size_x, size_y), dtype=np.float64)
 
-        for x in range(0, size_x):
-            matrix[x, 0] = wall_value
-            matrix[x, size_y - 1] = wall_value
-
-        for y in range(0, size_y):
-            matrix[0, y] = wall_value
-            matrix[size_x - 1, y] = wall_value
+        matrix[:, 0] = wall_value
+        matrix[:, -1] = wall_value
+        matrix[0, :] = wall_value
+        matrix[-1, :] = wall_value
 
         super().__init__(matrix)
 
@@ -95,15 +89,16 @@ class EmbeddedPotential(Potential):
             size_y >= pos_y + inner_y
         ), f"Potential exceeds Y boundary: {pos_y + inner_y} > {size_y}"
 
-        self.matrix = np.zeros((size_x, size_y), dtype=potential.matrix.dtype)
-        self.matrix[pos_x : pos_x + inner_x, pos_y : pos_y + inner_y] = potential.matrix
+        matrix = np.zeros((size_x, size_y), dtype=potential.matrix.dtype)
+        matrix[pos_x : pos_x + inner_x, pos_y : pos_y + inner_y] = potential.matrix
+        super().__init__(matrix)
 
 
 class WShaped(Potential):
     "W-shaped potential with given thickness and size, grid of that shape has wall_value"
 
     def __init__(self, size_x: int, size_y: int, thickness=3, wall_value: float = 100):
-        self.matrix = np.array([[0 for _ in range(size_x)] for _ in range(size_y)])
+        matrix = np.zeros((size_x, size_y), dtype=np.float64)
 
         center_x = size_x // 2
 
@@ -130,4 +125,6 @@ class WShaped(Potential):
                     nx = x + dx
                     # safety
                     if 0 <= nx < size_x:
-                        self.matrix[y][nx] = wall_value
+                        matrix[nx, y] = wall_value
+
+        super().__init__(matrix)
