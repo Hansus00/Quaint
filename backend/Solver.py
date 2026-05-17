@@ -110,8 +110,9 @@ class CrankNicolson(_Solver):
 
         return self._wave_func
 
-    def energy(self) -> float:
+    def energy(self) -> np.complex128:
         """Returns expected value of the hamiltonian."""
+        """There may be some cases where H is not hermitian"""
         return np.sum(
             np.conjugate(self._wave_state_1D) * (self.H @ self._wave_state_1D)
         )
