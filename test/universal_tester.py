@@ -6,6 +6,12 @@ from pathlib import Path
 # to call backend module from current directory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message="Unable to import Axes3D.*",
+)
 from backend.Potential import (
     Potential,
     InfiniteWellPotential,
@@ -29,15 +35,22 @@ p.add_argument(
     "--config",
     type=str,
     required=False,
+    metavar="CONFIG_FILE",
     help="path to config file",
 )
-p.add_argument("--f", type=str, required=False, help="show all plots at live")
 p.add_argument(
-    "--name", type=str, required=False, help="output directory for simulation"
+    "--f", type=str, required=False, help="show some plots at live"
+)  # required by interactive mode
+p.add_argument(
+    "--out",
+    type=str,
+    required=False,
+    help="Set output directory for simulation",
+    metavar="OUTPUT_PATH",
 )
 p.add_argument(
     "--params",
-    type=bool,
+    action="store_true",
     required=False,
     help="Show structure and default values of simulation configuration",
 )
