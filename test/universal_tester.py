@@ -19,7 +19,7 @@ from backend.Potential import (
     EmbeddedPotential,
 )
 from backend.StationaryWaveFunc import GaussianPacket
-from backend.Solver import CrankNicolson, _Solver, SSFM
+from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -178,6 +178,8 @@ if params.solver == SolverType.CN:
     solver = CrankNicolson(well, gauss, params.delta_t)
 elif params.solver == SolverType.SSFM:
     solver = SSFM(well, gauss, params.delta_t)
+elif params.solver == SolverType.SYM_SSFM:
+    solver = SSFMSymmetric(well, gauss, params.delta_t)
 else:
     assert False, "Solver must be specified!"
 
