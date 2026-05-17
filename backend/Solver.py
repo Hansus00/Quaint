@@ -163,7 +163,7 @@ class SSFM(_BaseSSFM):
         self._wave_func = StationaryWaveFunc(psi, self._wave_func.mass)
 
 
-class SSFMSymetric(_BaseSSFM):
+class SSFMSymmetric(_BaseSSFM):
     """Symmetric Split-Step Fourier Method. Accurate to O(delta_t**3)."""
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         """Creates the half-step real space propagator."""
