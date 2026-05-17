@@ -1,4 +1,6 @@
 # %%
+"""Primitively test shape of potentials"""
+
 import sys
 from pathlib import Path
 

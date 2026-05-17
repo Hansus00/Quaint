@@ -1,0 +1,29 @@
+{
+    "size_x": 128,
+    "size_y": 128,
+    "well_type": "infiniteWell",
+    "well_height": 1000000.0,
+    "solver": "ssfm",
+    "r0": [
+        64,
+        64
+    ],
+    "k0": [
+        0,
+        0
+    ],
+    "sigma0": [
+        [
+            16,
+            0
+        ],
+        [
+            0,
+            16
+        ]
+    ],
+    "mass": 0.001,
+    "delta_n": 32,
+    "delta_t": 0.001,
+    "steps_max": 128
+}
