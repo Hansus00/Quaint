@@ -60,8 +60,8 @@ class _Solver:
 
 
 class CrankNicolson(_Solver):
-    L_2D: sp.spmatrix  # TODO: to be removed
-    H: sp.spmatrix  # TODO: to be removed
+    L_2D: sp.spmatrix
+    H: sp.spmatrix
     A: sp.spmatrix | sp.sparray
     B: sp.spmatrix | sp.sparray
 
@@ -150,7 +150,7 @@ class SSFM(_BaseSSFM):
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         """Creates the full-step real space propagator."""
         return np.exp(-1j * self.potential.matrix * self.delta_t)
-    
+
     def step(self):
         super().step()
 
@@ -159,7 +159,7 @@ class SSFM(_BaseSSFM):
         psi_k = np.fft.fft2(psi)
         psi_k *= self._U_T
         psi = np.fft.ifft2(psi_k)
-        
+
         self._wave_func = StationaryWaveFunc(psi, self._wave_func.mass)
 
 
@@ -168,7 +168,7 @@ class SSFMSymetric(_BaseSSFM):
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         """Creates the half-step real space propagator."""
         return np.exp(-1j * self.potential.matrix * self.delta_t / 2)
-    
+
     def step(self):
         super().step()
 
@@ -177,8 +177,8 @@ class SSFMSymetric(_BaseSSFM):
         psi_k = np.fft.fft2(psi)
         psi_k *= self._U_T
         psi = np.fft.ifft2(psi_k)
-        
+
         psi *= self._U_V
-        
+
         self._wave_func = StationaryWaveFunc(psi, self._wave_func.mass)
 
