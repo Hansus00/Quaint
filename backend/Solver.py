@@ -119,13 +119,7 @@ class CrankNicolson(_Solver):
 
 
 class Constant(_Solver):
-    def __init__(
-        self, potential: Potential, wave_func: StationaryWaveFunc, delta_t: float = 1e-3
-    ):
-        super().__init__(potential, wave_func, delta_t)
-
-    def step(self):
-        super().step()
+    pass
 
 
 class _BaseSSFM(_Solver):
