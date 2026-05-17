@@ -351,6 +351,8 @@ class MainWindow(QMainWindow):
                 self.initial_potential, self.initial_wavefunc, delta_t
             )
         elif method_name == "SSFM":
-            self.simulation = SSFM()
+            self.simulation = SSFM(
+                self.initial_potential, self.initial_wavefunc, delta_t
+            )
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
