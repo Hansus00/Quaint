@@ -105,6 +105,12 @@ class CrankNicolson(_Solver):
 
         return self._wave_func
 
+    def energy(self) -> float:
+        """Returns expected value of the hamiltonian."""
+        return np.sum(
+            np.conjugate(self._wave_state_1D) * (self.H @ self._wave_state_1D)
+        )
+
 
 class Constant(_Solver):
     def __init__(
