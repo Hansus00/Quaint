@@ -1,7 +1,7 @@
 {
     "size_x": 128,
     "size_y": 128,
-    "well-type": "w-shaped",
+    "well_type": "w-shaped",
     "well_height": 1000000.0,
     "solver": "ssfm",
     "r0": [

@@ -1,7 +1,7 @@
 {
     "size_x": 128,
     "size_y": 128,
-    "well_type": "matryoshka",
+    "well_type": "infiniteWell",
     "well_height": 1000000.0,
     "solver": "ssfm",
     "r0": [
@@ -10,7 +10,7 @@
     ],
     "k0": [
         1,
-        0
+        1
     ],
     "sigma0": [
         [

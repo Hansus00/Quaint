@@ -15,28 +15,13 @@ from backend.Potential import (
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, _Solver, SSFM
 import numpy as np
-import json
 import matplotlib.pyplot as plt
 from datetime import datetime
 import time
 import argparse
+from Params import Params, WellType, SolverType
 
 # load or use default params
-params = {
-    "size_x": 128,
-    "size_y": 128,
-    "well-type": "w-shaped",
-    "well_height": 1e6,
-    "solver": "cn",
-    "r0": (64, 64),
-    "k0": np.array([1, 0]).tolist(),
-    "sigma0": np.array([[16, 0], [0, 16]]).tolist(),
-    "mass": 2e-3,
-    "delta_n": 32,
-    "delta_t": 1e-3,
-    "steps_max": 4,
-}
-
 p = argparse.ArgumentParser(description="Testing program for Quaint by Jaclav")
 p.add_argument(
     "--config",
@@ -56,7 +41,8 @@ p.add_argument(
 )
 args = p.parse_args()
 if args.params != None:
-    print("Default params:", params)
+    print("Default params:\n", Params())
+    exit(0)
 insideInteractive = args.f != None
 
 # create directory for simulation data
@@ -65,49 +51,43 @@ directory = ("pic/" if args.name == None else args.name + "/") + str(now) + "/"
 assert not Path(directory).exists(), "Cannot override directory!"
 Path(directory).mkdir(parents=True, exist_ok=False)
 
+params = Params()
 if args.config != None:
-    with open(args.config, "r") as f:
-        params = json.load(f)
-with open(directory + "params.json", "w") as f:
-    json.dump(params, f, indent=4)
+    params.read(args.config)
+params.write(directory + "params.json")
 
 # set potential
+# TODO: maybe make separate Potential instances fot this?
 well: Potential
-if params["well-type"] == "infiniteWell":  # TODO: use enum instead of string
-    well = InfiniteWellPotential(
-        params["size_x"], params["size_y"], params["well_height"]
-    )
-elif params["well-type"] == "w-shaped":
-    well = InfiniteWellPotential(
-        params["size_x"], params["size_y"], params["well_height"]
-    )
-    ws = WShaped(params["size_x"] // 4, params["size_y"] // 4, 3, params["well_height"])
+if params.well_type == WellType.INFINITE_WELL:
+    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
+elif params.well_type == Params.WellType.W_SHAPED:
+    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
+    ws = WShaped(params.size_x // 4, params.size_y // 4, 3, params.well_height)
     ws_inside_grid = EmbeddedPotential(
-        params["size_x"],
-        params["size_y"],
-        (params["size_x"] - params["size_x"] // 4) // 2,
-        (params["size_y"] - params["size_y"] // 4) // 2,
+        params.size_x,
+        params.size_y,
+        (params.size_x - params.size_x // 4) // 2,
+        (params.size_y - params.size_y // 4) // 2,
         ws,
     )
     well += ws_inside_grid
-elif params["well-type"] == "matryoshka":
-    well = InfiniteWellPotential(
-        params["size_x"], params["size_y"], params["well_height"]
-    )
+elif params.well_type == WellType.MATRYOSHKA:
+    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
     inside_size = (32, 32)
     inside_well = InfiniteWellPotential(
-        inside_size[0], inside_size[1], params["well_height"]
+        inside_size[0], inside_size[1], params.well_height
     )
     inside_well_resized = EmbeddedPotential(
-        params["size_x"],
-        params["size_y"],
-        (params["size_x"] - inside_size[0]) // 2,
-        (params["size_y"] - inside_size[1]) // 2,
+        params.size_x,
+        params.size_y,
+        (params.size_x - inside_size[0]) // 2,
+        (params.size_y - inside_size[1]) // 2,
         inside_well,
     )
     well += inside_well_resized
-elif params["well-type"] == "none":
-    well = InfiniteWellPotential(params["size_x"], params["size_y"], 0)
+elif params.well_type == WellType.NONE:
+    well = InfiniteWellPotential(params.size_x, params.size_y, 0)
 else:
     assert False, "Potential must be specified!"
 
@@ -126,10 +106,10 @@ plt.close()
 
 # set and draw psi(0)
 gauss = GaussianPacket(
-    params["r0"],
-    params["k0"],
-    params["sigma0"],
-    params["mass"],
+    params.r0,
+    params.k0,
+    params.sigma0,
+    params.mass,
     *well.matrix.shape,
 )  # TODO: Test Airy wave train #33
 plt.title("Gaussian packet at start")
@@ -147,21 +127,20 @@ plt.close()
 
 # %%
 # run test
-delta_n = params["delta_n"]
 solver: _Solver
-if params["solver"] == "cn":
-    solver = CrankNicolson(well, gauss, params["delta_t"])
-elif params["solver"] == "ssfm":
-    solver = SSFM(well, gauss, params["delta_t"])
+if params.solver == SolverType.CN:
+    solver = CrankNicolson(well, gauss, params.delta_t)
+elif params.solver == SolverType.SSFM:
+    solver = SSFM(well, gauss, params.delta_t)
 else:
     assert False, "Solver must be specified!"
 
 Energies = []
 Probabilities = []
 start = time.perf_counter()
-for i in range(0, params["steps_max"]):
-    solver.update(delta_n)
-    if params["solver"] == "cn":  # TODO: add .energy() to ssfm
+for i in range(0, params.steps_max):
+    solver.update(params.delta_n)
+    if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
         Energies.append(solver.energy())
     else:
         Energies.append(0)
@@ -186,6 +165,8 @@ end = time.perf_counter()
 
 # %%
 # save output
+import json
+
 with open(directory + "out.json", "w") as f:
     out = {
         "TimeOfExecution": (end - start),
@@ -198,7 +179,7 @@ with open(directory + "out.json", "w") as f:
     json.dump(out, f, indent=4)
 # %%
 # Plot P(t) and E(t)
-N = [i * delta_n * params["delta_t"] for i, e in enumerate(Energies)]
+N = [i * params.delta_n * params.delta_t for i, e in enumerate(Energies)]
 
 fig, ax1 = plt.subplots()
 
