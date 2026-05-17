@@ -20,14 +20,14 @@ Path(directory).mkdir(parents=True, exist_ok=False)
 params = {
     "size_x": 128,
     "size_y": 128,
-    "well-type": "matryoshka",
+    "well-type": "none",
     "well_height": 1e6,
     "r0": (64, 64),
     "k0": np.array([1, 0]).tolist(),
     "sigma0": np.array([[16, 0], [0, 16]]).tolist(),
     "mass": 2e-3,
     "delta_n": 32,
-    "steps_max": 16,
+    "steps_max": 32,
 }
 with open(directory + "dump.json", "w") as f:
     json.dump(params, f, indent=4)
@@ -58,6 +58,8 @@ elif params["well-type"] == "matryoshka":
         inside_well,
     )
     well += inside_well_resized
+elif params["well-type"] == "none":
+    well = InfiniteWellPotential(params["size_x"], params["size_y"], 0)
 
 plt.style.use("JK_W.mplstyle")
 plt.title("Potential well")
