@@ -23,7 +23,9 @@ class Params:
     size_x: int = 128
     size_y: int = 128
 
-    well_type: WellType = WellType.INFINITE_WELL
+    well_type: WellType = (
+        WellType.INFINITE_WELL
+    )  # TODO: maybe save entire Potential.matrix?
     well_height: float = 1e6
 
     solver: SolverType = SolverType.SSFM
