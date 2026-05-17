@@ -73,7 +73,6 @@ p.add_argument(
 p.add_argument(
     "--updates-max",
     type=int,
-    default=Params().updates_max,
     required=False,
     help="Set how many updates, each of delta_n, should happen (overrides --config)",
 )
