@@ -71,7 +71,7 @@ class MainWindow(QMainWindow):
         self.z_scale = 15.0
         self.fine_grid_scale = 4
         self.z_potential_scale = 0.07
-        self.brightness_multiplier = 50.0
+        self.brightness_multiplier = 25.0
 
         self.total_frames = 150
         self.fps = 30

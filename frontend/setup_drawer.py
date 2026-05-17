@@ -370,10 +370,14 @@ class SetupDrawer(QDialog):
         clear_btn = QPushButton("Clear Potential")
         clear_btn.clicked.connect(self.clear_canvas)
 
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+
         self.save_btn = QPushButton("Save & Update Simulation")
         self.save_btn.clicked.connect(self.save_and_close)
 
         controls.addWidget(clear_btn)
+        controls.addWidget(cancel_btn)
         controls.addWidget(self.save_btn)
 
         layout.addStretch()
