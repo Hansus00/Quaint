@@ -29,21 +29,21 @@ class Params:
     well_height: float = 1e6
 
     solver: SolverType = SolverType.SSFM
-    r0: list = field(default_factory=lambda: np.array([64, 64]).tolist())
-    k0: list = field(default_factory=lambda: np.array([1, 0]).tolist())
-    sigma0: list = field(default_factory=lambda: np.array([[16, 0], [0, 16]]).tolist())
+    r0: list[float] = field(default_factory=lambda: [64, 64])
+    k0: list[float] = field(default_factory=lambda: [1, 0])
+    sigma0: list[list[float]] = field(default_factory=lambda: [[16, 0], [0, 16]])
     mass: float = 2e-3
     delta_n: int = 32
-    delta_t: int = 1e-3
+    delta_t: float = 1e-3
     steps_max: int = 4
 
     @classmethod
-    def _from_dict(self, data: dict):
+    def _from_dict(cls, data: dict):
         if "well_type" in data:
             data["well_type"] = WellType(data["well_type"])
         if "solver" in data:
             data["solver"] = SolverType(data["solver"])
-        return self(**data)
+        return cls(**data)
 
     def read(self, filepath: str) -> None:
         """Read simulation parameters from file located at filepath"""
