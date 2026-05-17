@@ -71,8 +71,8 @@ class HarmonicPotential(Potential):
 
 
 class EmbeddedPotential(Potential):
-    """Put smaller potential (left upper corner has position (pos_x, pos_y))
-    inside empty frame of bigger one (size_x, size_y), make sure it fits!"""
+    """Places a smaller potential (with its upper-left corner at pos_x, pos_y)
+    inside an empty frame of a larger one (size_x, size_y), ensuring it fits."""
 
     def __init__(
         self, size_x: int, size_y: int, pos_x: int, pos_y: int, potential: Potential
@@ -95,7 +95,8 @@ class EmbeddedPotential(Potential):
 
 
 class WShaped(Potential):
-    "W-shaped potential with given thickness and size, grid of that shape has wall_value"
+    """W-shaped potential with a given thickness and size.
+    The grid forming this shape is assigned the wall_value."""
 
     def __init__(self, size_x: int, size_y: int, thickness=3, wall_value: float = 100):
         matrix = np.zeros((size_x, size_y), dtype=np.float64)
