@@ -133,6 +133,7 @@ start = time.perf_counter()
 
 
 def update(frame):
+    print("frame no", frame, "n", str(solver.get_steps_evolved()))
     """0th frame is potential"""
     if frame < 1:
         return (im,)
