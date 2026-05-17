@@ -457,7 +457,7 @@ class SetupDrawer(QDialog):
 
             pot = WShaped(w_size_x, w_size_y, thickness=3, wall_value=50.0)
 
-            w_matrix = pot.matrix.T
+            w_matrix = pot.matrix
 
             pos_x = (self.grid_size_x - w_size_x) // 2
             pos_y = (self.grid_size_y - w_size_y) // 2
