@@ -77,6 +77,13 @@ p.add_argument(
     help="Set how many updates, each of delta_n, should happen (overrides --config)",
 )
 p.add_argument(
+    "--dr",
+    type=float,
+    default=1.0,
+    required=False,
+    help="Set size of grid step",
+)
+p.add_argument(
     "--params",
     action="store_true",
     required=False,
@@ -173,13 +180,14 @@ gauss = GaussianPacket(
 # %%
 # run test
 # %matplotlib widget
+print("dr", args.dr)
 solver: _Solver
 if params.solver == SolverType.CN:
-    solver = CrankNicolson(well, gauss, params.delta_t)
+    solver = CrankNicolson(well, gauss, params.delta_t, args.dr)
 elif params.solver == SolverType.SSFM:
-    solver = SSFM(well, gauss, params.delta_t)
+    solver = SSFM(well, gauss, params.delta_t, args.dr)
 elif params.solver == SolverType.SYM_SSFM:
-    solver = SSFMSymmetric(well, gauss, params.delta_t)
+    solver = SSFMSymmetric(well, gauss, params.delta_t, args.dr)
 else:
     assert False, "Solver must be specified!"
 
@@ -207,7 +215,12 @@ def update(frame):
     new_data = np.float64(np.abs(solver.get_wave_function().matrix) ** 2)
     im.set_clim(vmin=new_data.min(), vmax=new_data.max())
     cbar.update_normal(im)
-    ax.set_title("Evolved gaussian packet n=" + str(solver.get_steps_evolved()))
+    ax.set_title(
+        "Evolved ("
+        + str(params.solver)
+        + ") gaussian packet n="
+        + str(solver.get_steps_evolved())
+    )
     im.set_data(new_data)
     return (im,)
 
@@ -229,7 +242,7 @@ else:
         ani.save(
             directory / f"gauss_evolution.mp4",
             writer="ffmpeg",
-            fps=10,
+            fps=args.fps,
             dpi=300,
             savefig_kwargs={"pad_inches": 0},
         )
