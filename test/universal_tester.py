@@ -26,7 +26,7 @@ from datetime import datetime
 import time
 import argparse
 import json
-from Params import Params, WellType, SolverType
+from backend.Params import Params, WellType, SolverType
 import matplotlib.animation as animation
 
 # load or use default params
