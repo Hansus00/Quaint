@@ -20,14 +20,15 @@ from backend.Potential import (
 )
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
+from backend.Params import Params, WellType, SolverType
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 import time
 import argparse
 import json
-from backend.Params import Params, WellType, SolverType
 import matplotlib.animation as animation
+import colorsys as cs
 
 # load or use default params
 p = argparse.ArgumentParser(description="Testing program for Quaint by Jaclav")
@@ -197,13 +198,15 @@ Probabilities = []
 start = time.perf_counter()
 
 
+# main simulation
 def update(frame):
     print("frame no", frame, "n", str(solver.get_steps_evolved()))
     """0th frame is potential"""
     if frame < 1:
         return (im,)
     elif frame == 1:
-        cbar.set_label(r"$|\psi|^2$")
+        # cbar.set_label(r"$|\psi|^2$")
+        cbar.remove()
     else:
         solver.update(params.delta_n)
         if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
@@ -213,16 +216,33 @@ def update(frame):
             Energies.append(1)
         Probabilities.append(solver.get_wave_function().total_probability())
 
-    new_data = np.float64(np.abs(solver.get_wave_function().matrix) ** 2)
-    im.set_clim(vmin=new_data.min(), vmax=new_data.max())
-    cbar.update_normal(im)
+    new_data = solver.get_wave_function().matrix
+    new_dataP = np.float64(np.abs(solver.get_wave_function().matrix)) ** 2
+    # im.set_clim(vmin=new_dataP.min(), vmax=new_dataP.max())
+    # cbar.update_normal(im)
     ax.set_title(
         "Evolved ("
         + str(params.solver)
         + ") gaussian packet n="
         + str(solver.get_steps_evolved())
     )
-    im.set_data(new_data.T)
+    amp = np.abs(new_data) ** 2
+    amp /= amp.max()
+
+    gamma = 0.3  # brighten low amplitudes
+
+    colors = [
+        [
+            cs.hls_to_rgb(
+                (np.angle(z) + np.pi) / (2 * np.pi),
+                a,
+                1,
+            )
+            for z, a in zip(row, amp_row)
+        ]
+        for row, amp_row in zip(new_data.T, amp.T)
+    ]
+    im.set_data(colors)
     return (im,)
 
 
