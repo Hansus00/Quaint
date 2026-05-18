@@ -19,18 +19,21 @@ class SimulationThread(QThread):
 
     simulation: Any
     total_frames: int
+    steps_per_frame: int
 
-    def __init__(self, simulation_instance: Any, total_frames: int) -> None:
+    def __init__(self, simulation_instance: Any, total_frames: int, steps_per_frame: int = 30) -> None:
         """
         Initializes the calculation worker thread.
 
         Args:
             simulation_instance (Any): The initialized backend solver (e.g., CrankNicolson, Constant).
             total_frames (int): The total number of simulation steps to pre-calculate.
+            steps_per_frame (int): Physics sub-steps to calculate per single animation frame.
         """
         super().__init__()
         self.simulation = simulation_instance
         self.total_frames = total_frames
+        self.steps_per_frame = steps_per_frame
 
     def run(self) -> None:
         """
@@ -44,7 +47,8 @@ class SimulationThread(QThread):
 
         # Iteratively calculate the subsequent time steps
         for _ in range(1, self.total_frames):
-            self.simulation.step()
+            for _ in range(self.steps_per_frame):
+                self.simulation.step()
             wave_frames.append(self.simulation.get_wave_function())
 
         # Dispatch the payload back to the main thread

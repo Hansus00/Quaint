@@ -48,6 +48,11 @@ class MainWindow(QMainWindow):
     current_sigma: np.ndarray
     current_mass: float
     current_method: str
+    
+    current_delta_t: float
+    current_steps_per_frame: int
+    current_wall_height: float
+    
     animation_widget: AnimationWidget
     controls: AnimationControlsWidget
     simulation: Any
@@ -78,6 +83,10 @@ class MainWindow(QMainWindow):
 
         self.total_frames = 150
         self.fps = 30
+        
+        self.current_delta_t = 0.002
+        self.current_steps_per_frame = 30
+        self.current_wall_height = 50.0
 
         self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
         self.x_limit = 10.0
@@ -88,7 +97,7 @@ class MainWindow(QMainWindow):
 
         self.wave_frames = []
         self.initial_potential = InfiniteWellPotential(
-            self.size_coarse_x, self.size_coarse_y
+            self.size_coarse_x, self.size_coarse_y, wall_value=self.current_wall_height
         )
         self.initial_wavefunc = GaussianPacket(
             r0=np.array([self.size_coarse_x / 2, self.size_coarse_y / 2]),
@@ -160,7 +169,8 @@ class MainWindow(QMainWindow):
         self.controls.setEnabled(False)
         self.controls.time_label.setText("Calculating...")
 
-        self.worker = SimulationThread(self.simulation, self.total_frames)
+        # Start the simulation thread with the current simulation instance and parameters
+        self.worker = SimulationThread(self.simulation, self.total_frames, self.current_steps_per_frame)
         self.worker.calculation_finished.connect(self.on_calculation_finished)
         self.worker.start()
 
@@ -257,6 +267,9 @@ class MainWindow(QMainWindow):
             initial_sigma=self.current_sigma,
             initial_mass=self.current_mass,
             initial_method=self.current_method,
+            initial_delta_t=self.current_delta_t,
+            initial_steps_per_frame=self.current_steps_per_frame,
+            initial_wall_height=self.current_wall_height,
             parent=self,
         )
         drawer.setup_saved.connect(self.apply_setup)
@@ -274,6 +287,9 @@ class MainWindow(QMainWindow):
         total_frames: int,
         size_x: int,
         size_y: int,
+        delta_t: float,
+        steps_per_frame: int,
+        wall_height: float,
     ) -> None:
         """
         Applies physics configuration, rebuilds the internal arrays if resolution changes,
@@ -282,6 +298,10 @@ class MainWindow(QMainWindow):
         self.fps = fps
         self.total_frames = total_frames
         self.controls.update_settings(fps, total_frames)
+        
+        self.current_delta_t = delta_t
+        self.current_steps_per_frame = steps_per_frame
+        self.current_wall_height = wall_height
 
         self.size_coarse_x = size_x
         self.size_coarse_y = size_y
@@ -305,6 +325,11 @@ class MainWindow(QMainWindow):
 
         # Flip the potential array along the Y-axis for standard visualization orientation
         potential_coarse = potential_array[:, ::-1]
+
+        potential_coarse[0, :] = wall_height
+        potential_coarse[-1, :] = wall_height
+        potential_coarse[:, 0] = wall_height
+        potential_coarse[:, -1] = wall_height
 
         self.initial_potential = Potential(potential_coarse)
         self.initial_wavefunc = GaussianPacket(
@@ -345,19 +370,20 @@ class MainWindow(QMainWindow):
         Switches the backend solver instance used for calculating the wave evolution.
         """
         self.current_method = method_name
-        delta_t: float = 1 / self.fps
+        
+        dt = self.current_delta_t
 
         if method_name == "Constant":
             self.simulation = Constant(
-                self.initial_potential, self.initial_wavefunc, delta_t
+                self.initial_potential, self.initial_wavefunc, dt
             )
         elif method_name == "Crank-Nicolson":
             self.simulation = CrankNicolson(
-                self.initial_potential, self.initial_wavefunc, delta_t
+                self.initial_potential, self.initial_wavefunc, dt
             )
         elif method_name == "SSFM":
             self.simulation = SSFM(
-                self.initial_potential, self.initial_wavefunc, delta_t
+                self.initial_potential, self.initial_wavefunc, dt
             )
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")

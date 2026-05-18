@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QDialog,
+    QFileDialog,
     QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
@@ -29,7 +30,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-# Native module import incorporating our custom isolated drawing canvas components
+from tests.Params import Params, SolverType, WellType
 from .canvas_widget import CanvasWidget, AspectRatioContainer
 
 
@@ -46,10 +47,10 @@ class SetupDrawer(QDialog):
     # -- Class Fields --
     # Emits: (method_name)
     simulation_changed = pyqtSignal(str)
-
-    # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, fps, total_frames, size_x, size_y)
+    
+    # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, fps, total_frames, size_x, size_y, delta_t, steps_per_frame, wall_height)
     setup_saved = pyqtSignal(
-        np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, int, int, int, int
+        np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, int, int, int, int, float, int, float
     )
 
     current_fps: int
@@ -61,6 +62,9 @@ class SetupDrawer(QDialog):
     initial_sigma: Optional[np.ndarray]
     initial_mass: float
     initial_method: str
+    initial_delta_t: float
+    initial_steps_per_frame: int
+    initial_wall_height: float
 
     canvas: CanvasWidget
     canvas_container: AspectRatioContainer
@@ -70,6 +74,11 @@ class SetupDrawer(QDialog):
     frames_input: QSpinBox
     size_x_input: QSpinBox
     size_y_input: QSpinBox
+    
+    delta_t_input: QDoubleSpinBox
+    steps_per_frame_input: QSpinBox
+    wall_height_input: QDoubleSpinBox
+
     update_grid_btn: QPushButton
     radio_brush: QRadioButton
     radio_eraser: QRadioButton
@@ -83,6 +92,8 @@ class SetupDrawer(QDialog):
     brush_width_label: QLabel
     brush_width_slider: QSlider
     save_btn: QPushButton
+    load_params_btn: QPushButton
+    save_params_btn: QPushButton
 
     def __init__(
         self,
@@ -98,6 +109,9 @@ class SetupDrawer(QDialog):
         initial_sigma: Optional[np.ndarray] = None,
         initial_mass: float = 1.0,
         initial_method: str = "Constant",
+        initial_delta_t: float = 0.002,
+        initial_steps_per_frame: int = 30,
+        initial_wall_height: float = 50.0,
         parent: Optional[QWidget] = None,
     ) -> None:
         """
@@ -116,14 +130,17 @@ class SetupDrawer(QDialog):
             initial_sigma (Optional[np.ndarray]): Previously saved covariance matrix.
             initial_mass (float): Previously saved particle mass.
             initial_method (str): Previously selected simulation method.
+            initial_delta_t (float): Previously saved time step size.
+            initial_steps_per_frame (int): Previously saved physics sub-steps per animation frame.,
+            initial_wall_height (float): Previously saved wall height.
             parent (Optional[QWidget]): Parent widget.
         """
         super().__init__(parent)
         self.setWindowTitle("Simulation Setup: Potential & Wavepacket")
 
         # Enforce elastic minimum boundary constraints and add native OS window buttons (Minimize/Maximize)
-        self.setMinimumSize(800, 750)
-        self.resize(1000, 900)
+        self.setMinimumSize(800, 800)
+        self.resize(1000, 950)
 
         self.setWindowFlags(
             Qt.WindowType.Window
@@ -143,6 +160,9 @@ class SetupDrawer(QDialog):
         self.initial_sigma = initial_sigma
         self.initial_mass = initial_mass
         self.initial_method = initial_method
+        self.initial_delta_t = initial_delta_t
+        self.initial_steps_per_frame = initial_steps_per_frame
+        self.initial_wall_height = initial_wall_height
 
         # Establish base starting dimensions for the canvas to present a larger drawing space
         base_width = 800
@@ -182,7 +202,7 @@ class SetupDrawer(QDialog):
         Args:
             potential_array (np.ndarray): 2D array representing the saved potential landscape.
         """
-        arr = 255 - (potential_array.T / 50.0 * 255.0)
+        arr = 255 - (potential_array.T / self.initial_wall_height * 255.0)
         arr = np.clip(arr, 0, 255).astype(np.int32)
 
         height, width = arr.shape
@@ -221,16 +241,15 @@ class SetupDrawer(QDialog):
         sim_layout.addStretch()
         layout.addLayout(sim_layout)
 
-        # Simulation Parameters Layout
+        # UI/Video Parameters Layout
         sim_params_layout = QHBoxLayout()
-
-        sim_params_layout.addWidget(QLabel("FPS:"))
+        sim_params_layout.addWidget(QLabel("UI FPS:"))
         self.fps_input = QSpinBox()
         self.fps_input.setRange(1, 120)
         self.fps_input.setValue(self.current_fps)
         sim_params_layout.addWidget(self.fps_input)
 
-        sim_params_layout.addWidget(QLabel("Frames:"))
+        sim_params_layout.addWidget(QLabel("Total Frames:"))
         self.frames_input = QSpinBox()
         self.frames_input.setRange(10, 10000)
         self.frames_input.setValue(self.current_frames)
@@ -238,13 +257,13 @@ class SetupDrawer(QDialog):
 
         sim_params_layout.addWidget(QLabel("Grid X:"))
         self.size_x_input = QSpinBox()
-        self.size_x_input.setRange(10, 500)
+        self.size_x_input.setRange(10, 1000)
         self.size_x_input.setValue(self.grid_size_x)
         sim_params_layout.addWidget(self.size_x_input)
 
         sim_params_layout.addWidget(QLabel("Grid Y:"))
         self.size_y_input = QSpinBox()
-        self.size_y_input.setRange(10, 500)
+        self.size_y_input.setRange(10, 1000)
         self.size_y_input.setValue(self.grid_size_y)
         sim_params_layout.addWidget(self.size_y_input)
 
@@ -254,6 +273,30 @@ class SetupDrawer(QDialog):
         sim_params_layout.addWidget(self.update_grid_btn)
 
         layout.addLayout(sim_params_layout)
+
+        # Physics Parameters Layout
+        physics_layout = QHBoxLayout()
+        physics_layout.addWidget(QLabel("\u0394t (Time Step):"))
+        self.delta_t_input = QDoubleSpinBox()
+        self.delta_t_input.setDecimals(5)
+        self.delta_t_input.setRange(0.00001, 1.0)
+        self.delta_t_input.setSingleStep(0.001)
+        self.delta_t_input.setValue(self.initial_delta_t)
+        physics_layout.addWidget(self.delta_t_input)
+
+        physics_layout.addWidget(QLabel("Steps per Frame (\u0394n):"))
+        self.steps_per_frame_input = QSpinBox()
+        self.steps_per_frame_input.setRange(1, 2000)
+        self.steps_per_frame_input.setValue(self.initial_steps_per_frame)
+        physics_layout.addWidget(self.steps_per_frame_input)
+
+        physics_layout.addWidget(QLabel("Wall Height:"))
+        self.wall_height_input = QDoubleSpinBox()
+        self.wall_height_input.setRange(1.0, 1000000.0)
+        self.wall_height_input.setSingleStep(10.0)
+        self.wall_height_input.setValue(self.initial_wall_height)
+        physics_layout.addWidget(self.wall_height_input)
+        layout.addLayout(physics_layout)
 
         # Preset Potential Selection Layout
         preset_layout = QHBoxLayout()
@@ -287,7 +330,7 @@ class SetupDrawer(QDialog):
         mode_layout.addStretch()
         layout.addLayout(mode_layout)
 
-        # Physics Parameters (Sigma Matrix & Mass)
+        # Wavepacket Parameters (Sigma Matrix & Mass)
         params_layout = QHBoxLayout()
 
         # Sigma xx with physical units
@@ -383,6 +426,15 @@ class SetupDrawer(QDialog):
         self.save_btn = QPushButton("Save & Update Simulation")
         self.save_btn.clicked.connect(self.save_and_close)
 
+        self.load_params_btn = QPushButton("Load from JSON")
+        self.load_params_btn.clicked.connect(self.load_params_from_file)
+
+        self.save_params_btn = QPushButton("Save to JSON")
+        self.save_params_btn.clicked.connect(self.save_params_to_file)
+
+        controls.addWidget(self.load_params_btn)
+        controls.addWidget(self.save_params_btn)
+        controls.addStretch()
         controls.addWidget(clear_btn)
         controls.addWidget(cancel_btn)
         controls.addWidget(self.save_btn)
@@ -414,23 +466,22 @@ class SetupDrawer(QDialog):
             return
 
         potential_matrix = None
+        wall_val = self.wall_height_input.value()
 
         if text == "Gaussian Bump":
             # Position the peak right in the middle of the simulated grid space
             r0 = (self.grid_size_x // 2, self.grid_size_y // 2)
-            V0 = 40.0
             # Symmetric covariance matrix creating a smooth circular hill obstacle
             sigma0 = np.array([[36.0, 0.0], [0.0, 36.0]], dtype=np.float64)
             pot = GaussianBumpPotential(
-                self.grid_size_x, self.grid_size_y, r0=r0, V0=V0, sigma0=sigma0
+                self.grid_size_x, self.grid_size_y, r0=r0, V0=wall_val, sigma0=sigma0
             )
             potential_matrix = pot.matrix
 
         elif text == "Harmonic Oscillator":
-            # Calculate a spring constant k that naturally climbs to V~50 at the boundaries
             r0 = (self.grid_size_x // 2, self.grid_size_y // 2)
             max_dist_sq = r0[0] ** 2 + r0[1] ** 2
-            k = 100.0 / max_dist_sq if max_dist_sq > 0 else 1.0
+            k = (wall_val * 2) / max_dist_sq if max_dist_sq > 0 else 1.0
             pot = HarmonicPotential(self.grid_size_x, self.grid_size_y, k=k, r0=r0)
             potential_matrix = pot.matrix
 
@@ -439,7 +490,7 @@ class SetupDrawer(QDialog):
             w_size_x = self.grid_size_x // 2
             w_size_y = self.grid_size_y // 2
 
-            pot = WShaped(w_size_x, w_size_y, thickness=3, wall_value=50.0)
+            pot = WShaped(w_size_x, w_size_y, thickness=3, wall_value=wall_val)
             w_matrix = pot.matrix
 
             pos_x = (self.grid_size_x - w_size_x) // 2
@@ -474,13 +525,12 @@ class SetupDrawer(QDialog):
             arr = np.frombuffer(buffer, dtype=np.uint8).reshape((height, bpl)).copy()
             arr = arr[:, :width]
 
-            inner_matrix = ((255 - arr) / 255.0 * 50).T
-
-            # Setting boundaries
-            inner_matrix[0, :] = 50.0
-            inner_matrix[-1, :] = 50.0
-            inner_matrix[:, 0] = 50.0
-            inner_matrix[:, -1] = 50.0
+            inner_matrix = ((255 - arr) / 255.0 * wall_val).T
+            
+            inner_matrix[0, :] = wall_val
+            inner_matrix[-1, :] = wall_val
+            inner_matrix[:, 0] = wall_val
+            inner_matrix[:, -1] = wall_val
 
             inner_pot_obj = Potential(inner_matrix)
 
@@ -527,6 +577,7 @@ class SetupDrawer(QDialog):
         # Capture the newly desired grid sizes from user input
         new_size_x = self.size_x_input.value()
         new_size_y = self.size_y_input.value()
+        wall_height = self.wall_height_input.value()
 
         # 1. Process Potential Matrix
         # Scale canvas directly to the newly selected grid size
@@ -543,7 +594,7 @@ class SetupDrawer(QDialog):
 
         arr = np.frombuffer(buffer, dtype=np.uint8).reshape((height, bpl)).copy()
         arr = arr[:, :width]
-        potential = (255 - arr) / 255.0 * 50
+        potential = (255 - arr) / 255.0 * wall_height
         potential = potential.T
 
         # 2. Process Wavepacket Parameters
@@ -560,7 +611,7 @@ class SetupDrawer(QDialog):
 
             r0 = np.array([rx, ry])
 
-            # k0 continues to represent a continuous vector
+            # Map Pixel X and Y to momentum components
             kx = (self.canvas.k0_tip_px.x() - self.canvas.r0_px.x()) * 0.1
             ky = -(self.canvas.k0_tip_px.y() - self.canvas.r0_px.y()) * 0.1
             k0 = np.array([kx, ky])
@@ -579,10 +630,126 @@ class SetupDrawer(QDialog):
         mass = self.mass_input.value()
         fps = self.fps_input.value()
         frames = self.frames_input.value()
+        
+        delta_t = self.delta_t_input.value()
+        steps_per_frame = self.steps_per_frame_input.value()
 
         # Emit all parameters to the main window
         self.setup_saved.emit(
-            potential, r0, k0, sigma_matrix, mass, fps, frames, new_size_x, new_size_y
+            potential, r0, k0, sigma_matrix, mass, fps, frames, new_size_x, new_size_y, delta_t, steps_per_frame, wall_height
         )
         self.accept()
 
+    def load_params_from_file(self) -> None:
+        """
+        Loads simulation parameters from a JSON file and updates the UI.
+        """
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Load Simulation Parameters", "", "JSON Files (*.json)"
+        )
+        if not file_path:
+            return
+
+        p = Params()
+        p.read(file_path)
+
+        # Update pure numeric fields
+        self.size_x_input.setValue(p.size_x)
+        self.size_y_input.setValue(p.size_y)
+        self.mass_input.setValue(p.mass)
+        self.frames_input.setValue(p.steps_max)
+        
+        self.delta_t_input.setValue(p.delta_t)
+        self.steps_per_frame_input.setValue(p.delta_n)
+        self.wall_height_input.setValue(p.well_height)
+
+        # Update Sigma matrix inputs
+        self.sig_xx_input.setValue(p.sigma0[0][0])
+        self.sig_xy_input.setValue(p.sigma0[0][1])
+        self.sig_yy_input.setValue(p.sigma0[1][1])
+
+        # Map SolverType back to dropdown text
+        if p.solver == SolverType.CN:
+            self.simulation_menu.setCurrentText("Crank-Nicolson")
+        elif p.solver == SolverType.SSFM:
+            self.simulation_menu.setCurrentText("SSFM")
+
+        # Map WellType back to dropdown presets
+        if p.well_type == WellType.W_SHAPED:
+            self.preset_menu.setCurrentText("W-shape")
+            self.load_preset_potential("W-shape")
+        elif p.well_type == WellType.MATRYOSHKA:
+            self.preset_menu.setCurrentText("Matryoshka")
+            self.load_preset_potential("Matryoshka")
+        else:
+            self.preset_menu.setCurrentText("Custom / Clear")
+            self.load_preset_potential("Custom / Clear")
+
+        self.update_canvas_size()
+
+        rx_px = int((p.r0[0] / p.size_x) * self.canvas.width())
+        ry_px = int((1.0 - (p.r0[1] / p.size_y)) * self.canvas.height())
+        self.canvas.r0_px = QPoint(rx_px, ry_px)
+
+        kx_px = int((p.k0[0] / 0.1) + rx_px)
+        ky_px = int((-p.k0[1] / 0.1) + ry_px)
+        self.canvas.k0_tip_px = QPoint(kx_px, ky_px)
+
+        self.canvas.update()
+
+    def save_params_to_file(self) -> None:
+        """
+        Saves simulation parameters to a JSON file.
+        """
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Simulation Parameters", "", "JSON Files (*.json)"
+        )
+        if not file_path:
+            return
+
+        p = Params()
+        p.size_x = self.size_x_input.value()
+        p.size_y = self.size_y_input.value()
+        p.mass = self.mass_input.value()
+        p.steps_max = self.frames_input.value()
+        
+        # Prawidłowy zapis fizyki
+        p.delta_t = self.delta_t_input.value()
+        p.delta_n = self.steps_per_frame_input.value()
+        p.well_height = self.wall_height_input.value()
+
+        p.sigma0 = [
+            [self.sig_xx_input.value(), self.sig_xy_input.value()],
+            [self.sig_xy_input.value(), self.sig_yy_input.value()]
+        ]
+
+        solver_text = self.simulation_menu.currentText()
+        if solver_text == "Crank-Nicolson":
+            p.solver = SolverType.CN
+        elif solver_text == "SSFM" or solver_text == "Constant":
+            p.solver = SolverType.SSFM
+
+        preset_text = self.preset_menu.currentText()
+        if preset_text == "W-shape":
+            p.well_type = WellType.W_SHAPED
+        elif preset_text == "Matryoshka":
+            p.well_type = WellType.MATRYOSHKA
+        else:
+            p.well_type = WellType.INFINITE_WELL
+
+        if self.canvas.r0_px and self.canvas.k0_tip_px:
+            rx_float = (self.canvas.r0_px.x() / self.canvas.width()) * p.size_x
+            rx = float(np.clip(rx_float, 0, p.size_x - 1))
+
+            ry_float = (1.0 - (self.canvas.r0_px.y() / self.canvas.height())) * p.size_y
+            ry = float(np.clip(ry_float, 0, p.size_y - 1))
+            p.r0 = [rx, ry]
+
+            kx = float((self.canvas.k0_tip_px.x() - self.canvas.r0_px.x()) * 0.1)
+            ky = float(-(self.canvas.k0_tip_px.y() - self.canvas.r0_px.y()) * 0.1)
+            p.k0 = [kx, ky]
+        else:
+            p.r0 = [float(p.size_x / 2), float(p.size_y / 2)]
+            p.k0 = [0.0, 0.0]
+
+        p.write(file_path)
