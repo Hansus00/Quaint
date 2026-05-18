@@ -73,7 +73,7 @@ class SetupDrawer(QDialog):
         
         # Enforce elastic minimum boundary constraints and add native OS window buttons (Minimize/Maximize)
         self.setMinimumSize(800, 750)
-        self.resize(1000, 900)  # Start with a nice, large window!
+        self.resize(1000, 900)
 
         self.setWindowFlags(
             Qt.WindowType.Window | 
@@ -172,19 +172,19 @@ class SetupDrawer(QDialog):
         self.fps_input.setValue(self.current_fps)
         sim_params_layout.addWidget(self.fps_input)
 
-        sim_params_layout.addWidget(QLabel("Frames:"))
+        sim_params_layout.addWidget(QLabel("Total frames to render:"))
         self.frames_input = QSpinBox()
         self.frames_input.setRange(10, 10000)
         self.frames_input.setValue(self.current_frames)
         sim_params_layout.addWidget(self.frames_input)
 
-        sim_params_layout.addWidget(QLabel("Grid X:"))
+        sim_params_layout.addWidget(QLabel("Grid resolution (X axis):"))
         self.size_x_input = QSpinBox()
         self.size_x_input.setRange(10, 500)
         self.size_x_input.setValue(self.grid_size_x)
         sim_params_layout.addWidget(self.size_x_input)
 
-        sim_params_layout.addWidget(QLabel("Grid Y:"))
+        sim_params_layout.addWidget(QLabel("Grid resolution (Y axis):"))
         self.size_y_input = QSpinBox()
         self.size_y_input.setRange(10, 500)
         self.size_y_input.setValue(self.grid_size_y)
@@ -268,7 +268,7 @@ class SetupDrawer(QDialog):
 
         # Block 6: Centered Interactivity Row containing the dynamically constrained Canvas
         canvas_area = QHBoxLayout()
-        # The AspectRatioContainer automatically resizes the internal canvas!
+        # The AspectRatioContainer automatically resizes the internal canvas
         canvas_area.addWidget(self.canvas_container, stretch=1)
         canvas_area.addSpacing(20)
 
@@ -307,7 +307,6 @@ class SetupDrawer(QDialog):
 
         canvas_area.addLayout(slider_layout)
 
-        # By applying stretch=1 to the ENTIRE canvas area, we ensure it aggressively consumes all vertical space!
         layout.addLayout(canvas_area, stretch=1)
 
         # Block 7: Terminal Operation Control Row
