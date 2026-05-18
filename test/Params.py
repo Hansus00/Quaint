@@ -16,6 +16,7 @@ class WellType(str, Enum):
 class SolverType(str, Enum):
     CN = "cn"
     SSFM = "ssfm"
+    SYM_SSFM = "sym_ssfm"
 
 
 @dataclass
@@ -29,13 +30,16 @@ class Params:
     well_height: float = 1e6
 
     solver: SolverType = SolverType.SSFM
-    r0: list[float] = field(default_factory=lambda: [64, 64])
-    k0: list[float] = field(default_factory=lambda: [1, 0])
-    sigma0: list[list[float]] = field(default_factory=lambda: [[16, 0], [0, 16]])
+    r0: tuple[int, int] = field(default_factory=lambda: (64, 64))
+    k0: NDArray[np.float64] = field(default_factory=lambda: np.array([1, 0]))
+    sigma0: NDArray[np.float64] = field(
+        default_factory=lambda: np.array([[16, 0], [0, 16]])
+    )
     mass: float = 2e-3
     delta_n: int = 32
     delta_t: float = 1e-3
-    steps_max: int = 4
+    delta_r: float = 1
+    updates_max: int = 4  # how many updates, each one changes by delta_n
 
     @classmethod
     def _from_dict(cls, data: dict):
@@ -60,16 +64,14 @@ class Params:
 
 
 def _enum_dict_factory(data):
-    return {k: (v.value if isinstance(v, Enum) else v) for k, v in data}
+    return {
+        k: (
+            v.value
+            if isinstance(v, Enum)
+            else v.tolist() if isinstance(v, np.ndarray) else v
+        )
+        for k, v in data
+    }
 
 
-if __name__ == "__main__":
-    p = Params()
-    p.write("b.json")
-
-    d = Params()
-    d.read("aa.json")
-    print(d)
-
-# print(Params())
 # %%
