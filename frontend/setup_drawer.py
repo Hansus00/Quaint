@@ -47,7 +47,7 @@ class SetupDrawer(QDialog):
     # -- Class Fields --
     # Emits: (method_name)
     simulation_changed = pyqtSignal(str)
-    
+
     # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, fps, total_frames, size_x, size_y, delta_t, steps_per_frame, wall_height)
     setup_saved = pyqtSignal(
         np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, int, int, int, int, float, int, float
@@ -74,7 +74,7 @@ class SetupDrawer(QDialog):
     frames_input: QSpinBox
     size_x_input: QSpinBox
     size_y_input: QSpinBox
-    
+
     delta_t_input: QDoubleSpinBox
     steps_per_frame_input: QSpinBox
     wall_height_input: QDoubleSpinBox
@@ -526,7 +526,7 @@ class SetupDrawer(QDialog):
             arr = arr[:, :width]
 
             inner_matrix = ((255 - arr) / 255.0 * wall_val).T
-            
+
             inner_matrix[0, :] = wall_val
             inner_matrix[-1, :] = wall_val
             inner_matrix[:, 0] = wall_val
@@ -630,7 +630,7 @@ class SetupDrawer(QDialog):
         mass = self.mass_input.value()
         fps = self.fps_input.value()
         frames = self.frames_input.value()
-        
+
         delta_t = self.delta_t_input.value()
         steps_per_frame = self.steps_per_frame_input.value()
 
@@ -657,8 +657,8 @@ class SetupDrawer(QDialog):
         self.size_x_input.setValue(p.size_x)
         self.size_y_input.setValue(p.size_y)
         self.mass_input.setValue(p.mass)
-        self.frames_input.setValue(p.steps_max)
-        
+        self.frames_input.setValue(p.updates_max)
+
         self.delta_t_input.setValue(p.delta_t)
         self.steps_per_frame_input.setValue(p.delta_n)
         self.wall_height_input.setValue(p.well_height)
@@ -711,8 +711,8 @@ class SetupDrawer(QDialog):
         p.size_x = self.size_x_input.value()
         p.size_y = self.size_y_input.value()
         p.mass = self.mass_input.value()
-        p.steps_max = self.frames_input.value()
-        
+        p.updates_max = self.frames_input.value()
+
         # Prawidłowy zapis fizyki
         p.delta_t = self.delta_t_input.value()
         p.delta_n = self.steps_per_frame_input.value()
