@@ -105,7 +105,7 @@ if args.do_not_animate:
     insideInteractive = False
 
 # create directory for simulation data
-now = datetime.now()
+now = str(datetime.now()).replace(":", "-").replace(" ", "_")
 base_dir = Path("pic") if args.out is None else Path(args.out)
 directory = base_dir / str(now)
 assert not directory.exists(), "Cannot override directory!"
