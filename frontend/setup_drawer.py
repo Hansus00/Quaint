@@ -30,7 +30,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from tests.Params import Params, SolverType, WellType
+from backend.Params import Params, SolverType, WellType
 from .canvas_widget import CanvasWidget, AspectRatioContainer
 
 
