@@ -163,7 +163,7 @@ fig, ax = plt.subplots(layout="tight")
 fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
 
 ax.set_title("Potential well")
-im = ax.imshow(np.float64(well.matrix), aspect="auto")
+im = ax.imshow(np.float64(well.matrix).T, aspect="auto", origin="lower")
 cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
 ax.set_xlabel("x")
@@ -222,7 +222,7 @@ def update(frame):
         + ") gaussian packet n="
         + str(solver.get_steps_evolved())
     )
-    im.set_data(new_data)
+    im.set_data(new_data.T)
     return (im,)
 
 
