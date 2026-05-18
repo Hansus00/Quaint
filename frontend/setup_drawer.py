@@ -50,7 +50,18 @@ class SetupDrawer(QDialog):
 
     # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, fps, total_frames, size_x, size_y, delta_t, steps_per_frame, wall_height)
     setup_saved = pyqtSignal(
-        np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, int, int, int, int, float, int, float
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        np.ndarray,
+        float,
+        int,
+        int,
+        int,
+        int,
+        float,
+        int,
+        float,
     )
 
     current_fps: int
@@ -636,7 +647,18 @@ class SetupDrawer(QDialog):
 
         # Emit all parameters to the main window
         self.setup_saved.emit(
-            potential, r0, k0, sigma_matrix, mass, fps, frames, new_size_x, new_size_y, delta_t, steps_per_frame, wall_height
+            potential,
+            r0,
+            k0,
+            sigma_matrix,
+            mass,
+            fps,
+            frames,
+            new_size_x,
+            new_size_y,
+            delta_t,
+            steps_per_frame,
+            wall_height,
         )
         self.accept()
 
@@ -706,6 +728,8 @@ class SetupDrawer(QDialog):
         )
         if not file_path:
             return
+        if file_path and not file_path.endswith(".json"):
+            file_path += ".json"
 
         p = Params()
         p.size_x = self.size_x_input.value()
@@ -720,7 +744,7 @@ class SetupDrawer(QDialog):
 
         p.sigma0 = [
             [self.sig_xx_input.value(), self.sig_xy_input.value()],
-            [self.sig_xy_input.value(), self.sig_yy_input.value()]
+            [self.sig_xy_input.value(), self.sig_yy_input.value()],
         ]
 
         solver_text = self.simulation_menu.currentText()
