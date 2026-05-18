@@ -361,3 +361,4 @@ class MainWindow(QMainWindow):
             )
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
+

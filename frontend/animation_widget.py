@@ -6,17 +6,17 @@ from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pyqtgraph.opengl as gl
+from backend.StationaryWaveFunc import StationaryWaveFunc
 from PyQt6.QtGui import QVector3D
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from scipy.interpolate import RectBivariateSpline
 from scipy.ndimage import zoom
-from backend.StationaryWaveFunc import StationaryWaveFunc
 
 
 class AnimationWidget(QWidget):
     """
     Widget handling the 3D OpenGL rendering of the simulation.
-    Manages high-performance matrix transformations and mesh updates for both 
+    Manages high-performance matrix transformations and mesh updates for both
     the probability wave and the underlying physical potential landscape.
     """
 
@@ -35,16 +35,16 @@ class AnimationWidget(QWidget):
     potential_alpha: float
     x_coarse: np.ndarray
     y_coarse: np.ndarray
-    
+
     _wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]]
     max_cache_size: int
-    
+
     view: gl.GLViewWidget
     axis: gl.GLAxisItem
     wave_mesh_item: gl.GLMeshItem
     potential_mesh_item: gl.GLMeshItem
     grid: gl.GLGridItem
-    
+
     x_fine: np.ndarray
     y_fine: np.ndarray
     X_fine: np.ndarray
@@ -200,7 +200,7 @@ class AnimationWidget(QWidget):
         Nx = self.size_fine_x
         Ny = self.size_fine_y
 
-        I, J = np.meshgrid(np.arange(Nx - 1), np.arange(Ny - 1), indexing="ij")
+        I, J = np.meshgrid(np.arange(Nx - 1), np.arange(Ny - 1), indexing="ij")  # noqa: E741
 
         P1 = I * Ny + J
         P2 = P1 + 1
@@ -256,7 +256,7 @@ class AnimationWidget(QWidget):
         self.potential_rgba[:, 0] = gray_values.reshape(-1)
         self.potential_rgba[:, 1] = gray_values.reshape(-1)
         self.potential_rgba[:, 2] = gray_values.reshape(-1)
-        
+
         # Use dynamic alpha value from the user settings
         self.potential_rgba[:, 3] = self.potential_alpha
 
@@ -267,7 +267,7 @@ class AnimationWidget(QWidget):
         mesh_data = gl.MeshData(
             vertexes=self.potential_verts,
             faces=self.faces,
-            vertexColors=self.potential_rgba
+            vertexColors=self.potential_rgba,
         )
         self.potential_mesh_item.setMeshData(meshdata=mesh_data)
 
@@ -324,7 +324,7 @@ class AnimationWidget(QWidget):
         # This creates smooth color gradients
         psi_real_fine = zoom(wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=3)
         psi_imag_fine = zoom(wave_matrix.imag, (zoom_factor_x, zoom_factor_y), order=3)
-        
+
         # Reconstruct the high-resolution complex wave matrix
         psi_fine = psi_real_fine + 1j * psi_imag_fine
 

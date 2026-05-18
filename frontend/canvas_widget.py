@@ -3,14 +3,15 @@
 # ==============================================================================
 
 from typing import Optional
+
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QColor, QImage, QPainter, QPen, QResizeEvent
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
+from PyQt6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
 
 class AspectRatioContainer(QWidget):
     """
-    A layout wrapper widget that forces its central child to maintain a strict 
+    A layout wrapper widget that forces its central child to maintain a strict
     aspect ratio dynamically, responding organically to parent window resizes.
     """
 
@@ -19,7 +20,9 @@ class AspectRatioContainer(QWidget):
     child_widget: QWidget
     _layout: QVBoxLayout
 
-    def __init__(self, widget: QWidget, aspect_ratio: float, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, widget: QWidget, aspect_ratio: float, parent: Optional[QWidget] = None
+    ) -> None:
         """
         Initializes the dynamic framing container.
 
@@ -46,11 +49,12 @@ class AspectRatioContainer(QWidget):
         """
         self.aspect_ratio = aspect_ratio
         from PyQt6.QtGui import QResizeEvent
+
         self.resizeEvent(QResizeEvent(self.size(), self.size()))
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """
-        Calculates the largest bounded box fitting the ratio and pads the excess 
+        Calculates the largest bounded box fitting the ratio and pads the excess
         space with dynamic layout margins to strictly center the child canvas.
 
         Args:
@@ -94,7 +98,9 @@ class CanvasWidget(QWidget):
     brush_strength: int
     brush_width: int
 
-    def __init__(self, width: int, height: int, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, width: int, height: int, parent: Optional[QWidget] = None
+    ) -> None:
         """
         Initializes the drawing surface with a base pixel resolution.
 
@@ -104,7 +110,7 @@ class CanvasWidget(QWidget):
             parent (Optional[QWidget]): Parent widget.
         """
         super().__init__(parent)
-        
+
         # Allow the widget to shrink and expand freely within the container
         self.setMinimumSize(100, 100)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -145,11 +151,19 @@ class CanvasWidget(QWidget):
 
             # Move anchors proportionally to remain physically accurate visually
             if self.r0_px:
-                self.r0_px.setX(int((self.r0_px.x() / old_size.width()) * new_size.width()))
-                self.r0_px.setY(int((self.r0_px.y() / old_size.height()) * new_size.height()))
+                self.r0_px.setX(
+                    int((self.r0_px.x() / old_size.width()) * new_size.width())
+                )
+                self.r0_px.setY(
+                    int((self.r0_px.y() / old_size.height()) * new_size.height())
+                )
             if self.k0_tip_px:
-                self.k0_tip_px.setX(int((self.k0_tip_px.x() / old_size.width()) * new_size.width()))
-                self.k0_tip_px.setY(int((self.k0_tip_px.y() / old_size.height()) * new_size.height()))
+                self.k0_tip_px.setX(
+                    int((self.k0_tip_px.x() / old_size.width()) * new_size.width())
+                )
+                self.k0_tip_px.setY(
+                    int((self.k0_tip_px.y() / old_size.height()) * new_size.height())
+                )
         else:
             self.image = self.image.scaled(
                 new_size.width(),
@@ -231,7 +245,7 @@ class CanvasWidget(QWidget):
                 painter.drawLine(self.last_point, pos)
                 self.last_point = pos
                 self.update()
-                
+
             elif self.mode == "wavepacket":
                 self.k0_tip_px = pos
                 self.update()
@@ -245,3 +259,4 @@ class CanvasWidget(QWidget):
         """
         if event.button() == Qt.MouseButton.LeftButton:
             self.drawing_potential = False
+

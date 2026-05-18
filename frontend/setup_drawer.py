@@ -36,17 +36,17 @@ from .canvas_widget import CanvasWidget, AspectRatioContainer
 class SetupDrawer(QDialog):
     """
     A comprehensive physics configuration dialogue interface linking user sketches to simulation parameters.
-    
+
     This window encapsulates input form layout parameters (discretization grids, playback rates, particle masses)
-    and binds them alongside an interactive canvas element. Upon closure via submission, it performs 
-    coordinate mapping and grayscale matrix translation to dispatch structured raw simulation data fields 
+    and binds them alongside an interactive canvas element. Upon closure via submission, it performs
+    coordinate mapping and grayscale matrix translation to dispatch structured raw simulation data fields
     back to the primary 3D visualization window engine.
     """
 
     # -- Class Fields --
     # Emits: (method_name)
     simulation_changed = pyqtSignal(str)
-    
+
     # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, fps, total_frames, size_x, size_y)
     setup_saved = pyqtSignal(
         np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, int, int, int, int
@@ -120,16 +120,16 @@ class SetupDrawer(QDialog):
         """
         super().__init__(parent)
         self.setWindowTitle("Simulation Setup: Potential & Wavepacket")
-        
+
         # Enforce elastic minimum boundary constraints and add native OS window buttons (Minimize/Maximize)
         self.setMinimumSize(800, 750)
         self.resize(1000, 900)
 
         self.setWindowFlags(
-            Qt.WindowType.Window | 
-            Qt.WindowType.WindowMinimizeButtonHint | 
-            Qt.WindowType.WindowMaximizeButtonHint | 
-            Qt.WindowType.WindowCloseButtonHint
+            Qt.WindowType.Window
+            | Qt.WindowType.WindowMinimizeButtonHint
+            | Qt.WindowType.WindowMaximizeButtonHint
+            | Qt.WindowType.WindowCloseButtonHint
         )
 
         # Capture initial physics environment properties
@@ -151,7 +151,9 @@ class SetupDrawer(QDialog):
         # Instantiate our modular, isolated interactive sketch canvas component
         self.canvas = CanvasWidget(base_width, base_height)
         # Wrap it in a protective container that enforces the physics matrix ratio dynamically
-        self.canvas_container = AspectRatioContainer(self.canvas, base_height / base_width)
+        self.canvas_container = AspectRatioContainer(
+            self.canvas, base_height / base_width
+        )
 
         # Restore past matrix configurations if the user re-enters setup during runtime
         if initial_potential is not None:
@@ -162,7 +164,9 @@ class SetupDrawer(QDialog):
         # Re-map numerical position states back into canvas pixel tags for visual continuous tracking
         if initial_r0 is not None and initial_k0 is not None:
             rx_px = int((initial_r0[0] / self.grid_size_x) * self.canvas.width())
-            ry_px = int((1.0 - (initial_r0[1] / self.grid_size_y)) * self.canvas.height())
+            ry_px = int(
+                (1.0 - (initial_r0[1] / self.grid_size_y)) * self.canvas.height()
+            )
             self.canvas.r0_px = QPoint(rx_px, ry_px)
 
             kx_px = int((initial_k0[0] / 0.1) + rx_px)
@@ -171,7 +175,7 @@ class SetupDrawer(QDialog):
 
     def _restore_canvas(self, potential_array: np.ndarray) -> None:
         """
-        Translates a raw numerical floating-point backend potential matrix back into 
+        Translates a raw numerical floating-point backend potential matrix back into
         viewable canvas pixel values, rebuilding the visual environment layer.
         Reverses the calculations performed during save_and_close to reconstruct grayscale pixels.
 
@@ -471,7 +475,7 @@ class SetupDrawer(QDialog):
             arr = arr[:, :width]
 
             inner_matrix = ((255 - arr) / 255.0 * 50).T
-            
+
             # Setting boundaries
             inner_matrix[0, :] = 50.0
             inner_matrix[-1, :] = 50.0
@@ -549,7 +553,9 @@ class SetupDrawer(QDialog):
             rx = int(np.clip(rx_float, 0, new_size_x - 1))
 
             # Map Pixel Y to a natural number [0, new_size_y - 1] (Inverting so 0 is at bottom)
-            ry_float = (1.0 - (self.canvas.r0_px.y() / self.canvas.height())) * new_size_y
+            ry_float = (
+                1.0 - (self.canvas.r0_px.y() / self.canvas.height())
+            ) * new_size_y
             ry = int(np.clip(ry_float, 0, new_size_y - 1))
 
             r0 = np.array([rx, ry])
@@ -579,3 +585,4 @@ class SetupDrawer(QDialog):
             potential, r0, k0, sigma_matrix, mass, fps, frames, new_size_x, new_size_y
         )
         self.accept()
+
