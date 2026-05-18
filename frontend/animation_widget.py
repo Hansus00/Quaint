@@ -16,6 +16,8 @@ from backend.StationaryWaveFunc import StationaryWaveFunc
 class AnimationWidget(QWidget):
     """
     Widget handling the 3D OpenGL rendering of the simulation.
+    Manages high-performance matrix transformations and mesh updates for both 
+    the probability wave and the underlying physical potential landscape.
     """
 
     # --- Class Fields ---
@@ -33,18 +35,25 @@ class AnimationWidget(QWidget):
     potential_alpha: float
     x_coarse: np.ndarray
     y_coarse: np.ndarray
+    
     _wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]]
+    max_cache_size: int
+    
     view: gl.GLViewWidget
     axis: gl.GLAxisItem
     wave_mesh_item: gl.GLMeshItem
     potential_mesh_item: gl.GLMeshItem
     grid: gl.GLGridItem
+    
     x_fine: np.ndarray
     y_fine: np.ndarray
     X_fine: np.ndarray
     Y_fine: np.ndarray
     faces: np.ndarray
     verts_template: np.ndarray
+    potential_verts: np.ndarray
+    potential_rgba: np.ndarray
+    potential_mesh_data: gl.MeshData
 
     def __init__(
         self,
@@ -60,28 +69,46 @@ class AnimationWidget(QWidget):
         potential_alpha: float = 0.4,
         parent: Optional[QWidget] = None,
     ) -> None:
+        """
+        Initializes the 3D OpenGL rendering widget and its structural constraints.
+
+        Args:
+            size_coarse_x (int): Base horizontal resolution of the simulated physics grid.
+            size_coarse_y (int): Base vertical resolution of the simulated physics grid.
+            x_limit (float): Maximum physical coordinate in the X-axis mapping.
+            y_limit (float): Maximum physical coordinate in the Y-axis mapping.
+            z_potential_offset (float): Depth mapping offset pushing the potential mesh downwards.
+            z_scale (float): Vertical height multiplier for the probability waveform.
+            fine_grid_scale (int): Interpolation multiplier increasing visual mesh density.
+            z_potential_scale (float): Vertical height multiplier for the potential walls.
+            brightness_multiplier (float): Exposure scalar brightening the faint probability tails.
+            potential_alpha (float): Opacity scalar for the drawn potential field (0.0 to 1.0).
+            parent (Optional[QWidget]): Parent application window hosting this widget.
+        """
         super().__init__(parent)
-        self.size_coarse_x: int = size_coarse_x
-        self.size_coarse_y: int = size_coarse_y
+        self.size_coarse_x = size_coarse_x
+        self.size_coarse_y = size_coarse_y
 
-        self.fine_grid_scale: int = fine_grid_scale
-        self.size_fine_x: int = self.fine_grid_scale * self.size_coarse_x
-        self.size_fine_y: int = self.fine_grid_scale * self.size_coarse_y
+        self.fine_grid_scale = fine_grid_scale
+        self.size_fine_x = self.fine_grid_scale * self.size_coarse_x
+        self.size_fine_y = self.fine_grid_scale * self.size_coarse_y
 
-        self.x_limit: float = x_limit
-        self.y_limit: float = y_limit
-        self.z_potential_offset: float = z_potential_offset
-        self.z_scale: float = z_scale
-        self.z_potential_scale: float = z_potential_scale
-        self.brightness_multiplier: float = brightness_multiplier
-        self.potential_alpha: float = potential_alpha
+        self.x_limit = x_limit
+        self.y_limit = y_limit
+        self.z_potential_offset = z_potential_offset
+        self.z_scale = z_scale
+        self.z_potential_scale = z_potential_scale
+        self.brightness_multiplier = brightness_multiplier
+        self.potential_alpha = potential_alpha
 
-        self.x_coarse: np.ndarray = np.linspace(0.0, self.x_limit, self.size_coarse_x)
-        self.y_coarse: np.ndarray = np.linspace(0.0, self.y_limit, self.size_coarse_y)
+        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
+        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
 
         # Lazy memory cache mapping frame object IDs -> pre-computed (verts, rgba)
-        self._wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
-        self.max_cache_size: int = 150
+        self._wave_cache = {}
+        # Maximum cache limit
+        # TODO: put in settings
+        self.max_cache_size = 150
 
         self._setup_ui()
         self._setup_mesh_geometry()
@@ -98,7 +125,10 @@ class AnimationWidget(QWidget):
         brightness_multiplier: float,
         potential_alpha: float,
     ) -> None:
-        """Dynamically reconfigures the widget's layout bounds and clears state."""
+        """
+        Dynamically reconfigures the widget's layout bounds and clears the state.
+        Triggered primarily by updates originating from the Settings dialog window.
+        """
         self.size_coarse_x = size_x
         self.size_coarse_y = size_y
         self.fine_grid_scale = fine_grid_scale
@@ -131,7 +161,7 @@ class AnimationWidget(QWidget):
         self.clear_cache()
 
     def _setup_ui(self) -> None:
-        """Sets up the OpenGL View and basic scene objects."""
+        """Sets up the OpenGL View and basic background scene objects (camera, grid)."""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
@@ -170,7 +200,7 @@ class AnimationWidget(QWidget):
         Nx = self.size_fine_x
         Ny = self.size_fine_y
 
-        I, J = np.meshgrid(np.arange(Nx - 1), np.arange(Ny - 1), indexing="ij")  # noqa: E741
+        I, J = np.meshgrid(np.arange(Nx - 1), np.arange(Ny - 1), indexing="ij")
 
         P1 = I * Ny + J
         P2 = P1 + 1
@@ -184,7 +214,7 @@ class AnimationWidget(QWidget):
         faces[0::2] = triangles1
         faces[1::2] = triangles2
 
-        # Force uint32 so it works on Linux / Mac
+        # Force uint32 so it works identically across Windows / Linux / Mac drivers
         self.faces = np.array(faces, dtype=np.uint32)
 
         self.verts_template = np.zeros(
@@ -206,11 +236,11 @@ class AnimationWidget(QWidget):
         self.potential_mesh_item.setMeshData(meshdata=self.potential_mesh_data)
 
     def set_potential_visible(self, visible: bool) -> None:
-        """Shows or hides the 3D potential mesh."""
+        """Shows or hides the 3D potential mesh depending on UI button toggle."""
         self.potential_mesh_item.setVisible(visible)
 
     def update_potential(self, potential_coarse: np.ndarray) -> None:
-        """Updates the 3D potential landscape"""
+        """Updates the 3D potential landscape and evicts outdated cache tracking."""
         self.clear_cache()
 
         spline = RectBivariateSpline(self.x_coarse, self.y_coarse, potential_coarse)
@@ -222,14 +252,18 @@ class AnimationWidget(QWidget):
         gray_values = base_gray - ((potential_fine / 50.0) * 0.5)
         gray_values = np.clip(gray_values, 0, 1)
 
+        # Modifying our pre-allocated memory buffers in-place to heavily reduce GC loads
         self.potential_rgba[:, 0] = gray_values.reshape(-1)
         self.potential_rgba[:, 1] = gray_values.reshape(-1)
         self.potential_rgba[:, 2] = gray_values.reshape(-1)
+        
         # Use dynamic alpha value from the user settings
         self.potential_rgba[:, 3] = self.potential_alpha
 
         self.potential_verts[:, 2] = Z_potential.reshape(-1) - self.z_potential_offset
 
+        # Wrap the recycled buffers in a new lightweight MeshData object
+        # This prevents PyQtGraph from discarding the 'faces' array internally.
         mesh_data = gl.MeshData(
             vertexes=self.potential_verts,
             faces=self.faces,
@@ -275,12 +309,14 @@ class AnimationWidget(QWidget):
         """Updates the 3D wave function mesh. Utilizes instant cache lookup if frame is known."""
         cache_key = id(psi_coarse)
 
+        # Instant execution if this frame instance was drawn before
         if cache_key in self._wave_cache:
             verts, rgba = self._wave_cache[cache_key]
             mesh_data = gl.MeshData(vertexes=verts, faces=self.faces, vertexColors=rgba)
             self.wave_mesh_item.setMeshData(meshdata=mesh_data)
             return
 
+        # Cache miss: Run calculations ONCE for this frame instance
         wave_matrix = psi_coarse.matrix
         zoom_factor_x = self.size_fine_x / wave_matrix.shape[0]
         zoom_factor_y = self.size_fine_y / wave_matrix.shape[1]
@@ -302,6 +338,8 @@ class AnimationWidget(QWidget):
         phase = np.angle(psi_real_linear + 1j * psi_imag_linear)
         hue = (phase + np.pi) / (2 * np.pi)
 
+        # Exposure multiplier for visual brightness
+        # Boosts the faint probability tails to be visible without exceeding 1.0 and set minimum brightness 0.01
         value = np.clip(np.sqrt(prob_fine) * self.brightness_multiplier, 0.01, 1.0)
 
         rgb = self._fast_hsv_to_rgb(hue, value)
@@ -313,10 +351,12 @@ class AnimationWidget(QWidget):
         rgba[:, :3] = rgb.reshape(-1, 3)
         rgba[:, 3] = 1.0
 
+        # Enforce cache size limit to prevent memory leaks over time
         if len(self._wave_cache) >= self.max_cache_size:
             oldest_key = next(iter(self._wave_cache))
             del self._wave_cache[oldest_key]
 
+        # Save to lazy cache for lookups on the next animation pass
         self._wave_cache[cache_key] = (verts, rgba)
 
         mesh_data = gl.MeshData(vertexes=verts, faces=self.faces, vertexColors=rgba)

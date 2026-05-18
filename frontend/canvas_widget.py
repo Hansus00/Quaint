@@ -13,6 +13,12 @@ class AspectRatioContainer(QWidget):
     A layout wrapper widget that forces its central child to maintain a strict 
     aspect ratio dynamically, responding organically to parent window resizes.
     """
+
+    # --- Class Fields ---
+    aspect_ratio: float
+    child_widget: QWidget
+    _layout: QVBoxLayout
+
     def __init__(self, widget: QWidget, aspect_ratio: float, parent: Optional[QWidget] = None) -> None:
         """
         Initializes the dynamic framing container.
@@ -20,6 +26,7 @@ class AspectRatioContainer(QWidget):
         Args:
             widget (QWidget): The inner child widget to constrain.
             aspect_ratio (float): The target Height/Width ratio to lock (e.g. grid_y / grid_x).
+            parent (Optional[QWidget]): Parent widget.
         """
         super().__init__(parent)
         self.aspect_ratio = aspect_ratio
@@ -31,7 +38,12 @@ class AspectRatioContainer(QWidget):
         self._layout.addWidget(self.child_widget)
 
     def set_aspect_ratio(self, aspect_ratio: float) -> None:
-        """Updates the locked ratio and triggers an immediate geometry recalculation."""
+        """
+        Updates the locked ratio and triggers an immediate geometry recalculation.
+
+        Args:
+            aspect_ratio (float): The new Height/Width ratio to enforce.
+        """
         self.aspect_ratio = aspect_ratio
         from PyQt6.QtGui import QResizeEvent
         self.resizeEvent(QResizeEvent(self.size(), self.size()))
@@ -40,6 +52,9 @@ class AspectRatioContainer(QWidget):
         """
         Calculates the largest bounded box fitting the ratio and pads the excess 
         space with dynamic layout margins to strictly center the child canvas.
+
+        Args:
+            event (QResizeEvent): The resize event containing new and old dimensions.
         """
         w = event.size().width()
         h = event.size().height()
@@ -69,7 +84,25 @@ class CanvasWidget(QWidget):
     It operates in its own localized pixel coordinate space and adapts seamlessly to layout resizes.
     """
 
+    # --- Class Fields ---
+    image: QImage
+    mode: str
+    drawing_potential: bool
+    last_point: QPoint
+    r0_px: Optional[QPoint]
+    k0_tip_px: Optional[QPoint]
+    brush_strength: int
+    brush_width: int
+
     def __init__(self, width: int, height: int, parent: Optional[QWidget] = None) -> None:
+        """
+        Initializes the drawing surface with a base pixel resolution.
+
+        Args:
+            width (int): Initial width of the canvas.
+            height (int): Initial height of the canvas.
+            parent (Optional[QWidget]): Parent widget.
+        """
         super().__init__(parent)
         
         # Allow the widget to shrink and expand freely within the container
@@ -81,20 +114,23 @@ class CanvasWidget(QWidget):
         self.image.fill(Qt.GlobalColor.white)
 
         # Current interaction mode state
-        self.mode: str = "brush"
-        self.drawing_potential: bool = False
-        self.last_point: QPoint = QPoint()
+        self.mode = "brush"
+        self.drawing_potential = False
+        self.last_point = QPoint()
 
-        self.r0_px: Optional[QPoint] = None
-        self.k0_tip_px: Optional[QPoint] = None
+        self.r0_px = None
+        self.k0_tip_px = None
 
-        self.brush_strength: int = 15
-        self.brush_width: int = 30
+        self.brush_strength = 15
+        self.brush_width = 30
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """
         Automatically triggered by the Qt framework whenever the widget boundaries change.
         Rescales the internal image and adjusts wavepacket vectors proportionally.
+
+        Args:
+            event (QResizeEvent): The resize event containing new and old dimensions.
         """
         new_size = event.size()
         old_size = event.oldSize()
@@ -125,11 +161,22 @@ class CanvasWidget(QWidget):
         super().resizeEvent(event)
 
     def set_image(self, img: QImage) -> None:
-        """Directly loads an external predefined image pattern onto the workspace view."""
+        """
+        Directly loads an external predefined image pattern onto the workspace view.
+
+        Args:
+            img (QImage): The QImage containing the new potential layout.
+        """
         self.image = img
         self.update()
 
     def paintEvent(self, event) -> None:
+        """
+        Renders the active canvas element, superimposing interactive vector overlays.
+
+        Args:
+            event: The QPaintEvent triggered by the Qt framework.
+        """
         painter = QPainter(self)
         painter.drawImage(0, 0, self.image)
 
@@ -141,6 +188,12 @@ class CanvasWidget(QWidget):
             painter.drawEllipse(self.r0_px, 4, 4)
 
     def mousePressEvent(self, event) -> None:
+        """
+        Captures user interaction starts, anchoring the drawing tool or setting state coordinates.
+
+        Args:
+            event: The QMouseEvent containing the click position and button state.
+        """
         pos = event.position().toPoint()
         if event.button() == Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser"):
@@ -152,6 +205,12 @@ class CanvasWidget(QWidget):
                 self.update()
 
     def mouseMoveEvent(self, event) -> None:
+        """
+        Processes drag inputs, drawing stroke pathways or modifying the active state vector length.
+
+        Args:
+            event: The QMouseEvent containing the cursor position.
+        """
         pos = event.position().toPoint()
         if event.buttons() & Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser") and self.drawing_potential:
@@ -178,5 +237,11 @@ class CanvasWidget(QWidget):
                 self.update()
 
     def mouseReleaseEvent(self, event) -> None:
+        """
+        Closes active input streams upon releasing mouse actions.
+
+        Args:
+            event: The QMouseEvent triggering the release.
+        """
         if event.button() == Qt.MouseButton.LeftButton:
             self.drawing_potential = False
