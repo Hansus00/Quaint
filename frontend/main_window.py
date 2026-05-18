@@ -8,13 +8,13 @@ import numpy as np
 from backend.Potential import InfiniteWellPotential, Potential
 from backend.Solver import SSFM, Constant, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget
-from scipy.ndimage import zoom
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
 from .settings import Settings
 from .setup_drawer import SetupDrawer
+from .simulation_thread import SimulationThread
 
 
 class MainWindow(QMainWindow):
@@ -30,6 +30,8 @@ class MainWindow(QMainWindow):
     z_scale: float
     fine_grid_scale: int
     z_potential_scale: float
+    brightness_multiplier: float
+    potential_alpha: float
     total_frames: int
     fps: int
     aspect_ratio: float
@@ -55,33 +57,40 @@ class MainWindow(QMainWindow):
     ) -> None:
         """
         Initializes the main window and default simulation states.
+
+        Args:
+            size_x (int): Horizontal resolution of the internal physical grid.
+            size_y (int): Vertical resolution of the internal physical grid.
+            z_potential_offset (float): Visual downward shift multiplier for the potential mesh.
         """
         super().__init__()
         self.setWindowTitle("3D Wave Function & Potential Simulation")
         self.resize(950, 750)
 
-        self.size_coarse_x: int = size_x
-        self.size_coarse_y: int = size_y
-        self.z_potential_offset: float = z_potential_offset
-        self.z_scale: float = 15.0
-        self.fine_grid_scale: int = 4
-        self.z_potential_scale: float = 0.07
+        self.size_coarse_x = size_x
+        self.size_coarse_y = size_y
+        self.z_potential_offset = z_potential_offset
+        self.z_scale = 15.0
+        self.fine_grid_scale = 4
+        self.z_potential_scale = 0.07
+        self.brightness_multiplier = 25.0
+        self.potential_alpha = 0.4  # Default opacity level
 
-        self.total_frames: int = 150
-        self.fps: int = 30
+        self.total_frames = 150
+        self.fps = 30
 
-        self.aspect_ratio: float = self.size_coarse_y / self.size_coarse_x
-        self.x_limit: float = 10.0
-        self.y_limit: float = 10.0 * self.aspect_ratio
+        self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
+        self.x_limit = 10.0
+        self.y_limit = 10.0 * self.aspect_ratio
 
-        self.x_coarse: np.ndarray = np.linspace(0.0, self.x_limit, self.size_coarse_x)
-        self.y_coarse: np.ndarray = np.linspace(0.0, self.y_limit, self.size_coarse_y)
+        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
+        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
 
-        self.wave_frames: list = []
-        self.initial_potential: Potential = InfiniteWellPotential(
+        self.wave_frames = []
+        self.initial_potential = InfiniteWellPotential(
             self.size_coarse_x, self.size_coarse_y
         )
-        self.initial_wavefunc: GaussianPacket = GaussianPacket(
+        self.initial_wavefunc = GaussianPacket(
             r0=np.array([self.size_coarse_x / 2, self.size_coarse_y / 2]),
             k0=np.array([0.0, 0.0]),
             sigma0=np.array([[1.0, 0.0], [0.0, 1.0]]),
@@ -91,27 +100,27 @@ class MainWindow(QMainWindow):
         )
 
         # Cache for UI state to restore it in the SetupDrawer window upon reopening
-        # Potential array flipped for visualization
+        # Potential array flipped for standard 2D UI visual orientation
         self.current_potential_array = self.initial_potential.matrix[:, ::-1].copy()
-        self.current_r0: np.ndarray = np.array(
-            [self.size_coarse_x / 2, self.size_coarse_y / 2]
-        )
-        self.current_k0: np.ndarray = np.array([0.0, 0.0])
-        self.current_sigma: np.ndarray = np.array([[1.0, 0.0], [0.0, 1.0]])
-        self.current_mass: float = 1.0
+        self.current_r0 = np.array([self.size_coarse_x / 2, self.size_coarse_y / 2])
+        self.current_k0 = np.array([0.0, 0.0])
+        self.current_sigma = np.array([[1.0, 0.0], [0.0, 1.0]])
+        self.current_mass = 1.0
 
         # Default simulation method
-        self.current_method: str = "Crank-Nicolson"
+        self.current_method = "Crank-Nicolson"
         self.switch_simulation_method(self.current_method)
 
         self._setup_ui()
-        # Populate the 3D potential mesh immediately on startup
+        # Populate the 3D potential mesh immediately on startup to prevent NoneType crash
         self.animation_widget.update_potential(self.initial_potential.matrix)
         self.calculate_all_frames()
         self.update_simulation(0)
 
     def _setup_ui(self) -> None:
-        """Sets up the central widget, 3D viewport, and control panels."""
+        """
+        Sets up the central widget, 3D viewport, and control panels.
+        """
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout(central_widget)
@@ -125,6 +134,8 @@ class MainWindow(QMainWindow):
             self.z_scale,
             self.fine_grid_scale,
             self.z_potential_scale,
+            self.brightness_multiplier,
+            self.potential_alpha,
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
@@ -139,34 +150,46 @@ class MainWindow(QMainWindow):
 
     def calculate_all_frames(self) -> None:
         """
-        Pre-calculates all simulation frames using the currently selected backend solver.
+        Initiates a new thread to calculate the entire simulation sequence based on the current setup and method.
+        This is necessary to prevent UI freezing during heavy computations.
         """
-        self.wave_frames = []
-
         self.animation_widget.clear_cache()
-
         self.switch_simulation_method(self.current_method)
-        self.wave_frames.append(self.simulation.get_wave_function())
 
-        for _ in range(1, self.total_frames):
-            self.simulation.step()
-            self.wave_frames.append(self.simulation.get_wave_function())
+        # Block the UI controls while the simulation is being calculated
+        self.controls.setEnabled(False)
+        self.controls.time_label.setText("Calculating...")
 
-            # Don't freeze the application while the simulation runs
-            QApplication.processEvents()
+        self.worker = SimulationThread(self.simulation, self.total_frames)
+        self.worker.calculation_finished.connect(self.on_calculation_finished)
+        self.worker.start()
+
+    def on_calculation_finished(self, generated_frames: list) -> None:
+        """
+        Receives the calculated frames from the worker thread
+        """
+        self.wave_frames = generated_frames
+
+        # Unlocking the controls after the simulation is ready
+        self.controls.time_label.setText(f"Time: {self.controls.slider.value()}")
+        self.controls.setEnabled(True)
+
+        # Updating the simulation
+        self.animation_widget.update_potential(self.initial_potential.matrix)
+        self.update_simulation(self.controls.slider.value())
 
     def open_settings_window(self) -> None:
-        """Opens the playback settings dialog."""
+        """
+        Opens the purely visual playback settings dialog (e.g. brightness, scaling).
+        """
         self.controls.pause()
         settings_dialog = Settings(
-            self.fps,
-            self.total_frames,
-            self.size_coarse_x,
-            self.size_coarse_y,
             self.z_scale,
             self.z_potential_offset,
             self.fine_grid_scale,
             self.z_potential_scale,
+            self.brightness_multiplier,
+            self.potential_alpha,
             self,
         )
         settings_dialog.settings_saved.connect(self.apply_settings)
@@ -174,58 +197,30 @@ class MainWindow(QMainWindow):
 
     def apply_settings(
         self,
-        fps: int,
-        total_frames: int,
-        size_x: int,
-        size_y: int,
         z_scale: float,
         z_offset: float,
         fine_grid_scale: int,
         z_pot_scale: float,
+        brightness: float,
+        potential_alpha: float,
     ) -> None:
-        """Applies new playback settings, resizes arrays if grid changed, and recalculates."""
-        self.fps = fps
-        self.total_frames = total_frames
-        self.controls.update_settings(fps, total_frames)
+        """
+        Applies visual settings instantly without recalculating the physics backend.
 
-        old_size_x = self.size_coarse_x
-        old_size_y = self.size_coarse_y
-
-        self.size_coarse_x = size_x
-        self.size_coarse_y = size_y
+        Args:
+            z_scale (float): Upward multiplier for wave amplitude.
+            z_offset (float): Downward shift parameter for potential field.
+            fine_grid_scale (int): Number of sub-pixels per physical grid point.
+            z_pot_scale (float): Upward multiplier for the drawn potential structure.
+            brightness (float): Scalar applied prior to value clip to expose wave tails.
+            potential_alpha (float): Transparency multiplier for the potential 3D mesh.
+        """
         self.z_scale = z_scale
         self.z_potential_offset = z_offset
         self.fine_grid_scale = fine_grid_scale
         self.z_potential_scale = z_pot_scale
-
-        self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
-        self.y_limit = 10.0 * self.aspect_ratio
-
-        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
-        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
-
-        # Scale the cached UI map to safely match the new grid size
-        zoom_x = self.size_coarse_x / old_size_x
-        zoom_y = self.size_coarse_y / old_size_y
-
-        self.current_potential_array = zoom(
-            self.current_potential_array, (zoom_x, zoom_y), order=1
-        )
-        self.current_r0 = np.array(
-            [self.current_r0[0] * zoom_x, self.current_r0[1] * zoom_y]
-        )
-
-        # Generate fresh components mapped to the new layout
-        potential_coarse = self.current_potential_array[:, ::-1]
-        self.initial_potential = Potential(potential_coarse)
-        self.initial_wavefunc = GaussianPacket(
-            self.current_r0,
-            self.current_k0,
-            self.current_sigma,
-            self.current_mass,
-            self.size_coarse_x,
-            self.size_coarse_y,
-        )
+        self.brightness_multiplier = brightness
+        self.potential_alpha = potential_alpha
 
         self.animation_widget.update_config(
             self.size_coarse_x,
@@ -235,16 +230,23 @@ class MainWindow(QMainWindow):
             self.z_scale,
             self.fine_grid_scale,
             self.z_potential_scale,
+            self.brightness_multiplier,
+            self.potential_alpha,
         )
+
         self.animation_widget.update_potential(self.initial_potential.matrix)
 
-        self.calculate_all_frames()
+        # Redraw the current frame with the updated display properties
         self.update_simulation(self.controls.slider.value())
 
     def open_setup_drawer(self) -> None:
-        """Opens the canvas drawer for setting up potentials and wavepackets."""
+        """
+        Opens the canvas drawer for setting up potentials, physical resolutions, and wavepackets.
+        """
         self.controls.pause()
         drawer = SetupDrawer(
+            current_fps=self.fps,
+            current_frames=self.total_frames,
             grid_size_x=self.size_coarse_x,
             grid_size_y=self.size_coarse_y,
             x_limit=self.x_limit,
@@ -268,11 +270,28 @@ class MainWindow(QMainWindow):
         k0: np.ndarray,
         sigma_matrix: np.ndarray,
         mass: float,
+        fps: int,
+        total_frames: int,
+        size_x: int,
+        size_y: int,
     ) -> None:
         """
-        Applies the physical setup generated by the SetupDrawer.
+        Applies physics configuration, rebuilds the internal arrays if resolution changes,
+        and triggers a complete simulation recalculation.
         """
-        # Cache the latest UI settings to be restored when SetupDrawer is opened again
+        self.fps = fps
+        self.total_frames = total_frames
+        self.controls.update_settings(fps, total_frames)
+
+        self.size_coarse_x = size_x
+        self.size_coarse_y = size_y
+        self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
+        self.y_limit = 10.0 * self.aspect_ratio
+
+        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
+        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
+
+        # Update cached UI structures directly from the pre-scaled drawer return array
         self.current_potential_array = potential_array.copy()
         self.current_r0 = r0.copy()
         self.current_k0 = k0.copy()
@@ -289,13 +308,27 @@ class MainWindow(QMainWindow):
 
         self.initial_potential = Potential(potential_coarse)
         self.initial_wavefunc = GaussianPacket(
-            r0, k0, sigma_matrix, mass, self.size_coarse_x, self.size_coarse_y
+            self.current_r0,
+            self.current_k0,
+            self.current_sigma,
+            self.current_mass,
+            self.size_coarse_x,
+            self.size_coarse_y,
         )
-        self.calculate_all_frames()
 
-        # Retrieve the updated potential array to draw
-        self.animation_widget.update_potential(self.initial_potential.matrix)
-        self.update_simulation(self.controls.slider.value())
+        self.animation_widget.update_config(
+            self.size_coarse_x,
+            self.size_coarse_y,
+            self.y_limit,
+            self.z_potential_offset,
+            self.z_scale,
+            self.fine_grid_scale,
+            self.z_potential_scale,
+            self.brightness_multiplier,
+            self.potential_alpha,
+        )
+
+        self.calculate_all_frames()
 
     def update_simulation(self, frame_idx: int) -> None:
         """
@@ -309,7 +342,7 @@ class MainWindow(QMainWindow):
 
     def switch_simulation_method(self, method_name: str) -> None:
         """
-        Switches the backend solver used for calculating the wave evolution.
+        Switches the backend solver instance used for calculating the wave evolution.
         """
         self.current_method = method_name
         delta_t: float = 1 / self.fps
@@ -323,6 +356,8 @@ class MainWindow(QMainWindow):
                 self.initial_potential, self.initial_wavefunc, delta_t
             )
         elif method_name == "SSFM":
-            self.simulation = SSFM()
+            self.simulation = SSFM(
+                self.initial_potential, self.initial_wavefunc, delta_t
+            )
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
