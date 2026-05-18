@@ -78,7 +78,7 @@ p.add_argument(
     help="Set how many updates, each of delta_n, should happen (overrides --config)",
 )
 p.add_argument(
-    "--delta-r",
+    "--grid-step",
     type=float,
     default=1.0,
     required=False,
@@ -119,8 +119,8 @@ if args.solver is not None:
     params.solver = args.solver
 if args.updates_max is not None:
     params.updates_max = args.updates_max
-if args.delta_r is not None:
-    params.delta_r = args.delta_r
+if args.grid_step is not None:
+    params.grid_step = args.grid_step
 params.write(str(directory / "params.json"))
 
 # set potential
@@ -185,11 +185,11 @@ gauss = GaussianPacket(
 # %matplotlib widget
 solver: _Solver
 if params.solver == SolverType.CN:
-    solver = CrankNicolson(well, gauss, params.delta_t, params.delta_r)
+    solver = CrankNicolson(well, gauss, params.delta_t, params.grid_step)
 elif params.solver == SolverType.SSFM:
-    solver = SSFM(well, gauss, params.delta_t, params.delta_r)
+    solver = SSFM(well, gauss, params.delta_t, params.grid_step)
 elif params.solver == SolverType.SYM_SSFM:
-    solver = SSFMSymmetric(well, gauss, params.delta_t, args.delta_r)
+    solver = SSFMSymmetric(well, gauss, params.delta_t, args.grid_step)
 else:
     assert False, "Solver must be specified!"
 
@@ -227,7 +227,7 @@ def update(frame):
         + str(solver.get_steps_evolved())
     )
     amp = np.abs(new_data) ** 2
-    scale = np.percentile(amp, 99.5)
+    scale = np.percentile(amp, 99.9)
 
     amp = np.clip(amp / scale, 0, 1)
 
