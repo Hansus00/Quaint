@@ -227,9 +227,9 @@ def update(frame):
         + str(solver.get_steps_evolved())
     )
     amp = np.abs(new_data) ** 2
-    amp /= amp.max()
+    scale = np.percentile(amp, 99.5)
 
-    gamma = 0.3  # brighten low amplitudes
+    amp = np.clip(amp / scale, 0, 1)
 
     colors = [
         [
