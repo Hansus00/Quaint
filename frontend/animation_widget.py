@@ -321,21 +321,21 @@ class AnimationWidget(QWidget):
         zoom_factor_x = self.size_fine_x / wave_matrix.shape[0]
         zoom_factor_y = self.size_fine_y / wave_matrix.shape[1]
 
-        prob_coarse = np.abs(wave_matrix) ** 2
-        prob_fine = zoom(prob_coarse, (zoom_factor_x, zoom_factor_y), order=3)
+        # This creates smooth color gradients
+        psi_real_fine = zoom(wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=3)
+        psi_imag_fine = zoom(wave_matrix.imag, (zoom_factor_x, zoom_factor_y), order=3)
+        
+        # Reconstruct the high-resolution complex wave matrix
+        psi_fine = psi_real_fine + 1j * psi_imag_fine
 
+        # Calculate probability from the interpolated complex matrix
+        prob_fine = np.abs(psi_fine) ** 2
         prob_fine = np.clip(prob_fine, 0.0, None)
 
         Z_fine = prob_fine * self.z_scale
 
-        psi_real_linear = zoom(
-            wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=1
-        )
-        psi_imag_linear = zoom(
-            wave_matrix.imag, (zoom_factor_x, zoom_factor_y), order=1
-        )
-
-        phase = np.angle(psi_real_linear + 1j * psi_imag_linear)
+        # Calculate phase from the interpolated complex fine matrix
+        phase = np.angle(psi_fine)
         hue = (phase + np.pi) / (2 * np.pi)
 
         # Exposure multiplier for visual brightness
