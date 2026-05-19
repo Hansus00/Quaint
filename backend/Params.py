@@ -36,8 +36,8 @@ class Params:
         default_factory=lambda: np.array([[16, 0], [0, 16]])
     )
     mass: float = 2e-3
-    delta_n: int = 32
-    delta_t: float = 1e-3
+    delta_n: int = 32 # steps per update
+    delta_t: float = 1e-3 # time step per update
     grid_step: float = 1
     updates_max: int = 4  # how many updates, each one changes by delta_n
 

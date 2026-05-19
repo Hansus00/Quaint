@@ -122,6 +122,7 @@ if args.updates_max is not None:
 if args.grid_step is not None:
     params.grid_step = args.grid_step
 params.write(str(directory / "params.json"))
+print("Simulation parameters:", params)
 
 # set potential
 # TODO: maybe make separate Potential instances for this?
@@ -210,8 +211,7 @@ def update(frame):
     else:
         solver.update(params.delta_n)
         if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
-            # Energies.append(solver.energy())  # type: ignore
-            Energies.append(1)
+            Energies.append(solver.energy())  # type: ignore
         else:
             Energies.append(1)
         Probabilities.append(solver.get_wave_function().total_probability())
@@ -314,7 +314,7 @@ ax1.tick_params(axis="y", labelcolor="tab:blue")
 
 ax2 = ax1.twinx()
 ax2.plot(N, np.array(Probabilities) - 1, label=r"$P(t)$", color="tab:red")
-ax2.set_ylabel("Probability change $P(t)- 1$", color="tab:red")
+ax2.set_ylabel("Probability deviation $P(t)- 1$", color="tab:red")
 ax2.tick_params(axis="y", labelcolor="tab:red")
 
 ax1.set_zorder(2)
@@ -322,7 +322,7 @@ ax2.set_zorder(1)
 ax1.patch.set_alpha(0)
 ax2.patch.set_alpha(0)
 
-leg = ax1.legend(frameon=True, framealpha=1)
+leg = ax1.legend(frameon=True, framealpha=1, loc="upper left")
 leg.set_zorder(100)
 
 plt.savefig(directory / "EPplot.png")
