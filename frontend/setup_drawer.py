@@ -201,6 +201,7 @@ class SetupDrawer(QDialog):
             self.canvas.r0_px = QPoint(rx_px, ry_px)
 
             kx_px = int((initial_k0[0] / 0.1) + rx_px)
+            # Conversion from bottom-to-top top-to-bottom coordinate system
             ky_px = int((-initial_k0[1] / 0.1) + ry_px)
             self.canvas.k0_tip_px = QPoint(kx_px, ky_px)
 
@@ -615,6 +616,7 @@ class SetupDrawer(QDialog):
             rx = int(np.clip(rx_float, 0, new_size_x - 1))
 
             # Map Pixel Y to a natural number [0, new_size_y - 1] (Inverting so 0 is at bottom)
+            # Conversion from top-to-bottom to bottom-to-top coordinate system
             ry_float = (
                 1.0 - (self.canvas.r0_px.y() / self.canvas.height())
             ) * new_size_y
@@ -624,6 +626,7 @@ class SetupDrawer(QDialog):
 
             # Map Pixel X and Y to momentum components
             kx = (self.canvas.k0_tip_px.x() - self.canvas.r0_px.x()) * 0.1
+            # Conversion from top-to-bottom to bottom-to-top coordinate system
             ky = -(self.canvas.k0_tip_px.y() - self.canvas.r0_px.y()) * 0.1
             k0 = np.array([kx, ky])
         else:
@@ -710,10 +713,12 @@ class SetupDrawer(QDialog):
         self.update_canvas_size()
 
         rx_px = int((p.r0[0] / p.size_x) * self.canvas.width())
+        # Conversion from bottom-to-top to top-to-bottom coordinate system
         ry_px = int((1.0 - (p.r0[1] / p.size_y)) * self.canvas.height())
         self.canvas.r0_px = QPoint(rx_px, ry_px)
 
         kx_px = int((p.k0[0] / 0.1) + rx_px)
+        # Conversion from bottom-to-top to top-to-bottom coordinate system
         ky_px = int((-p.k0[1] / 0.1) + ry_px)
         self.canvas.k0_tip_px = QPoint(kx_px, ky_px)
 

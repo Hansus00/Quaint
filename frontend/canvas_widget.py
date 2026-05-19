@@ -259,4 +259,3 @@ class CanvasWidget(QWidget):
         """
         if event.button() == Qt.MouseButton.LeftButton:
             self.drawing_potential = False
-
