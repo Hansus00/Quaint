@@ -293,7 +293,7 @@ fig, ax1 = plt.subplots()
 ax1.plot(
     N,
     np.array(Energies).real / np.abs(Energies[0]) - 1,  # type: ignore
-    label=r"$\Re \left(E(t)/|E(0)|-1\right)$",
+    label=r"$\Re \left(\langle E\rangle(t)|\langle E\rangle(0)|-1\right)$",
     color="tab:blue",
 )
 
@@ -304,7 +304,7 @@ assert np.allclose(
 ax1.plot(
     N,
     np.array(Energies).imag / np.abs(Energies[0]),  # type: ignore
-    label=r"$\Im E(t)/|E(0)|$",
+    label=r"$\Im \left(\langle E\rangle(t)|\langle E\rangle(0)|\right)$",
     linestyle="--",
     color="tab:blue",
 )
