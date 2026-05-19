@@ -1,4 +1,3 @@
-# %%
 from enum import Enum
 from dataclasses import dataclass, asdict, field
 import json
@@ -72,6 +71,3 @@ def _enum_dict_factory(data):
         )
         for k, v in data
     }
-
-
-# %%
