@@ -13,6 +13,8 @@ class _Solver:
     delta_t: float
     _wave_func: StationaryWaveFunc
     _steps_evolved: int = 0
+    _dx: float = 1
+    _dy: float = 1
 
     def __init__(
         self,
@@ -24,7 +26,7 @@ class _Solver:
         self.potential = potential
         self._wave_func = wave_func
         self.delta_t = delta_t
-        self.dx, self.dy = grid_step, grid_step  # FIXME: Fine tune the grid step size
+        self._dx, self._dy = grid_step, grid_step  # FIXME: Fine tune the grid step size
 
     def step(self) -> None:
         """Evolves on step of wave function after t + Delta t"""
@@ -47,9 +49,8 @@ class _Solver:
 
     def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
         # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
-        dx, dy = self.dx, self.dy
-        D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / dx**2  # type: ignore
-        D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / dy**2  # type: ignore
+        D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / self._dx**2  # type: ignore
+        D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / self._dy**2  # type: ignore
 
         I_x = sp.identity(Nx)
         I_y = sp.identity(Ny)
@@ -156,8 +157,8 @@ class _BaseSSFM(_Solver):
         self, Nx: int, Ny: int, mass: float
     ) -> NDArray[np.complex128]:
         """Creates the momentum space propagator."""
-        kx = np.fft.fftfreq(Nx, d=self.dx) * 2 * np.pi
-        ky = np.fft.fftfreq(Ny, d=self.dy) * 2 * np.pi
+        kx = np.fft.fftfreq(Nx, d=self._dx) * 2 * np.pi
+        ky = np.fft.fftfreq(Ny, d=self._dy) * 2 * np.pi
         kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
 
         T = (kx2 + ky2) / (2 * mass)
