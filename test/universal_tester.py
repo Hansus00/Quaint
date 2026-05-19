@@ -260,13 +260,17 @@ else:
     )  # type: ignore
 
     if not insideInteractive:
-        ani.save(
-            directory / f"gauss_evolution.mp4",
-            writer="ffmpeg",
-            fps=args.fps,
-            dpi=300,
-            savefig_kwargs={"pad_inches": 0},
-        )
+        try:
+            ani.save(
+                directory / f"gauss_evolution.mp4",
+                writer="ffmpeg",
+                fps=args.fps,
+                dpi=300,
+                savefig_kwargs={"pad_inches": 0},
+            )  # similiar as ffmpeg -framerate 2 -pattern_type glob -i "gauss_evolved_n*.png" output.mp4
+        except Exception as e:
+            print("ffmpeg missing or broken:", e)
+            exit(-1)
     else:
         plt.show()
 end = time.perf_counter()
@@ -289,7 +293,11 @@ with open(directory / "out.json", "w") as f:
 N = [i * params.delta_n * params.delta_t for i, e in enumerate(Energies)]
 
 fig, ax1 = plt.subplots()
-
+ax1.set_title(
+    "Probability and expected value of energy during time evolution ("
+    + str(params.solver)
+    + ")"
+)
 ax1.plot(
     N,
     np.array(Energies).real / np.abs(Energies[0]) - 1,  # type: ignore
