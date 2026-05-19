@@ -106,8 +106,7 @@ class AnimationWidget(QWidget):
 
         # Lazy memory cache mapping frame object IDs -> pre-computed (verts, rgba)
         self._wave_cache = {}
-        # Maximum cache limit
-        # TODO: calculate based on available memory
+        # Default maximum cache limit. It's later changed based on available memory
         self.max_cache_size = 150
 
         self._setup_ui()

@@ -48,11 +48,11 @@ class MainWindow(QMainWindow):
     current_sigma: np.ndarray
     current_mass: float
     current_method: str
-    
+
     current_delta_t: float
     current_steps_per_frame: int
     current_wall_height: float
-    
+
     animation_widget: AnimationWidget
     controls: AnimationControlsWidget
     simulation: Any
@@ -83,7 +83,7 @@ class MainWindow(QMainWindow):
 
         self.total_frames = 150
         self.fps = 30
-        
+
         self.current_delta_t = 0.002
         self.current_steps_per_frame = 30
         self.current_wall_height = 50.0
@@ -170,15 +170,49 @@ class MainWindow(QMainWindow):
         self.controls.time_label.setText("Calculating...")
 
         # Start the simulation thread with the current simulation instance and parameters
-        self.worker = SimulationThread(self.simulation, self.total_frames, self.current_steps_per_frame)
+        self.worker = SimulationThread(
+            self.simulation, self.total_frames, self.current_steps_per_frame
+        )
         self.worker.calculation_finished.connect(self.on_calculation_finished)
         self.worker.start()
 
     def on_calculation_finished(self, generated_frames: list) -> None:
         """
-        Receives the calculated frames from the worker thread
+        Receives the calculated frames from the worker thread.
+        Dynamically sizes the animation cache based on remaining system RAM.
         """
         self.wave_frames = generated_frames
+
+        # --- DYNAMIC CACHE SIZING AFTER PHYSICS ALLOCATION ---
+        try:
+            import psutil
+
+            mem_available = psutil.virtual_memory().available
+        except ImportError:
+            # Fallback if psutil is not available, assume 16GB free memory
+            mem_available = 16 * 1024 * 1024 * 1024
+
+        # Dedicate up to 50% of the remaining free RAM to the OpenGL rendering cache
+        cache_memory_allowance = mem_available * 0.50
+
+        # Calculate memory footprint of a single OpenGL cached frame:
+        # verts (float32, 3 cols = 12 bytes) + rgba (float32, 4 cols = 16 bytes) = 28 bytes per fine grid point
+        nx_fine = self.animation_widget.size_fine_x
+        ny_fine = self.animation_widget.size_fine_y
+        bytes_per_cached_frame = (nx_fine * ny_fine) * 28
+
+        if bytes_per_cached_frame > 0:
+            safe_cache_limit = int(cache_memory_allowance / bytes_per_cached_frame)
+            # Cap the cache at `self.total_frames` (no need to cache more than exists)
+            # Ensure a minimum of 10 frames to avoid breaking playback
+            final_cache_limit = max(10, min(safe_cache_limit, self.total_frames))
+            self.animation_widget.max_cache_size = final_cache_limit
+        else:
+            self.animation_widget.max_cache_size = self.total_frames
+
+        print(
+            f"Physics complete. Set UI cache limit to: {self.animation_widget.max_cache_size} frames."
+        )
 
         # Unlocking the controls after the simulation is ready
         self.controls.time_label.setText(f"Time: {self.controls.slider.value()}")
@@ -298,7 +332,7 @@ class MainWindow(QMainWindow):
         self.fps = fps
         self.total_frames = total_frames
         self.controls.update_settings(fps, total_frames)
-        
+
         self.current_delta_t = delta_t
         self.current_steps_per_frame = steps_per_frame
         self.current_wall_height = wall_height
@@ -370,7 +404,7 @@ class MainWindow(QMainWindow):
         Switches the backend solver instance used for calculating the wave evolution.
         """
         self.current_method = method_name
-        
+
         dt = self.current_delta_t
 
         if method_name == "Constant":
@@ -382,9 +416,6 @@ class MainWindow(QMainWindow):
                 self.initial_potential, self.initial_wavefunc, dt
             )
         elif method_name == "SSFM":
-            self.simulation = SSFM(
-                self.initial_potential, self.initial_wavefunc, dt
-            )
+            self.simulation = SSFM(self.initial_potential, self.initial_wavefunc, dt)
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
-
