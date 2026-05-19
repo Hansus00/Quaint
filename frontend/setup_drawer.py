@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QRadioButton,
     QSlider,
@@ -149,9 +150,9 @@ class SetupDrawer(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Simulation Setup: Potential & Wavepacket")
 
-        # Enforce elastic minimum boundary constraints and add native OS window buttons (Minimize/Maximize)
+        # Enforce minimum boundary constraints and add native OS window buttons (Minimize/Maximize)
         self.setMinimumSize(800, 800)
-        self.resize(1000, 950)
+        self.resize(950, 900)
 
         self.setWindowFlags(
             Qt.WindowType.Window
@@ -271,12 +272,14 @@ class SetupDrawer(QDialog):
         self.size_x_input = QSpinBox()
         self.size_x_input.setRange(10, 1000)
         self.size_x_input.setValue(self.grid_size_x)
+        self.size_x_input.valueChanged.connect(lambda _: self.check_memory_limit())
         sim_params_layout.addWidget(self.size_x_input)
 
         sim_params_layout.addWidget(QLabel("Grid Y:"))
         self.size_y_input = QSpinBox()
         self.size_y_input.setRange(10, 1000)
         self.size_y_input.setValue(self.grid_size_y)
+        self.size_y_input.valueChanged.connect(lambda _: self.check_memory_limit())
         sim_params_layout.addWidget(self.size_y_input)
 
         # Dynamic Grid Resize Button
@@ -453,6 +456,9 @@ class SetupDrawer(QDialog):
 
         layout.addLayout(controls)
 
+        # Enforce memory safety on initial setup
+        self.check_memory_limit()
+
     def update_canvas_size(self) -> None:
         """
         Dynamically resizes the drawing canvas aspect bounds based on the specified grid resolution.
@@ -467,6 +473,53 @@ class SetupDrawer(QDialog):
         # Push the new ratio restriction down to the container (triggers auto-resize)
         aspect_ratio = new_y / new_x
         self.canvas_container.set_aspect_ratio(aspect_ratio)
+
+    def check_memory_limit(self) -> None:
+        """
+        Calculates the maximum number of frames based on the grid size and available RAM.
+        Lowers the frames input if it exceeds the calculated limit and notifies the user.
+        """
+        try:
+            import psutil
+
+            mem_available = psutil.virtual_memory().available
+        except ImportError:
+            # Fallback if psutil is not available, assume 16GB free memory
+            mem_available = 16 * 1024 * 1024 * 1024
+
+        # Reserve 2GB buffer for OS, cache
+        safe_mem = max(0, mem_available - 2000 * 1024 * 1024)
+
+        nx = self.size_x_input.value()
+        ny = self.size_y_input.value()
+
+        # Conservative estimation:
+        # np.complex128 takes up 16 bytes
+        bytes_per_frame = nx * ny * 16
+
+        if bytes_per_frame == 0:
+            return
+
+        max_frames = int(safe_mem / bytes_per_frame)
+
+        # Clamp to reasonable UI boundaries
+        max_frames = min(max_frames, 10000)
+        max_frames = max(max_frames, 10)
+
+        current_frames = self.frames_input.value()
+
+        # Update the maximum limit of the spinbox
+        self.frames_input.setMaximum(max_frames)
+
+        # Apply the reduction and notify if the current frames exceed the new limit
+        if current_frames > max_frames:
+            self.frames_input.setValue(max_frames)
+            QMessageBox.warning(
+                self,
+                "Memory Limit Reached",
+                f"The grid size is too large for the current number of frames.\n\n"
+                f"Based on available RAM, the maximum number of frames has been safely lowered to {max_frames}.",
+            )
 
     def load_preset_potential(self, text: str) -> None:
         """
