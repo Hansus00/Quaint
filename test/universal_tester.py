@@ -304,8 +304,8 @@ ax1.set_title(
 )
 ax1.plot(
     N,
-    1 - np.array(Energies).real / np.abs(Energies[0]),  # type: ignore
-    label=r"$1-\Re \langle E\rangle(t)/\left|\langle E\rangle(0)\right|$",
+    np.array(Energies).real / np.abs(Energies[0]) - 1,  # type: ignore
+    label=r"$\Re \langle E\rangle(t)/\left|\langle E\rangle(0)\right|-1$",
     color="tab:blue",
 )
 
@@ -325,8 +325,8 @@ ax1.set_ylabel("Energy $E$ (arb. u.)", color="tab:blue")
 ax1.tick_params(axis="y", labelcolor="tab:blue")
 
 ax2 = ax1.twinx()
-ax2.plot(N, 1 - np.array(Probabilities), label=r"$P(t)$", color="tab:red")
-ax2.set_ylabel("Probability deviation $1-P(t)$", color="tab:red")
+ax2.plot(N, np.array(Probabilities) - 1, label=r"$P(t)$", color="tab:red")
+ax2.set_ylabel("Probability deviation $P(t)-1$", color="tab:red")
 ax2.tick_params(axis="y", labelcolor="tab:red")
 
 ax1.set_zorder(2)
