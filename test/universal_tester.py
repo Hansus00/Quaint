@@ -58,8 +58,8 @@ p.add_argument(
 )
 p.add_argument(
     "--fps",
-    type=int,
-    default=15,
+    type=float,
+    default=5,
     required=False,
     help="Set FPS rate for animation",
     metavar="FPS",
@@ -135,7 +135,7 @@ elif params.well_type == WellType.W_SHAPED:
     ws_inside_grid = EmbeddedPotential(
         params.size_x,
         params.size_y,
-        (params.size_x - params.size_x // 4) // 2,
+        (params.size_x - params.size_x // 4) // 6,  # check for asymmetry
         (params.size_y - params.size_y // 4) // 2,
         ws,
     )
@@ -165,7 +165,9 @@ fig, ax = plt.subplots(layout="tight")
 fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
 
 ax.set_title("Potential well")
-im = ax.imshow(np.float64(well.matrix).T, aspect="auto", origin="lower")
+im = ax.imshow(
+    np.float64(well.matrix).T, aspect="auto", origin="lower"
+)  # transposition is needed as imshow draws (y,x)
 cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
 ax.set_xlabel("x")
@@ -240,7 +242,9 @@ def update(frame):
             )
             for z, a in zip(row, amp_row)
         ]
-        for row, amp_row in zip(new_data.T, amp.T)
+        for row, amp_row in zip(
+            new_data.T, amp.T
+        )  # transposition is needed as imshow draws (y,x)
     ]
     im.set_data(colors)
     return (im,)
@@ -300,8 +304,8 @@ ax1.set_title(
 )
 ax1.plot(
     N,
-    np.array(Energies).real / np.abs(Energies[0]) - 1,  # type: ignore
-    label=r"$\Re \left(\langle E\rangle(t)|\langle E\rangle(0)|-1\right)$",
+    1 - np.array(Energies).real / np.abs(Energies[0]),  # type: ignore
+    label=r"$1-\Re \langle E\rangle(t)/\left|\langle E\rangle(0)\right|$",
     color="tab:blue",
 )
 
@@ -312,7 +316,7 @@ assert np.allclose(
 ax1.plot(
     N,
     np.array(Energies).imag / np.abs(Energies[0]),  # type: ignore
-    label=r"$\Im \left(\langle E\rangle(t)|\langle E\rangle(0)|\right)$",
+    label=r"$\Im \langle E\rangle(t)/\left|\langle E\rangle(0)\right|$",
     linestyle="--",
     color="tab:blue",
 )
@@ -321,8 +325,8 @@ ax1.set_ylabel("Energy $E$ (arb. u.)", color="tab:blue")
 ax1.tick_params(axis="y", labelcolor="tab:blue")
 
 ax2 = ax1.twinx()
-ax2.plot(N, np.array(Probabilities) - 1, label=r"$P(t)$", color="tab:red")
-ax2.set_ylabel("Probability deviation $P(t)- 1$", color="tab:red")
+ax2.plot(N, 1 - np.array(Probabilities), label=r"$P(t)$", color="tab:red")
+ax2.set_ylabel("Probability deviation $1-P(t)$", color="tab:red")
 ax2.tick_params(axis="y", labelcolor="tab:red")
 
 ax1.set_zorder(2)
