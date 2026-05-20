@@ -212,10 +212,7 @@ def update(frame):
         cbar.remove()
     else:
         solver.update(params.delta_n)
-        if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
-            Energies.append(solver.energy())  # type: ignore
-        else:
-            Energies.append(1)
+        Energies.append(solver.ev_energy())  # type: ignore
         Probabilities.append(solver.get_wave_function().total_probability())
 
     new_data = solver.get_wave_function().matrix
