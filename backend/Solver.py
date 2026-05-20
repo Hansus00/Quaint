@@ -29,13 +29,14 @@ class _Solver:
         self._dx, self._dy = grid_step, grid_step  # FIXME: Fine tune the grid step size
 
     def _CFL_condition(self):
+        # FIXME: see github issue
         """Requires ev_energy() to work, should be the last function run in __init__"""
         k = np.sqrt(2 * self._wave_func.mass * np.abs(self.ev_energy()))
-        k_max = np.pi / np.mean([self._dx, self._dy])
+        k_max = np.pi / (2 * np.mean([self._dx, self._dy]))  # Nyquist
 
         print("\nk_max=", k_max)
         print("|k_0|", np.abs(k))
-        if np.abs(k) / k_max >= 0.8:  # 0.8 safety
+        if np.abs(k) >= k_max:
             print("WARNING: CFL condition is not satisfied")
 
     def step(self) -> None:
@@ -56,24 +57,6 @@ class _Solver:
     def get_wave_function(self) -> StationaryWaveFunc:
         """Returns wave function at current state at time t"""
         return self._wave_func
-
-    def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
-        # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
-        D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / self._dx**2  # type: ignore
-        D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / self._dy**2  # type: ignore
-
-        I_x = sp.identity(Nx)
-        I_y = sp.identity(Ny)
-
-        # 2D Laplacian discretization consistent with C-order flattening used by numpy:
-        # index mapping (i, j) -> i * Ny + j
-        return sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy)
-
-    def _create_hamilton_operator(self, L_2D: sp.spmatrix, mass: float) -> sp.spmatrix:
-        T_matrix = -(1 / (2 * mass)) * L_2D
-        V_1d = self.potential.matrix.flatten()
-        V_matrix = sp.diags(V_1d, offsets=0, format="csr")
-        return T_matrix + V_matrix
 
     def ev_energy(self) -> np.complex128:
         raise NotImplementedError
@@ -108,6 +91,25 @@ class CrankNicolson(_Solver):
 
         self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
         self._CFL_condition()
+
+    def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
+        # TODO: add periodic boundary conditions
+        # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
+        D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / self._dx**2  # type: ignore
+        D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / self._dy**2  # type: ignore
+
+        I_x = sp.identity(Nx)
+        I_y = sp.identity(Ny)
+
+        # 2D Laplacian discretization consistent with C-order flattening used by numpy:
+        # index mapping (i, j) -> i * Ny + j
+        return sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy)
+
+    def _create_hamilton_operator(self, L_2D: sp.spmatrix, mass: float) -> sp.spmatrix:
+        T_matrix = -(1 / (2 * mass)) * L_2D
+        V_1d = self.potential.matrix.flatten()
+        V_matrix = sp.diags(V_1d, offsets=0, format="csr")
+        return T_matrix + V_matrix
 
     def _create_cayley_matrices(
         self, N_total: int, H: sp.spmatrix
