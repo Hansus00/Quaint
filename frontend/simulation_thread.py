@@ -21,7 +21,9 @@ class SimulationThread(QThread):
     total_frames: int
     steps_per_frame: int
 
-    def __init__(self, simulation_instance: Any, total_frames: int, steps_per_frame: int = 30) -> None:
+    def __init__(
+        self, simulation_instance: Any, total_frames: int, steps_per_frame: int = 30
+    ) -> None:
         """
         Initializes the calculation worker thread.
 
@@ -53,4 +55,3 @@ class SimulationThread(QThread):
 
         # Dispatch the payload back to the main thread
         self.calculation_finished.emit(wave_frames)
-

@@ -587,9 +587,11 @@ class SetupDrawer(QDialog):
             bpl = gray_img.bytesPerLine()
             buffer = gray_img.constBits().asarray(height * bpl)
 
-            arr = np.frombuffer(bytes(buffer), dtype=np.uint8).reshape(
-                (height, bpl)
-            ).copy()
+            arr = (
+                np.frombuffer(bytes(buffer), dtype=np.uint8)
+                .reshape((height, bpl))
+                .copy()
+            )
             arr = arr[:, :width]
 
             inner_matrix = ((255 - arr) / 255.0 * wall_val).T

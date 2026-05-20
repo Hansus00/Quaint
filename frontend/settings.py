@@ -124,4 +124,3 @@ class Settings(QDialog):
             self.alpha_spin.value(),
         )
         self.accept()
-
