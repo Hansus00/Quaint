@@ -80,7 +80,6 @@ p.add_argument(
 p.add_argument(
     "--grid-step",
     type=float,
-    default=1.0,
     required=False,
     help="Set size of grid step",
 )
