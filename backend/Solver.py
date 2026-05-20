@@ -28,6 +28,16 @@ class _Solver:
         self.delta_t = delta_t
         self._dx, self._dy = grid_step, grid_step  # FIXME: Fine tune the grid step size
 
+    def _CFL_condition(self):
+        """Requires ev_energy() to work, should be the last function run in __init__"""
+        k = np.sqrt(2 * self._wave_func.mass * np.abs(self.ev_energy()))
+        k_max = np.pi / np.mean([self._dx, self._dy])
+
+        print("\nk_max=", k_max)
+        print("|k_0|", np.abs(k))
+        if np.abs(k) / k_max >= 0.8:  # 0.8 safety
+            print("WARNING: CFL condition is not satisfied")
+
     def step(self) -> None:
         """Evolves on step of wave function after t + Delta t"""
         self._steps_evolved += 1
@@ -97,6 +107,7 @@ class CrankNicolson(_Solver):
         )  # factorize once for the whole simulation
 
         self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
+        self._CFL_condition()
 
     def _create_cayley_matrices(
         self, N_total: int, H: sp.spmatrix
@@ -152,6 +163,7 @@ class _BaseSSFM(_Solver):
 
         self._U_V = self._create_real_space_propagator()
         self._U_T = self._create_momentum_propagator(Nx, Ny, wave_func.mass)
+        self._CFL_condition()
 
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         raise NotImplementedError
