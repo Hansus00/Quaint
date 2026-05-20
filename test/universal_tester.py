@@ -43,7 +43,6 @@ p.add_argument(
     "--f",
     type=str,
     required=False,
-    default="",
     help="Show plots live, will not save output .mp4, is faster",
 )  # required by interactive mode
 p.add_argument(
@@ -67,7 +66,6 @@ p.add_argument(
 p.add_argument(
     "--solver",
     choices=[e.value for e in SolverType],
-    default=Params().solver,
     required=False,
     help="Set solving algorithm (overrides --config)",
 )
@@ -100,7 +98,7 @@ if args.params:
     print("Default params:\n", Params())
     exit(0)
 
-insideInteractive = args.f != ""
+insideInteractive = args.f is not None
 if args.do_not_animate:
     insideInteractive = False
 
