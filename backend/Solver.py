@@ -171,8 +171,8 @@ class _BaseSSFM(_Solver):
         psi = self._wave_func.matrix
         psi_k = np.fft.fft2(psi)
 
-        kx = np.fft.fftfreq(self._wave_func.shape[0], d=self._dx) * 2 * np.pi
-        ky = np.fft.fftfreq(self._wave_func.shape[1], d=self._dy) * 2 * np.pi
+        kx = np.fft.fftfreq(self._wave_func.matrix.shape[0], d=self._dx) * 2 * np.pi
+        ky = np.fft.fftfreq(self._wave_func.matrix.shape[1], d=self._dy) * 2 * np.pi
         kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
         # kinetic energy in terms of k
         T = (kx2 + ky2) / (2 * self._wave_func.mass)
