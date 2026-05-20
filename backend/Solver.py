@@ -65,6 +65,9 @@ class _Solver:
         V_matrix = sp.diags(V_1d, offsets=0, format="csr")
         return T_matrix + V_matrix
 
+    def ev_energy(self) -> np.complex128:
+        raise NotImplementedError
+
 
 class CrankNicolson(_Solver):
     L_2D: sp.spmatrix
@@ -118,12 +121,12 @@ class CrankNicolson(_Solver):
 
         return self._wave_func
 
-    def energy(self) -> np.complex128:
+    def ev_energy(self) -> np.complex128:
         """Returns expected value of the hamiltonian.
         There may be some cases where H is not hermitian."""
         return np.sum(
             np.conjugate(self._wave_state_1D) * (self.H @ self._wave_state_1D)  # type: ignore
-        )
+        ) / np.sum(np.conjugate(self._wave_state_1D) * self._wave_state_1D)
 
 
 class Constant(_Solver):
@@ -163,6 +166,28 @@ class _BaseSSFM(_Solver):
 
         T = (kx2 + ky2) / (2 * mass)
         return np.exp(-1j * T * self.delta_t)
+
+    def ev_energy(self) -> np.complex128:
+        psi = self._wave_func.matrix
+        psi_k = np.fft.fft2(psi)
+
+        kx = np.fft.fftfreq(self._wave_func.shape[0], d=self._dx) * 2 * np.pi
+        ky = np.fft.fftfreq(self._wave_func.shape[1], d=self._dy) * 2 * np.pi
+        kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
+        # kinetic energy in terms of k
+        T = (kx2 + ky2) / (2 * self._wave_func.mass)
+
+        # expected value of kinetic energy calculated in k-space
+        ev_T = np.sum(np.conjugate(psi_k) * T * psi_k) / np.sum(
+            np.conjugate(psi_k) * psi_k
+        )
+
+        # expected value of potential enrgy calculated in x-space
+        ev_V = np.sum(np.conjugate(psi) * self.potential.matrix * psi) / np.sum(
+            np.conjugate(psi) * psi
+        )
+
+        return ev_T + ev_V
 
 
 class SSFM(_BaseSSFM):
