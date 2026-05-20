@@ -100,7 +100,7 @@ class MainWindow(QMainWindow):
             self.size_coarse_x, self.size_coarse_y, wall_value=self.current_wall_height
         )
         self.initial_wavefunc = GaussianPacket(
-            r0=np.array([self.size_coarse_x / 2, self.size_coarse_y / 2]),
+            r0=(int(self.size_coarse_x / 2), int(self.size_coarse_y / 2)),
             k0=np.array([0.0, 0.0]),
             sigma0=np.array([[1.0, 0.0], [0.0, 1.0]]),
             mass=1.0,

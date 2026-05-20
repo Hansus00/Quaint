@@ -5,7 +5,15 @@
 from typing import Optional
 
 from PyQt6.QtCore import QPoint, Qt
-from PyQt6.QtGui import QColor, QImage, QPainter, QPen, QResizeEvent
+from PyQt6.QtGui import (
+    QColor,
+    QImage,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QResizeEvent,
+)
 from PyQt6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
 
@@ -52,19 +60,22 @@ class AspectRatioContainer(QWidget):
 
         self.resizeEvent(QResizeEvent(self.size(), self.size()))
 
-    def resizeEvent(self, event: QResizeEvent) -> None:
+    def resizeEvent(self, a0: QResizeEvent | None) -> None:
         """
         Calculates the largest bounded box fitting the ratio and pads the excess
         space with dynamic layout margins to strictly center the child canvas.
 
         Args:
-            event (QResizeEvent): The resize event containing new and old dimensions.
+            a0 (QResizeEvent | None): The resize event containing new and old dimensions.
         """
-        w = event.size().width()
-        h = event.size().height()
+        if a0 is None:
+            return super().resizeEvent(a0)
+
+        w = a0.size().width()
+        h = a0.size().height()
 
         if w == 0 or h == 0:
-            return super().resizeEvent(event)
+            return super().resizeEvent(a0)
 
         if h / w > self.aspect_ratio:
             # Layout is too tall, limit by width
@@ -79,7 +90,7 @@ class AspectRatioContainer(QWidget):
         margin_y = (h - new_h) // 2
 
         self._layout.setContentsMargins(margin_x, margin_y, margin_x, margin_y)
-        super().resizeEvent(event)
+        super().resizeEvent(a0)
 
 
 class CanvasWidget(QWidget):
@@ -130,16 +141,19 @@ class CanvasWidget(QWidget):
         self.brush_strength = 15
         self.brush_width = 30
 
-    def resizeEvent(self, event: QResizeEvent) -> None:
+    def resizeEvent(self, a0: QResizeEvent | None) -> None:
         """
         Automatically triggered by the Qt framework whenever the widget boundaries change.
         Rescales the internal image and adjusts wavepacket vectors proportionally.
 
         Args:
-            event (QResizeEvent): The resize event containing new and old dimensions.
+            a0 (QResizeEvent | None): The resize event containing new and old dimensions.
         """
-        new_size = event.size()
-        old_size = event.oldSize()
+        if a0 is None:
+            return super().resizeEvent(a0)
+
+        new_size = a0.size()
+        old_size = a0.oldSize()
 
         if old_size.isValid() and old_size.width() > 0 and old_size.height() > 0:
             self.image = self.image.scaled(
@@ -150,14 +164,14 @@ class CanvasWidget(QWidget):
             )
 
             # Move anchors proportionally to remain physically accurate visually
-            if self.r0_px:
+            if self.r0_px is not None:
                 self.r0_px.setX(
                     int((self.r0_px.x() / old_size.width()) * new_size.width())
                 )
                 self.r0_px.setY(
                     int((self.r0_px.y() / old_size.height()) * new_size.height())
                 )
-            if self.k0_tip_px:
+            if self.k0_tip_px is not None:
                 self.k0_tip_px.setX(
                     int((self.k0_tip_px.x() / old_size.width()) * new_size.width())
                 )
@@ -172,7 +186,7 @@ class CanvasWidget(QWidget):
                 Qt.TransformationMode.SmoothTransformation,
             )
 
-        super().resizeEvent(event)
+        super().resizeEvent(a0)
 
     def set_image(self, img: QImage) -> None:
         """
@@ -184,32 +198,35 @@ class CanvasWidget(QWidget):
         self.image = img
         self.update()
 
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
         """
         Renders the active canvas element, superimposing interactive vector overlays.
 
         Args:
-            event: The QPaintEvent triggered by the Qt framework.
+            a0: The QPaintEvent triggered by the Qt framework.
         """
         painter = QPainter(self)
         painter.drawImage(0, 0, self.image)
 
-        if self.r0_px and self.k0_tip_px:
+        if self.r0_px is not None and self.k0_tip_px is not None:
             pen = QPen(Qt.GlobalColor.red, 3, Qt.PenStyle.SolidLine)
             painter.setPen(pen)
             painter.setBrush(Qt.GlobalColor.red)
             painter.drawLine(self.r0_px, self.k0_tip_px)
             painter.drawEllipse(self.r0_px, 4, 4)
 
-    def mousePressEvent(self, event) -> None:
+    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
         """
         Captures user interaction starts, anchoring the drawing tool or setting state coordinates.
 
         Args:
-            event: The QMouseEvent containing the click position and button state.
+            a0: The QMouseEvent containing the click position and button state.
         """
-        pos = event.position().toPoint()
-        if event.button() == Qt.MouseButton.LeftButton:
+        if a0 is None:
+            return super().mousePressEvent(a0)
+
+        pos = a0.position().toPoint()
+        if a0.button() == Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser"):
                 self.drawing_potential = True
                 self.last_point = pos
@@ -218,15 +235,18 @@ class CanvasWidget(QWidget):
                 self.k0_tip_px = pos
                 self.update()
 
-    def mouseMoveEvent(self, event) -> None:
+    def mouseMoveEvent(self, a0: QMouseEvent | None) -> None:
         """
         Processes drag inputs, drawing stroke pathways or modifying the active state vector length.
 
         Args:
-            event: The QMouseEvent containing the cursor position.
+            a0: The QMouseEvent containing the cursor position.
         """
-        pos = event.position().toPoint()
-        if event.buttons() & Qt.MouseButton.LeftButton:
+        if a0 is None:
+            return super().mouseMoveEvent(a0)
+
+        pos = a0.position().toPoint()
+        if a0.buttons() & Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser") and self.drawing_potential:
                 painter = QPainter(self.image)
                 if self.mode == "brush":
@@ -250,12 +270,15 @@ class CanvasWidget(QWidget):
                 self.k0_tip_px = pos
                 self.update()
 
-    def mouseReleaseEvent(self, event) -> None:
+    def mouseReleaseEvent(self, a0: QMouseEvent | None) -> None:
         """
         Closes active input streams upon releasing mouse actions.
 
         Args:
-            event: The QMouseEvent triggering the release.
+            a0: The QMouseEvent triggering the release.
         """
-        if event.button() == Qt.MouseButton.LeftButton:
+        if a0 is None:
+            return super().mouseReleaseEvent(a0)
+
+        if a0.button() == Qt.MouseButton.LeftButton:
             self.drawing_potential = False

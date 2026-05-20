@@ -587,7 +587,9 @@ class SetupDrawer(QDialog):
             bpl = gray_img.bytesPerLine()
             buffer = gray_img.constBits().asarray(height * bpl)
 
-            arr = np.frombuffer(buffer, dtype=np.uint8).reshape((height, bpl)).copy()
+            arr = np.frombuffer(bytes(buffer), dtype=np.uint8).reshape(
+                (height, bpl)
+            ).copy()
             arr = arr[:, :width]
 
             inner_matrix = ((255 - arr) / 255.0 * wall_val).T
@@ -657,13 +659,13 @@ class SetupDrawer(QDialog):
         bpl = gray_img.bytesPerLine()
         buffer = gray_img.constBits().asarray(height * bpl)
 
-        arr = np.frombuffer(buffer, dtype=np.uint8).reshape((height, bpl)).copy()
+        arr = np.frombuffer(bytes(buffer), dtype=np.uint8).reshape((height, bpl)).copy()
         arr = arr[:, :width]
         potential = (255 - arr) / 255.0 * wall_height
         potential = potential.T
 
         # 2. Process Wavepacket Parameters
-        if self.canvas.r0_px and self.canvas.k0_tip_px:
+        if self.canvas.r0_px is not None and self.canvas.k0_tip_px is not None:
             # Map Pixel X to a natural number [0, new_size_x - 1]
             rx_float = (self.canvas.r0_px.x() / self.canvas.width()) * new_size_x
             rx = int(np.clip(rx_float, 0, new_size_x - 1))
@@ -800,10 +802,13 @@ class SetupDrawer(QDialog):
         p.delta_n = self.steps_per_frame_input.value()
         p.well_height = self.wall_height_input.value()
 
-        p.sigma0 = [
-            [self.sig_xx_input.value(), self.sig_xy_input.value()],
-            [self.sig_xy_input.value(), self.sig_yy_input.value()],
-        ]
+        p.sigma0 = np.array(
+            [
+                [self.sig_xx_input.value(), self.sig_xy_input.value()],
+                [self.sig_xy_input.value(), self.sig_yy_input.value()],
+            ],
+            dtype=np.float64,
+        )
 
         solver_text = self.simulation_menu.currentText()
         if solver_text == "Crank-Nicolson":
@@ -819,19 +824,19 @@ class SetupDrawer(QDialog):
         else:
             p.well_type = WellType.INFINITE_WELL
 
-        if self.canvas.r0_px and self.canvas.k0_tip_px:
+        if self.canvas.r0_px is not None and self.canvas.k0_tip_px is not None:
             rx_float = (self.canvas.r0_px.x() / self.canvas.width()) * p.size_x
-            rx = float(np.clip(rx_float, 0, p.size_x - 1))
+            rx = int(np.clip(rx_float, 0, p.size_x - 1))
 
             ry_float = (1.0 - (self.canvas.r0_px.y() / self.canvas.height())) * p.size_y
-            ry = float(np.clip(ry_float, 0, p.size_y - 1))
-            p.r0 = [rx, ry]
+            ry = int(np.clip(ry_float, 0, p.size_y - 1))
+            p.r0 = (rx, ry)
 
             kx = float((self.canvas.k0_tip_px.x() - self.canvas.r0_px.x()) * 0.1)
             ky = float(-(self.canvas.k0_tip_px.y() - self.canvas.r0_px.y()) * 0.1)
-            p.k0 = [kx, ky]
+            p.k0 = np.array([kx, ky], dtype=np.float64)
         else:
-            p.r0 = [float(p.size_x / 2), float(p.size_y / 2)]
-            p.k0 = [0.0, 0.0]
+            p.r0 = (p.size_x // 2, p.size_y // 2)
+            p.k0 = np.array([0.0, 0.0], dtype=np.float64)
 
         p.write(file_path)
