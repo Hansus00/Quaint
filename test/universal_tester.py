@@ -6,6 +6,12 @@ from pathlib import Path
 # to call backend module from current directory
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
+import warnings
+
+warnings.filterwarnings(
+    "ignore",
+    message="Unable to import Axes3D.*",
+)
 from backend.Potential import (
     Potential,
     InfiniteWellPotential,
@@ -13,7 +19,7 @@ from backend.Potential import (
     EmbeddedPotential,
 )
 from backend.StationaryWaveFunc import GaussianPacket
-from backend.Solver import CrankNicolson, _Solver, SSFM
+from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
 import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
@@ -21,6 +27,7 @@ import time
 import argparse
 import json
 from Params import Params, WellType, SolverType
+import matplotlib.animation as animation
 
 # load or use default params
 p = argparse.ArgumentParser(description="Testing program for Quaint by Jaclav")
@@ -28,27 +35,78 @@ p.add_argument(
     "--config",
     type=str,
     required=False,
-    help="path to config file",
+    metavar="CONFIG_FILE",
+    help="Path to the configuration file",
 )
-p.add_argument("--f", type=str, required=False, help="show all plots at live")
 p.add_argument(
-    "--name", type=str, required=False, help="output directory for simulation"
+    "--f",
+    type=str,
+    required=False,
+    default="",
+    help="Show plots live, will not save output .mp4, is faster",
+)  # required by interactive mode
+p.add_argument(
+    "-f", action="store_true", help="Same as --f"
+)  # required by interactive mode
+p.add_argument(
+    "--out",
+    type=str,
+    required=False,
+    help="Set output directory for simulation",
+    metavar="OUTPUT_PATH",
+)
+p.add_argument(
+    "--fps",
+    type=int,
+    default=15,
+    required=False,
+    help="Set FPS rate for animation",
+    metavar="FPS",
+)
+p.add_argument(
+    "--solver",
+    choices=[e.value for e in SolverType],
+    default=Params().solver,
+    required=False,
+    help="Set solving algorithm (overrides --config)",
+)
+p.add_argument(
+    "--updates-max",
+    type=int,
+    required=False,
+    help="Set how many updates, each of delta_n, should happen (overrides --config)",
+)
+p.add_argument(
+    "--delta-r",
+    type=float,
+    default=1.0,
+    required=False,
+    help="Set size of grid step",
 )
 p.add_argument(
     "--params",
-    type=bool,
+    action="store_true",
     required=False,
     help="Show structure and default values of simulation configuration",
 )
+p.add_argument(
+    "--do-not-animate",
+    action="store_true",
+    required=False,
+    help="Will produce no animation, as it requires ffmpeg",
+)
 args = p.parse_args()
-if args.params is not None:
+if args.params:
     print("Default params:\n", Params())
     exit(0)
-insideInteractive = args.f is not None
+
+insideInteractive = args.f != ""
+if args.do_not_animate:
+    insideInteractive = False
 
 # create directory for simulation data
 now = datetime.now()
-base_dir = Path("pic") if args.name is None else Path(args.name)
+base_dir = Path("pic") if args.out is None else Path(args.out)
 directory = base_dir / str(now)
 assert not directory.exists(), "Cannot override directory!"
 directory.mkdir(parents=True, exist_ok=False)
@@ -56,6 +114,12 @@ directory.mkdir(parents=True, exist_ok=False)
 params = Params()
 if args.config is not None:
     params.read(args.config)
+if args.solver is not None:
+    params.solver = args.solver
+if args.updates_max is not None:
+    params.updates_max = args.updates_max
+if args.delta_r is not None:
+    params.delta_r = args.delta_r
 params.write(str(directory / "params.json"))
 
 # set potential
@@ -95,16 +159,15 @@ else:
 
 # draw potential
 plt.style.use("JK_W.mplstyle")
-plt.title("Potential well")
-im = plt.imshow(np.float64(well.matrix))
+fig, ax = plt.subplots(layout="tight")
+fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
+
+ax.set_title("Potential well")
+im = ax.imshow(np.float64(well.matrix).T, aspect="auto", origin="lower")
 cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
-plt.xlabel("x")
-plt.ylabel("y")
-plt.savefig(directory / "gauss_evolved_n0000.png")
-if insideInteractive:
-    plt.show()
-plt.close()
+ax.set_xlabel("x")
+ax.set_ylabel("y")
 
 # set and draw psi(0)
 gauss = GaussianPacket(
@@ -114,67 +177,90 @@ gauss = GaussianPacket(
     params.mass,
     *well.matrix.shape,
 )  # TODO: Test Airy wave train #33
-plt.title("Gaussian packet at the start")
-im = plt.imshow(np.float64(np.abs(gauss.matrix) ** 2))
-cbar = plt.colorbar(
-    im, format="%.4f"
-)  # FIXME: make it look good, maybe scientific notation?
-cbar.set_label(r"$|\psi|^2$")
-plt.xlabel("x")
-plt.ylabel("y")
-plt.savefig(directory / "gauss_evolved_n0001.png")
-if insideInteractive:
-    plt.show()
-plt.close()
+
 
 # %%
 # run test
+# %matplotlib widget
 solver: _Solver
 if params.solver == SolverType.CN:
-    solver = CrankNicolson(well, gauss, params.delta_t)
+    solver = CrankNicolson(well, gauss, params.delta_t, params.delta_r)
 elif params.solver == SolverType.SSFM:
-    solver = SSFM(well, gauss, params.delta_t)
+    solver = SSFM(well, gauss, params.delta_t, params.delta_r)
+elif params.solver == SolverType.SYM_SSFM:
+    solver = SSFMSymmetric(well, gauss, params.delta_t, args.delta_r)
 else:
     assert False, "Solver must be specified!"
 
-Energies = []
+Energies: list[complex] = []
 Probabilities = []
 start = time.perf_counter()
-for i in range(0, params.steps_max):
-    solver.update(params.delta_n)
-    if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
-        Energies.append(solver.energy())
+
+
+def update(frame):
+    print("frame no", frame, "n", str(solver.get_steps_evolved()))
+    """0th frame is potential"""
+    if frame < 1:
+        return (im,)
+    elif frame == 1:
+        cbar.set_label(r"$|\psi|^2$")
     else:
-        Energies.append(1)
-    Probabilities.append(solver.get_wave_function().total_probability())
+        solver.update(params.delta_n)
+        if params.solver == SolverType.CN:  # TODO: add .energy() to ssfm
+            # Energies.append(solver.energy())  # type: ignore
+            Energies.append(1)
+        else:
+            Energies.append(1)
+        Probabilities.append(solver.get_wave_function().total_probability())
 
-    plt.title("Evolved gaussian packet n=" + str(solver.get_steps_evolved()))
-    im = plt.imshow(np.float64(np.abs(solver.get_wave_function().matrix) ** 2))
-    cbar = plt.colorbar(
-        im, format="%.4f"
-    )  # FIXME: make it look good, maybe scientific notation?
-    cbar.set_label(r"$|\psi|^2$")
-    plt.xlabel("x")
-    plt.ylabel("y")
-
-    plt.savefig(
-        directory / f"gauss_evolved_n{solver.get_steps_evolved():04d}.png"
+    new_data = np.float64(np.abs(solver.get_wave_function().matrix) ** 2)
+    im.set_clim(vmin=new_data.min(), vmax=new_data.max())
+    cbar.update_normal(im)
+    ax.set_title(
+        "Evolved ("
+        + str(params.solver)
+        + ") gaussian packet n="
+        + str(solver.get_steps_evolved())
     )
-    if insideInteractive:
+    im.set_data(new_data.T)
+    return (im,)
+
+
+if args.do_not_animate:
+    for i in range(0, params.updates_max + 3):
+        update(i)
+else:
+    ani = animation.FuncAnimation(
+        fig,
+        update,
+        frames=range(0, params.updates_max + 3),
+        interval=1e3 / args.fps,
+        blit=False,
+        repeat=False,
+    )  # type: ignore
+
+    if not insideInteractive:
+        ani.save(
+            directory / f"gauss_evolution.mp4",
+            writer="ffmpeg",
+            fps=args.fps,
+            dpi=300,
+            savefig_kwargs={"pad_inches": 0},
+        )
+    else:
         plt.show()
-    plt.close()
 end = time.perf_counter()
+print("time_of_execution/", float(end - start), sep="\t")
+
 
 # %%
 # save output
 with open(directory / "out.json", "w") as f:
     out = {
-        "time_of_execution": (end - start),
-        "time_of_execution_per_step": (end - start) / solver.get_steps_evolved(),
+        "time_of_execution": float(end - start),
+        "time_of_execution_per_step": float((end - start) / solver.get_steps_evolved()),
         "energy__exp_val_abs_stdev": float(np.std(np.abs(Energies))),
-        "energy_exp_val": [
-            [z.real, z.imag] for z in np.array(Energies)
-        ],
+        "energy_exp_val": [[z.real, z.imag] for z in np.array(Energies).tolist()],
         "probabilities": np.array(np.abs(Probabilities), dtype=float).tolist(),
     }
     json.dump(out, f, indent=4)
@@ -186,7 +272,7 @@ fig, ax1 = plt.subplots()
 
 ax1.plot(
     N,
-    np.array(Energies).real / np.abs(Energies[0]) - 1,
+    np.array(Energies).real / np.abs(Energies[0]) - 1,  # type: ignore
     label=r"$\Re \left(E(t)/|E(0)|-1\right)$",
     color="tab:blue",
 )
@@ -197,7 +283,7 @@ assert np.allclose(
 
 ax1.plot(
     N,
-    np.array(Energies).imag / np.abs(Energies[0]),
+    np.array(Energies).imag / np.abs(Energies[0]),  # type: ignore
     label=r"$\Im E(t)/|E(0)|$",
     linestyle="--",
     color="tab:blue",
