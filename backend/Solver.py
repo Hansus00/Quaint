@@ -1,8 +1,9 @@
-from typing import Callable
+from typing import Callable, cast
 import numpy as np
 from numpy.typing import NDArray
 import scipy.sparse as sp
-from scipy.sparse.linalg import spsolve, factorized
+from scipy.sparse.linalg import factorized
+from scipy.fft import dstn, idstn
 
 from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
@@ -24,11 +25,11 @@ class _Solver:
         self.dy = 1  # FIXME: Fine tune the grid step size
 
     def step(self) -> None:
-        """Evolves on step of wave function after t + Delta t"""
+        """Evolves one step of wave function after t + Delta t"""
         self._steps_evolved += 1
 
     def get_steps_evolved(self) -> int:
-        """Returns number ov evolves steps"""
+        """Returns number of evolved steps"""
         return self._steps_evolved
 
     def update(self, n_step: int = 1) -> StationaryWaveFunc:
@@ -43,7 +44,7 @@ class _Solver:
         return self._wave_func
 
     def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
-        # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
+        # similar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
         dx, dy = self.dx, self.dy
         D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / dx**2  # type: ignore
         D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / dy**2  # type: ignore
@@ -145,8 +146,8 @@ class _BaseSSFM(_Solver):
         self, Nx: int, Ny: int, mass: float
     ) -> NDArray[np.complex128]:
         """Creates the momentum space propagator."""
-        kx = np.fft.fftfreq(Nx, d=self.dx) * 2 * np.pi
-        ky = np.fft.fftfreq(Ny, d=self.dy) * 2 * np.pi
+        kx = np.arange(1, Nx + 1) * np.pi / ((Nx + 1) * self.dx)
+        ky = np.arange(1, Ny + 1) * np.pi / ((Ny + 1) * self.dy)
         kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
 
         T = (kx2 + ky2) / (2 * mass)
@@ -165,11 +166,12 @@ class SSFM(_BaseSSFM):
 
         psi = self._wave_func.matrix * self._U_V
 
-        psi_k = np.fft.fft2(psi)
+        psi_k = cast(NDArray[np.complex128], dstn(psi, type=1))
         psi_k *= self._U_T
-        psi = np.fft.ifft2(psi_k)
+        psi = cast(NDArray[np.complex128], idstn(psi_k, type=1))
 
-        self._wave_func = StationaryWaveFunc(psi, self._wave_func.mass)
+        prob = np.sqrt(np.sum(np.abs(psi) ** 2))
+        self._wave_func = StationaryWaveFunc(psi / prob, self._wave_func.mass)
 
 
 class SSFMSymmetric(_BaseSSFM):
@@ -184,10 +186,11 @@ class SSFMSymmetric(_BaseSSFM):
 
         psi = self._wave_func.matrix * self._U_V
 
-        psi_k = np.fft.fft2(psi)
+        psi_k = cast(NDArray[np.complex128], dstn(psi, type=1))
         psi_k *= self._U_T
-        psi = np.fft.ifft2(psi_k)
+        psi = cast(NDArray[np.complex128], idstn(psi_k, type=1))
 
         psi *= self._U_V
 
-        self._wave_func = StationaryWaveFunc(psi, self._wave_func.mass)
+        prob = np.sqrt(np.sum(np.abs(psi) ** 2))
+        self._wave_func = StationaryWaveFunc(psi / prob, self._wave_func.mass)
