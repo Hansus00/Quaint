@@ -152,9 +152,13 @@ class SetupDrawer(QDialog):
             initial_delta_t (float): Previously saved time step size.
             initial_steps_per_frame (int): Previously saved physics sub-steps per animation frame.,
             initial_wall_height (float): Previously saved wall height.
-            parent (Optional[QWidget]): Parent widget.
+            parent (Optional[QWidget]): Unused; transient parent is set by MainWindow
+                after the window is shown.
         """
-        super().__init__(parent)
+        super().__init__(None)
+
+        self.setModal(False)
+        self.setWindowModality(Qt.WindowModality.NonModal)
         self.setWindowTitle("Simulation Setup: Potential & Wavepacket")
 
         # Enforce minimum boundary constraints and add native OS window buttons (Minimize/Maximize)

@@ -2,12 +2,13 @@
 # ### --- FILE frontend/main_window.py --- ###
 # ==============================================================================
 
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 from backend.Potential import InfiniteWellPotential, Potential
 from backend.Solver import SSFM, Constant, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from .animation_controls_widget import AnimationControlsWidget
@@ -56,6 +57,8 @@ class MainWindow(QMainWindow):
     animation_widget: AnimationWidget
     controls: AnimationControlsWidget
     simulation: Any
+    _settings_dialog: Optional[Settings]
+    _setup_drawer: Optional[SetupDrawer]
 
     def __init__(
         self, size_x: int = 60, size_y: int = 50, z_potential_offset: float = 0.1
@@ -119,6 +122,9 @@ class MainWindow(QMainWindow):
         # Default simulation method
         self.current_method = "Crank-Nicolson"
         self.switch_simulation_method(self.current_method)
+
+        self._settings_dialog = None
+        self._setup_drawer = None
 
         self._setup_ui()
         # Populate the 3D potential mesh immediately on startup to prevent NoneType crash
@@ -222,11 +228,25 @@ class MainWindow(QMainWindow):
         self.animation_widget.update_potential(self.initial_potential.matrix)
         self.update_simulation(self.controls.slider.value())
 
+    def _raise_auxiliary_window(self, window: QWidget) -> None:
+        """Brings a non-modal auxiliary window to the front without blocking the main UI."""
+        window.show()
+        main_hw = self.windowHandle()
+        child_hw = window.windowHandle()
+        if main_hw is not None and child_hw is not None:
+            child_hw.setTransientParent(main_hw)
+        window.raise_()
+        window.activateWindow()
+
     def open_settings_window(self) -> None:
         """
         Opens the purely visual playback settings dialog (e.g. brightness, scaling).
+        Non-modal: playback continues and the main window stays fully interactive.
         """
-        self.controls.pause()
+        if self._settings_dialog is not None:
+            self._raise_auxiliary_window(self._settings_dialog)
+            return
+
         settings_dialog = Settings(
             self.z_scale,
             self.z_potential_offset,
@@ -236,8 +256,14 @@ class MainWindow(QMainWindow):
             self.potential_alpha,
             self,
         )
+        settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         settings_dialog.settings_saved.connect(self.apply_settings)
-        settings_dialog.exec()
+        settings_dialog.destroyed.connect(self._on_settings_dialog_destroyed)
+        self._settings_dialog = settings_dialog
+        self._raise_auxiliary_window(settings_dialog)
+
+    def _on_settings_dialog_destroyed(self, _obj: Optional[QWidget] = None) -> None:
+        self._settings_dialog = None
 
     def apply_settings(
         self,
@@ -286,8 +312,12 @@ class MainWindow(QMainWindow):
     def open_setup_drawer(self) -> None:
         """
         Opens the canvas drawer for setting up potentials, physical resolutions, and wavepackets.
+        Non-modal: playback continues and the main window stays fully interactive.
         """
-        self.controls.pause()
+        if self._setup_drawer is not None:
+            self._raise_auxiliary_window(self._setup_drawer)
+            return
+
         drawer = SetupDrawer(
             current_fps=self.fps,
             current_frames=self.total_frames,
@@ -306,9 +336,15 @@ class MainWindow(QMainWindow):
             initial_wall_height=self.current_wall_height,
             parent=self,
         )
+        drawer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         drawer.setup_saved.connect(self.apply_setup)
         drawer.simulation_changed.connect(self.switch_simulation_method)
-        drawer.exec()
+        drawer.destroyed.connect(self._on_setup_drawer_destroyed)
+        self._setup_drawer = drawer
+        self._raise_auxiliary_window(drawer)
+
+    def _on_setup_drawer_destroyed(self, _obj: Optional[QWidget] = None) -> None:
+        self._setup_drawer = None
 
     def apply_setup(
         self,

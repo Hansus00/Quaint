@@ -4,7 +4,7 @@
 
 from typing import Optional
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -52,9 +52,16 @@ class Settings(QDialog):
             current_z_pot_scale (float): Current vertical amplitude multiplier for the potential mesh.
             current_brightness (float): Current exposure multiplier for the wave packet colors.
             current_potential_alpha (float): Current transparency level for the potential mesh (0.0 to 1.0).
-            parent (Optional[QWidget]): Parent widget to center the dialog on.
+            parent (Optional[QWidget]): Unused; transient parent is set by MainWindow
+                after the window is shown.
         """
-        super().__init__(parent)
+        super().__init__(None)
+
+        self.setModal(False)
+        self.setWindowModality(Qt.WindowModality.NonModal)
+        self.setWindowFlags(
+            Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint
+        )
         self.setWindowTitle("Visual Settings")
 
         layout = QFormLayout(self)
@@ -102,19 +109,20 @@ class Settings(QDialog):
         self.alpha_spin.setSingleStep(0.05)
         layout.addRow("Potential Alpha (Transparency):", self.alpha_spin)
 
-        # Standard Ok / Cancel buttons
         btn_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
+        update_btn = btn_box.addButton(
+            "Update", QDialogButtonBox.ButtonRole.ApplyRole
+        )
+        if update_btn is not None:
+            update_btn.clicked.connect(self.apply_settings)
         btn_box.accepted.connect(self.save_settings)
         btn_box.rejected.connect(self.reject)
         layout.addWidget(btn_box)
 
-    def save_settings(self) -> None:
-        """
-        Emits the updated setting values via the `settings_saved` signal
-        and closes the dialog indicating acceptance.
-        """
+    def _emit_current_values(self) -> None:
+        """Push the current spin-box values to the main window."""
         self.settings_saved.emit(
             self.z_scale_spin.value(),
             self.z_offset_spin.value(),
@@ -123,4 +131,15 @@ class Settings(QDialog):
             self.brightness_spin.value(),
             self.alpha_spin.value(),
         )
+
+    def apply_settings(self) -> None:
+        """
+        Applies the current values to the running animation without closing
+        this dialog (e.g. preview interpolation changes immediately).
+        """
+        self._emit_current_values()
+
+    def save_settings(self) -> None:
+        """Applies settings and closes the dialog."""
+        self._emit_current_values()
         self.accept()
