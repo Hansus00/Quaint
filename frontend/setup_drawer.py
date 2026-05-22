@@ -12,8 +12,8 @@ from backend.Potential import (
     Potential,
     WShaped,
 )
-from PyQt6.QtCore import QPoint, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QImage
+from PyQt6.QtCore import QPointF, Qt, pyqtSignal
+from PyQt6.QtGui import QImage
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -33,6 +33,13 @@ from PyQt6.QtWidgets import (
 
 from backend.Params import Params, SolverType, WellType
 from .canvas_widget import CanvasWidget, AspectRatioContainer
+
+
+# Conversion factor between an arrow's grid-cell displacement and the physical
+# wavevector magnitude. With 1.0 a drag of N grid cells encodes |k| = N, which
+# is grid-resolution independent and yields exact round-trips through the
+# (canvas <-> Params) boundary.
+K_GRID_FACTOR: float = 1.0
 
 
 class SetupDrawer(QDialog):
@@ -176,15 +183,11 @@ class SetupDrawer(QDialog):
         self.initial_steps_per_frame = initial_steps_per_frame
         self.initial_wall_height = initial_wall_height
 
-        # Establish base starting dimensions for the canvas to present a larger drawing space
-        base_width = 800
-        base_height = int(base_width * (grid_size_y / grid_size_x))
-
-        # Instantiate our modular, isolated interactive sketch canvas component
-        self.canvas = CanvasWidget(base_width, base_height)
-        # Wrap it in a protective container that enforces the physics matrix ratio dynamically
+        # Canvas image is held at the native physics grid resolution; the widget is
+        # purely an upscaled view of those exact (grid_size_x x grid_size_y) pixels.
+        self.canvas = CanvasWidget(grid_size_x, grid_size_y)
         self.canvas_container = AspectRatioContainer(
-            self.canvas, base_height / base_width
+            self.canvas, grid_size_y / grid_size_x
         )
 
         # Restore past matrix configurations if the user re-enters setup during runtime
@@ -193,46 +196,52 @@ class SetupDrawer(QDialog):
 
         self._setup_ui()
 
-        # Re-map numerical position states back into canvas pixel tags for visual continuous tracking
+        # Restore the wavepacket directly in grid coordinates (no canvas-pixel detour),
+        # so opening + saving the dialog untouched is a numerical no-op.
         if initial_r0 is not None and initial_k0 is not None:
-            rx_px = int((initial_r0[0] / self.grid_size_x) * self.canvas.width())
-            ry_px = int(
-                (1.0 - (initial_r0[1] / self.grid_size_y)) * self.canvas.height()
-            )
-            self.canvas.r0_px = QPoint(rx_px, ry_px)
+            rx_grid = float(initial_r0[0])
+            # Physics Y is bottom-up; Qt grid Y is top-down. Flip to draw upright.
+            ry_grid = float(self.grid_size_y) - float(initial_r0[1])
+            self.canvas.r0_grid = QPointF(rx_grid, ry_grid)
 
-            kx_px = int((initial_k0[0] / 0.1) + rx_px)
-            # Conversion from bottom-to-top top-to-bottom coordinate system
-            ky_px = int((-initial_k0[1] / 0.1) + ry_px)
-            self.canvas.k0_tip_px = QPoint(kx_px, ky_px)
+            kx_grid = float(initial_k0[0]) / K_GRID_FACTOR
+            # Flip Y to match the top-down canvas convention
+            ky_grid = -float(initial_k0[1]) / K_GRID_FACTOR
+            self.canvas.k0_tip_grid = QPointF(rx_grid + kx_grid, ry_grid + ky_grid)
 
     def _restore_canvas(self, potential_array: np.ndarray) -> None:
         """
         Translates a raw numerical floating-point backend potential matrix back into
-        viewable canvas pixel values, rebuilding the visual environment layer.
-        Reverses the calculations performed during save_and_close to reconstruct grayscale pixels.
+        the underlying canvas image. The image is built at native grid resolution
+        and no spatial scaling is performed, so reopening the dialog reproduces the
+        exact same pixels that were saved.
 
         Args:
-            potential_array (np.ndarray): 2D array representing the saved potential landscape.
+            potential_array (np.ndarray): 2D array (size_x, size_y) representing the
+                saved potential landscape.
         """
-        arr = 255 - (potential_array.T / self.initial_wall_height * 255.0)
-        arr = np.clip(arr, 0, 255).astype(np.int32)
+        # potential_array has shape (size_x, size_y) with row 0 at the canvas top
+        # (see save_and_close); transposing yields (size_y, size_x) suitable for
+        # QImage's (height, width) row-major layout.
+        arr = 255.0 - (potential_array.T / self.initial_wall_height * 255.0)
+        arr = np.clip(arr, 0, 255).astype(np.uint8)
+        arr = np.ascontiguousarray(arr)
 
         height, width = arr.shape
-        temp_img = QImage(width, height, QImage.Format.Format_ARGB32)
 
-        for y in range(height):
-            for x in range(width):
-                v = int(arr[y, x])
-                temp_img.setPixelColor(x, y, QColor(v, v, v))
+        # Bring the image to the same grid resolution as the array before swapping in.
+        if width != self.canvas.grid_size_x or height != self.canvas.grid_size_y:
+            self.canvas.set_grid_size(width, height)
 
-        restored_img = temp_img.scaled(
-            self.canvas.width(),
-            self.canvas.height(),
-            Qt.AspectRatioMode.IgnoreAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        self.canvas.set_image(restored_img)
+        gray_bytes = arr.tobytes()
+        gray_img = QImage(
+            gray_bytes,
+            width,
+            height,
+            width,
+            QImage.Format.Format_Grayscale8,
+        ).copy()
+        self.canvas.set_image(gray_img.convertToFormat(QImage.Format.Format_ARGB32))
 
     def _setup_ui(self) -> None:
         """
@@ -399,7 +408,8 @@ class SetupDrawer(QDialog):
         self.brush_strength_label = QLabel("Brush\nStrength: 15")
         self.brush_strength_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        self.brush_width_label = QLabel("Brush\nWidth: 30")
+        # Brush width is now measured in grid cells (matching the underlying image).
+        self.brush_width_label = QLabel("Brush\nWidth: 3")
         self.brush_width_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.brush_strength_slider = QSlider(Qt.Orientation.Vertical)
@@ -407,8 +417,8 @@ class SetupDrawer(QDialog):
         self.brush_strength_slider.setValue(15)
 
         self.brush_width_slider = QSlider(Qt.Orientation.Vertical)
-        self.brush_width_slider.setRange(10, 100)
-        self.brush_width_slider.setValue(30)
+        self.brush_width_slider.setRange(1, 30)
+        self.brush_width_slider.setValue(3)
 
         def set_strength(v):
             self.brush_strength_label.setText(f"Brush\nStrength: {v}")
@@ -461,8 +471,10 @@ class SetupDrawer(QDialog):
 
     def update_canvas_size(self) -> None:
         """
-        Dynamically resizes the drawing canvas aspect bounds based on the specified grid resolution.
-        Ensures the drawing aspect ratio immediately reflects the target physical simulation.
+        Dynamically resizes the drawing canvas to a new grid resolution. The
+        underlying QImage is rescaled once here (a deliberate, user-initiated
+        interpolation); the aspect-ratio container and stored wavepacket
+        anchors are synchronised so on-screen content stays in place.
         """
         new_x = self.size_x_input.value()
         new_y = self.size_y_input.value()
@@ -470,9 +482,9 @@ class SetupDrawer(QDialog):
         self.grid_size_x = new_x
         self.grid_size_y = new_y
 
-        # Push the new ratio restriction down to the container (triggers auto-resize)
         aspect_ratio = new_y / new_x
         self.canvas_container.set_aspect_ratio(aspect_ratio)
+        self.canvas.set_grid_size(new_x, new_y)
 
     def check_memory_limit(self) -> None:
         """
@@ -565,11 +577,13 @@ class SetupDrawer(QDialog):
             zero_pot[pos_x : pos_x + w_size_x, pos_y : pos_y + w_size_y] = w_matrix
             potential_matrix = zero_pot
 
-            # Setting initial wavepacket position and momentum
-            rx_px = int(self.canvas.width() * 0.5)
-            ry_px = int(self.canvas.height() * 0.2)
-            self.canvas.r0_px = QPoint(rx_px, ry_px)
-            self.canvas.k0_tip_px = QPoint(rx_px, ry_px + 80)
+            # Drop the wavepacket near the top centre of the well with downward momentum.
+            rx_grid = self.grid_size_x * 0.5
+            ry_grid = self.grid_size_y * 0.2
+            self.canvas.r0_grid = QPointF(rx_grid, ry_grid)
+            # Arrow tip 20% of the canvas height below the anchor (positive Qt-Y =
+            # negative physics-Y momentum after the save_and_close Y-flip).
+            self.canvas.k0_tip_grid = QPointF(rx_grid, ry_grid + self.grid_size_y * 0.2)
             self.sig_xx_input.setValue(4.0)
             self.sig_yy_input.setValue(4.0)
 
@@ -649,14 +663,23 @@ class SetupDrawer(QDialog):
         wall_height = self.wall_height_input.value()
 
         # 1. Process Potential Matrix
-        # Scale canvas directly to the newly selected grid size
-        scaled_img = self.canvas.image.scaled(
-            new_size_x,
-            new_size_y,
-            Qt.AspectRatioMode.IgnoreAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        gray_img = scaled_img.convertToFormat(QImage.Format.Format_Grayscale8)
+        # The canvas image already lives at its current grid resolution. We only
+        # interpolate here if the user explicitly changed the grid size input
+        # without pressing "Snap Aspect Ratio" first.
+        if (
+            self.canvas.grid_size_x != new_size_x
+            or self.canvas.grid_size_y != new_size_y
+        ):
+            img_at_grid = self.canvas.image.scaled(
+                new_size_x,
+                new_size_y,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        else:
+            img_at_grid = self.canvas.image
+
+        gray_img = img_at_grid.convertToFormat(QImage.Format.Format_Grayscale8)
         width, height = gray_img.width(), gray_img.height()
         bpl = gray_img.bytesPerLine()
         buffer = gray_img.constBits().asarray(height * bpl)
@@ -666,29 +689,28 @@ class SetupDrawer(QDialog):
         potential = (255 - arr) / 255.0 * wall_height
         potential = potential.T
 
-        # 2. Process Wavepacket Parameters
-        if self.canvas.r0_px is not None and self.canvas.k0_tip_px is not None:
-            # Map Pixel X to a natural number [0, new_size_x - 1]
-            rx_float = (self.canvas.r0_px.x() / self.canvas.width()) * new_size_x
-            rx = int(np.clip(rx_float, 0, new_size_x - 1))
+        # 2. Process Wavepacket Parameters in grid coordinates (no canvas-pixel detour)
+        if self.canvas.r0_grid is not None and self.canvas.k0_tip_grid is not None:
+            # Match the wavepacket to the requested grid resolution if it changed.
+            scale_x = new_size_x / self.canvas.grid_size_x
+            scale_y = new_size_y / self.canvas.grid_size_y
 
-            # Map Pixel Y to a natural number [0, new_size_y - 1] (Inverting so 0 is at bottom)
-            # Conversion from top-to-bottom to bottom-to-top coordinate system
-            ry_float = (
-                1.0 - (self.canvas.r0_px.y() / self.canvas.height())
-            ) * new_size_y
-            ry = int(np.clip(ry_float, 0, new_size_y - 1))
+            r0x_g = self.canvas.r0_grid.x() * scale_x
+            r0y_g = self.canvas.r0_grid.y() * scale_y
+            k0x_g = self.canvas.k0_tip_grid.x() * scale_x
+            k0y_g = self.canvas.k0_tip_grid.y() * scale_y
 
-            r0 = np.array([rx, ry])
+            rx = float(np.clip(r0x_g, 0.0, float(new_size_x - 1)))
+            # Flip from top-down (Qt) back to bottom-up (physics)
+            ry = float(np.clip(new_size_y - r0y_g, 0.0, float(new_size_y - 1)))
+            r0 = np.array([rx, ry], dtype=np.float64)
 
-            # Map Pixel X and Y to momentum components
-            kx = (self.canvas.k0_tip_px.x() - self.canvas.r0_px.x()) * 0.1
-            # Conversion from top-to-bottom to bottom-to-top coordinate system
-            ky = -(self.canvas.k0_tip_px.y() - self.canvas.r0_px.y()) * 0.1
-            k0 = np.array([kx, ky])
+            kx = (k0x_g - r0x_g) * K_GRID_FACTOR
+            ky = -(k0y_g - r0y_g) * K_GRID_FACTOR
+            k0 = np.array([kx, ky], dtype=np.float64)
         else:
-            r0 = np.array([0, 0])
-            k0 = np.array([0.0, 0.0])
+            r0 = np.array([0.0, 0.0], dtype=np.float64)
+            k0 = np.array([0.0, 0.0], dtype=np.float64)
 
         # 3. Process Sigma Matrix and Mass
         sig_xx = self.sig_xx_input.value()
@@ -769,15 +791,15 @@ class SetupDrawer(QDialog):
 
         self.update_canvas_size()
 
-        rx_px = int((p.r0[0] / p.size_x) * self.canvas.width())
-        # Conversion from bottom-to-top to top-to-bottom coordinate system
-        ry_px = int((1.0 - (p.r0[1] / p.size_y)) * self.canvas.height())
-        self.canvas.r0_px = QPoint(rx_px, ry_px)
+        rx_grid = float(p.r0[0])
+        # Conversion from bottom-to-top (physics) to top-to-bottom (Qt grid) Y
+        ry_grid = float(self.grid_size_y) - float(p.r0[1])
+        self.canvas.r0_grid = QPointF(rx_grid, ry_grid)
 
-        kx_px = int((p.k0[0] / 0.1) + rx_px)
-        # Conversion from bottom-to-top to top-to-bottom coordinate system
-        ky_px = int((-p.k0[1] / 0.1) + ry_px)
-        self.canvas.k0_tip_px = QPoint(kx_px, ky_px)
+        kx_grid = float(p.k0[0]) / K_GRID_FACTOR
+        # Conversion from bottom-to-top (physics) to top-to-bottom (Qt grid) Y
+        ky_grid = -float(p.k0[1]) / K_GRID_FACTOR
+        self.canvas.k0_tip_grid = QPointF(rx_grid + kx_grid, ry_grid + ky_grid)
 
         self.canvas.update()
 
@@ -798,8 +820,6 @@ class SetupDrawer(QDialog):
         p.size_y = self.size_y_input.value()
         p.mass = self.mass_input.value()
         p.updates_max = self.frames_input.value()
-
-        # Prawidłowy zapis fizyki
         p.delta_t = self.delta_t_input.value()
         p.delta_n = self.steps_per_frame_input.value()
         p.well_height = self.wall_height_input.value()
@@ -826,16 +846,23 @@ class SetupDrawer(QDialog):
         else:
             p.well_type = WellType.INFINITE_WELL
 
-        if self.canvas.r0_px is not None and self.canvas.k0_tip_px is not None:
-            rx_float = (self.canvas.r0_px.x() / self.canvas.width()) * p.size_x
-            rx = int(np.clip(rx_float, 0, p.size_x - 1))
+        if self.canvas.r0_grid is not None and self.canvas.k0_tip_grid is not None:
+            # Match the wavepacket to the requested grid resolution if it changed.
+            scale_x = p.size_x / self.canvas.grid_size_x
+            scale_y = p.size_y / self.canvas.grid_size_y
 
-            ry_float = (1.0 - (self.canvas.r0_px.y() / self.canvas.height())) * p.size_y
-            ry = int(np.clip(ry_float, 0, p.size_y - 1))
+            r0x_g = self.canvas.r0_grid.x() * scale_x
+            r0y_g = self.canvas.r0_grid.y() * scale_y
+            k0x_g = self.canvas.k0_tip_grid.x() * scale_x
+            k0y_g = self.canvas.k0_tip_grid.y() * scale_y
+
+            rx = int(np.clip(r0x_g, 0, p.size_x - 1))
+            # Flip from top-down (Qt) back to bottom-up (physics) and snap to int.
+            ry = int(np.clip(p.size_y - r0y_g, 0, p.size_y - 1))
             p.r0 = (rx, ry)
 
-            kx = float((self.canvas.k0_tip_px.x() - self.canvas.r0_px.x()) * 0.1)
-            ky = float(-(self.canvas.k0_tip_px.y() - self.canvas.r0_px.y()) * 0.1)
+            kx = float((k0x_g - r0x_g) * K_GRID_FACTOR)
+            ky = float(-(k0y_g - r0y_g) * K_GRID_FACTOR)
             p.k0 = np.array([kx, ky], dtype=np.float64)
         else:
             p.r0 = (p.size_x // 2, p.size_y // 2)
