@@ -159,7 +159,7 @@ class SetupDrawer(QDialog):
 
         self.setModal(False)
         self.setWindowModality(Qt.WindowModality.NonModal)
-        self.setWindowTitle("Simulation Setup: Potential & Wavepacket")
+        self.setWindowTitle("Simulation Setup: Potential && Wavepacket")
 
         # Enforce minimum boundary constraints and add native OS window buttons (Minimize/Maximize)
         self.setMinimumSize(800, 800)
@@ -452,7 +452,7 @@ class SetupDrawer(QDialog):
         cancel_btn = QPushButton("Cancel")
         cancel_btn.clicked.connect(self.reject)
 
-        self.save_btn = QPushButton("Save & Update Simulation")
+        self.save_btn = QPushButton("Save && Update Simulation")
         self.save_btn.clicked.connect(self.save_and_close)
 
         self.load_params_btn = QPushButton("Load from JSON")
