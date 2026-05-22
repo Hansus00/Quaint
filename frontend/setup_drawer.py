@@ -159,7 +159,7 @@ class SetupDrawer(QDialog):
 
         self.setModal(False)
         self.setWindowModality(Qt.WindowModality.NonModal)
-        self.setWindowTitle("Simulation Setup: Potential && Wavepacket")
+        self.setWindowTitle("Simulation Setup: Potential & Wavepacket")
 
         # Enforce minimum boundary constraints and add native OS window buttons (Minimize/Maximize)
         self.setMinimumSize(800, 800)
