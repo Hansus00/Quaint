@@ -2,7 +2,7 @@
 # ### --- FILE frontend/main_window.py --- ###
 # ==============================================================================
 
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 import numpy as np
 from backend.Potential import InfiniteWellPotential, Potential
@@ -59,6 +59,9 @@ class MainWindow(QMainWindow):
     simulation: Any
     _settings_dialog: Optional[Settings]
     _setup_drawer: Optional[SetupDrawer]
+    _pending_setup: Optional[dict[str, Any]]
+    _calculation_cancelled: bool
+    worker: Optional[SimulationThread]
 
     def __init__(
         self, size_x: int = 60, size_y: int = 50, z_potential_offset: float = 0.1
@@ -125,6 +128,9 @@ class MainWindow(QMainWindow):
 
         self._settings_dialog = None
         self._setup_drawer = None
+        self._pending_setup = None
+        self._calculation_cancelled = False
+        self.worker = None
 
         self._setup_ui()
         # Populate the 3D potential mesh immediately on startup to prevent NoneType crash
@@ -161,32 +167,162 @@ class MainWindow(QMainWindow):
         self.controls.toggle_potential_requested.connect(
             self.animation_widget.set_potential_visible
         )
+        self.controls.stop_calculation_requested.connect(self.stop_calculation)
         layout.addWidget(self.controls, stretch=0)
+
+    def _coarse_potential_from_drawer(
+        self, potential_array: np.ndarray, wall_height: float
+    ) -> Potential:
+        """Convert drawer potential (UI orientation) to backend coarse matrix."""
+        potential_coarse = potential_array[:, ::-1].copy()
+        potential_coarse[0, :] = wall_height
+        potential_coarse[-1, :] = wall_height
+        potential_coarse[:, 0] = wall_height
+        potential_coarse[:, -1] = wall_height
+        return Potential(potential_coarse)
+
+    def _instantiate_solver(
+        self,
+        method_name: str,
+        potential: Potential,
+        wavefunc: GaussianPacket,
+        delta_t: float,
+    ) -> Any:
+        if method_name == "Constant":
+            return Constant(potential, wavefunc, delta_t)
+        if method_name == "Crank-Nicolson":
+            return CrankNicolson(potential, wavefunc, delta_t)
+        if method_name == "SSFM":
+            return SSFM(potential, wavefunc, delta_t)
+        raise ValueError(f"Unknown simulation method: {method_name}")
+
+    def _simulation_from_pending(self, pending: dict[str, Any]) -> Any:
+        """Build a solver for a pending setup without mutating committed state."""
+        potential = self._coarse_potential_from_drawer(
+            pending["potential_array"], pending["wall_height"]
+        )
+        wavefunc = GaussianPacket(
+            cast(tuple[int, int], tuple(np.asarray(pending["r0"]).astype(int))),
+            pending["k0"],
+            pending["sigma_matrix"],
+            pending["mass"],
+            pending["size_x"],
+            pending["size_y"],
+        )
+        return self._instantiate_solver(
+            pending["method"], potential, wavefunc, pending["delta_t"]
+        )
+
+    def _commit_pending_setup(self) -> None:
+        """Apply a successful calculation's pending setup to the live simulation."""
+        pending = self._pending_setup
+        if pending is None:
+            return
+
+        self.fps = pending["fps"]
+        self.total_frames = pending["total_frames"]
+        self.controls.update_settings(self.fps, self.total_frames)
+
+        self.current_delta_t = pending["delta_t"]
+        self.current_steps_per_frame = pending["steps_per_frame"]
+        self.current_wall_height = pending["wall_height"]
+
+        self.size_coarse_x = pending["size_x"]
+        self.size_coarse_y = pending["size_y"]
+        self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
+        self.y_limit = 10.0 * self.aspect_ratio
+
+        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
+        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
+
+        self.current_potential_array = pending["potential_array"].copy()
+        self.current_r0 = np.asarray(pending["r0"], dtype=np.float64).copy()
+        self.current_k0 = np.asarray(pending["k0"], dtype=np.float64).copy()
+        self.current_sigma = np.asarray(
+            pending["sigma_matrix"], dtype=np.float64
+        ).copy()
+        self.current_mass = pending["mass"]
+        self.current_method = pending["method"]
+
+        self.initial_potential = self._coarse_potential_from_drawer(
+            self.current_potential_array, self.current_wall_height
+        )
+        self.initial_wavefunc = GaussianPacket(
+            cast(tuple[int, int], tuple(self.current_r0.astype(int))),
+            self.current_k0,
+            self.current_sigma,
+            self.current_mass,
+            self.size_coarse_x,
+            self.size_coarse_y,
+        )
+        self.switch_simulation_method(self.current_method)
+
+        self.animation_widget.update_config(
+            self.size_coarse_x,
+            self.size_coarse_y,
+            self.y_limit,
+            self.z_potential_offset,
+            self.z_scale,
+            self.fine_grid_scale,
+            self.z_potential_scale,
+            self.brightness_multiplier,
+            self.potential_alpha,
+        )
+        self._pending_setup = None
 
     def calculate_all_frames(self) -> None:
         """
         Initiates a new thread to calculate the entire simulation sequence based on the current setup and method.
         This is necessary to prevent UI freezing during heavy computations.
         """
-        self.animation_widget.clear_cache()
-        self.switch_simulation_method(self.current_method)
+        self._calculation_cancelled = False
 
-        # Block the UI controls while the simulation is being calculated
-        self.controls.setEnabled(False)
+        if self._pending_setup is not None:
+            sim = self._simulation_from_pending(self._pending_setup)
+            total_frames = self._pending_setup["total_frames"]
+            steps_per_frame = self._pending_setup["steps_per_frame"]
+        else:
+            self.animation_widget.clear_cache()
+            self.switch_simulation_method(self.current_method)
+            sim = self.simulation
+            total_frames = self.total_frames
+            steps_per_frame = self.current_steps_per_frame
+
+        self.controls.enter_calculating_mode()
         self.controls.time_label.setText("Calculating...")
 
-        # Start the simulation thread with the current simulation instance and parameters
-        self.worker = SimulationThread(
-            self.simulation, self.total_frames, self.current_steps_per_frame
-        )
+        self.worker = SimulationThread(sim, total_frames, steps_per_frame)
         self.worker.calculation_finished.connect(self.on_calculation_finished)
+        self.worker.calculation_cancelled.connect(self.on_calculation_cancelled)
         self.worker.start()
+
+    def stop_calculation(self) -> None:
+        """Stop an in-flight run; committed state is unchanged because setup applies on finish."""
+        if self.worker is None or not self.worker.isRunning():
+            return
+
+        self._calculation_cancelled = True
+        self._pending_setup = None
+        self.worker.request_cancel()
+        self.controls.exit_calculating_mode()
+        self.controls.time_label.setText(f"Time: {self.controls.slider.value()}")
+
+    def on_calculation_cancelled(self) -> None:
+        self._calculation_cancelled = False
 
     def on_calculation_finished(self, generated_frames: list) -> None:
         """
         Receives the calculated frames from the worker thread.
         Dynamically sizes the animation cache based on remaining system RAM.
         """
+        if self._calculation_cancelled:
+            self._calculation_cancelled = False
+            return
+
+        if self._pending_setup is not None:
+            self.animation_widget.clear_cache()
+            self._commit_pending_setup()
+
         self.wave_frames = generated_frames
 
         # --- DYNAMIC CACHE SIZING AFTER PHYSICS ALLOCATION ---
@@ -220,9 +356,8 @@ class MainWindow(QMainWindow):
             f"Physics complete. Set UI cache limit to: {self.animation_widget.max_cache_size} frames."
         )
 
-        # Unlocking the controls after the simulation is ready
+        self.controls.exit_calculating_mode()
         self.controls.time_label.setText(f"Time: {self.controls.slider.value()}")
-        self.controls.setEnabled(True)
 
         # Updating the simulation
         self.animation_widget.update_potential(self.initial_potential.matrix)
@@ -364,64 +499,29 @@ class MainWindow(QMainWindow):
         """
         Applies physics configuration, rebuilds the internal arrays if resolution changes,
         and triggers a complete simulation recalculation.
+        Committed state is updated only after the calculation finishes successfully.
         """
-        self.fps = fps
-        self.total_frames = total_frames
-        self.controls.update_settings(fps, total_frames)
-
-        self.current_delta_t = delta_t
-        self.current_steps_per_frame = steps_per_frame
-        self.current_wall_height = wall_height
-
-        self.size_coarse_x = size_x
-        self.size_coarse_y = size_y
-        self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
-        self.y_limit = 10.0 * self.aspect_ratio
-
-        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
-        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
-
-        # Update cached UI structures directly from the pre-scaled drawer return array
-        self.current_potential_array = potential_array.copy()
-        self.current_r0 = r0.copy()
-        self.current_k0 = k0.copy()
-        self.current_sigma = sigma_matrix.copy()
-        self.current_mass = mass
         print("Received setup:")
         print(f"k0: {k0}")
         print(f"r0: {r0}")
         print(f"sigma: {sigma_matrix}")
         print(f"mass: {mass}")
 
-        # Flip the potential array along the Y-axis for standard visualization orientation
-        potential_coarse = potential_array[:, ::-1]
-
-        potential_coarse[0, :] = wall_height
-        potential_coarse[-1, :] = wall_height
-        potential_coarse[:, 0] = wall_height
-        potential_coarse[:, -1] = wall_height
-
-        self.initial_potential = Potential(potential_coarse)
-        self.initial_wavefunc = GaussianPacket(
-            self.current_r0,
-            self.current_k0,
-            self.current_sigma,
-            self.current_mass,
-            self.size_coarse_x,
-            self.size_coarse_y,
-        )
-
-        self.animation_widget.update_config(
-            self.size_coarse_x,
-            self.size_coarse_y,
-            self.y_limit,
-            self.z_potential_offset,
-            self.z_scale,
-            self.fine_grid_scale,
-            self.z_potential_scale,
-            self.brightness_multiplier,
-            self.potential_alpha,
-        )
+        self._pending_setup = {
+            "potential_array": potential_array.copy(),
+            "r0": r0.copy(),
+            "k0": k0.copy(),
+            "sigma_matrix": sigma_matrix.copy(),
+            "mass": mass,
+            "fps": fps,
+            "total_frames": total_frames,
+            "size_x": size_x,
+            "size_y": size_y,
+            "delta_t": delta_t,
+            "steps_per_frame": steps_per_frame,
+            "wall_height": wall_height,
+            "method": self.current_method,
+        }
 
         self.calculate_all_frames()
 
@@ -440,18 +540,9 @@ class MainWindow(QMainWindow):
         Switches the backend solver instance used for calculating the wave evolution.
         """
         self.current_method = method_name
-
-        dt = self.current_delta_t
-
-        if method_name == "Constant":
-            self.simulation = Constant(
-                self.initial_potential, self.initial_wavefunc, dt
-            )
-        elif method_name == "Crank-Nicolson":
-            self.simulation = CrankNicolson(
-                self.initial_potential, self.initial_wavefunc, dt
-            )
-        elif method_name == "SSFM":
-            self.simulation = SSFM(self.initial_potential, self.initial_wavefunc, dt)
-        else:
-            raise ValueError(f"Unknown simulation method: {method_name}")
+        self.simulation = self._instantiate_solver(
+            method_name,
+            self.initial_potential,
+            self.initial_wavefunc,
+            self.current_delta_t,
+        )

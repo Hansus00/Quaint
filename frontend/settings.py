@@ -59,9 +59,7 @@ class Settings(QDialog):
 
         self.setModal(False)
         self.setWindowModality(Qt.WindowModality.NonModal)
-        self.setWindowFlags(
-            Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint
-        )
+        self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint)
         self.setWindowTitle("Visual Settings")
 
         layout = QFormLayout(self)
@@ -112,9 +110,7 @@ class Settings(QDialog):
         btn_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
-        update_btn = btn_box.addButton(
-            "Update", QDialogButtonBox.ButtonRole.ApplyRole
-        )
+        update_btn = btn_box.addButton("Update", QDialogButtonBox.ButtonRole.ApplyRole)
         if update_btn is not None:
             update_btn.clicked.connect(self.apply_settings)
         btn_box.accepted.connect(self.save_settings)

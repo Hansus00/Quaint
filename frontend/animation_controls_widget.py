@@ -24,6 +24,7 @@ class AnimationControlsWidget(QWidget):
     open_setup_requested = pyqtSignal()
     open_settings_requested = pyqtSignal()
     toggle_potential_requested = pyqtSignal(bool)
+    stop_calculation_requested = pyqtSignal()
 
     total_frames: int
     fps: int
@@ -36,6 +37,7 @@ class AnimationControlsWidget(QWidget):
     toggle_pot_btn: QPushButton
     setup_btn: QPushButton
     settings_btn: QPushButton
+    stop_calc_btn: QPushButton
 
     def __init__(
         self, total_frames: int, fps: int, parent: Optional[QWidget] = None
@@ -93,6 +95,33 @@ class AnimationControlsWidget(QWidget):
         self.settings_btn = QPushButton("Settings")
         self.settings_btn.clicked.connect(self.open_settings_requested.emit)
         layout.addWidget(self.settings_btn)
+
+        self.stop_calc_btn = QPushButton("Stop Calculation")
+        self.stop_calc_btn.clicked.connect(self.stop_calculation_requested.emit)
+        self.stop_calc_btn.setVisible(False)
+        layout.addWidget(self.stop_calc_btn)
+
+    def enter_calculating_mode(self) -> None:
+        """Disable playback controls and show the stop-calculation button."""
+        self.pause()
+        self.play_btn.setEnabled(False)
+        self.pause_btn.setEnabled(False)
+        self.slider.setEnabled(False)
+        self.toggle_pot_btn.setEnabled(False)
+        self.setup_btn.setEnabled(False)
+        self.settings_btn.setEnabled(False)
+        self.stop_calc_btn.setVisible(True)
+        self.stop_calc_btn.setEnabled(True)
+
+    def exit_calculating_mode(self) -> None:
+        """Restore normal playback controls after calculation finishes or is stopped."""
+        self.stop_calc_btn.setVisible(False)
+        self.play_btn.setEnabled(True)
+        self.pause_btn.setEnabled(True)
+        self.slider.setEnabled(True)
+        self.toggle_pot_btn.setEnabled(True)
+        self.setup_btn.setEnabled(True)
+        self.settings_btn.setEnabled(True)
 
     def play(self) -> None:
         """Starts animation playback. Resets to frame 0 if at the final frame."""

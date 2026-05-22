@@ -16,10 +16,12 @@ class SimulationThread(QThread):
 
     # Emits: (wave_frames: list)
     calculation_finished = pyqtSignal(list)
+    calculation_cancelled = pyqtSignal()
 
     simulation: Any
     total_frames: int
     steps_per_frame: int
+    _cancel_requested: bool
 
     def __init__(
         self, simulation_instance: Any, total_frames: int, steps_per_frame: int = 30
@@ -36,6 +38,11 @@ class SimulationThread(QThread):
         self.simulation = simulation_instance
         self.total_frames = total_frames
         self.steps_per_frame = steps_per_frame
+        self._cancel_requested = False
+
+    def request_cancel(self) -> None:
+        """Ask the worker to stop at the next safe point in the frame loop."""
+        self._cancel_requested = True
 
     def run(self) -> None:
         """
@@ -49,9 +56,18 @@ class SimulationThread(QThread):
 
         # Iteratively calculate the subsequent time steps
         for _ in range(1, self.total_frames):
+            if self._cancel_requested:
+                self.calculation_cancelled.emit()
+                return
+
             for _ in range(self.steps_per_frame):
                 self.simulation.step()
+
             wave_frames.append(self.simulation.get_wave_function())
+
+        if self._cancel_requested:
+            self.calculation_cancelled.emit()
+            return
 
         # Dispatch the payload back to the main thread
         self.calculation_finished.emit(wave_frames)
