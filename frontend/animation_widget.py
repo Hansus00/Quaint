@@ -234,6 +234,17 @@ class AnimationWidget(QWidget):
         )
         self.potential_mesh_item.setMeshData(meshdata=self.potential_mesh_data)
 
+        # Placeholder wave mesh so OpenGL never draws GLMeshItem with faces=None
+        wave_rgba = np.zeros((self.size_fine_x * self.size_fine_y, 4), dtype=np.float32)
+        wave_rgba[:, 3] = 1.0
+        self.wave_mesh_item.setMeshData(
+            meshdata=gl.MeshData(
+                vertexes=self.verts_template.copy(),
+                faces=self.faces,
+                vertexColors=wave_rgba,
+            )
+        )
+
     def set_potential_visible(self, visible: bool) -> None:
         """Shows or hides the 3D potential mesh depending on UI button toggle."""
         self.potential_mesh_item.setVisible(visible)

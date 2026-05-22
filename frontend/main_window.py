@@ -136,7 +136,6 @@ class MainWindow(QMainWindow):
         # Populate the 3D potential mesh immediately on startup to prevent NoneType crash
         self.animation_widget.update_potential(self.initial_potential.matrix)
         self.calculate_all_frames()
-        self.update_simulation(0)
 
     def _setup_ui(self) -> None:
         """
