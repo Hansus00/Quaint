@@ -138,8 +138,8 @@ class CrankNicolson(_Solver):
     def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
         # TODO: add periodic boundary conditions
         # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
-        D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / self._dx**2  # type: ignore
-        D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / self._dy**2  # type: ignore
+        D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx), dtype=np.float64) / self._dx**2  # type: ignore
+        D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny), dtype=np.float64) / self._dy**2  # type: ignore
 
         I_x = sp.identity(Nx)
         I_y = sp.identity(Ny)
