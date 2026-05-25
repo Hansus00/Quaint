@@ -269,17 +269,20 @@ class SetupDrawer(QDialog):
 
         # UI/Video Parameters Layout
         sim_params_layout = QHBoxLayout()
+
         sim_params_layout.addWidget(QLabel("UI FPS:"))
         self.fps_input = QSpinBox()
         self.fps_input.setRange(1, 120)
         self.fps_input.setValue(self.current_fps)
         sim_params_layout.addWidget(self.fps_input)
+        sim_params_layout.addStretch()
 
         sim_params_layout.addWidget(QLabel("Total Frames:"))
         self.frames_input = QSpinBox()
         self.frames_input.setRange(10, 10000)
         self.frames_input.setValue(self.current_frames)
         sim_params_layout.addWidget(self.frames_input)
+        sim_params_layout.addStretch()
 
         sim_params_layout.addWidget(QLabel("Grid X:"))
         self.size_x_input = QSpinBox()
@@ -287,6 +290,7 @@ class SetupDrawer(QDialog):
         self.size_x_input.setValue(self.grid_size_x)
         self.size_x_input.valueChanged.connect(lambda _: self.check_memory_limit())
         sim_params_layout.addWidget(self.size_x_input)
+        sim_params_layout.addStretch()
 
         sim_params_layout.addWidget(QLabel("Grid Y:"))
         self.size_y_input = QSpinBox()
@@ -294,12 +298,9 @@ class SetupDrawer(QDialog):
         self.size_y_input.setValue(self.grid_size_y)
         self.size_y_input.valueChanged.connect(lambda _: self.check_memory_limit())
         sim_params_layout.addWidget(self.size_y_input)
+        sim_params_layout.addStretch()
 
-        # Dynamic Grid Resize Button
-        self.update_grid_btn = QPushButton("Snap Aspect Ratio")
-        self.update_grid_btn.clicked.connect(self.update_canvas_size)
-        sim_params_layout.addWidget(self.update_grid_btn)
-
+        sim_params_layout.addStretch()
         layout.addLayout(sim_params_layout)
 
         # Physics Parameters Layout
@@ -311,12 +312,14 @@ class SetupDrawer(QDialog):
         self.delta_t_input.setSingleStep(0.001)
         self.delta_t_input.setValue(self.initial_delta_t)
         physics_layout.addWidget(self.delta_t_input)
+        physics_layout.addStretch()
 
         physics_layout.addWidget(QLabel("Steps per Frame (\u0394n):"))
         self.steps_per_frame_input = QSpinBox()
         self.steps_per_frame_input.setRange(1, 2000)
         self.steps_per_frame_input.setValue(self.initial_steps_per_frame)
         physics_layout.addWidget(self.steps_per_frame_input)
+        physics_layout.addStretch()
 
         physics_layout.addWidget(QLabel("Wall Height:"))
         self.wall_height_input = QDoubleSpinBox()
@@ -324,6 +327,8 @@ class SetupDrawer(QDialog):
         self.wall_height_input.setSingleStep(10.0)
         self.wall_height_input.setValue(self.initial_wall_height)
         physics_layout.addWidget(self.wall_height_input)
+        physics_layout.addStretch()
+
         layout.addLayout(physics_layout)
 
         # Preset Potential Selection Layout
@@ -368,6 +373,7 @@ class SetupDrawer(QDialog):
         self.sig_xx_input.setValue(1.0)
         self.sig_xx_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_xx_input)
+        params_layout.addStretch()
 
         # Sigma xy with physical units
         params_layout.addWidget(QLabel("s<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:"))
@@ -376,6 +382,7 @@ class SetupDrawer(QDialog):
         self.sig_xy_input.setValue(0.0)
         self.sig_xy_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_xy_input)
+        params_layout.addStretch()
 
         # Sigma yy with physical units
         params_layout.addWidget(QLabel("s<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:"))
@@ -384,6 +391,7 @@ class SetupDrawer(QDialog):
         self.sig_yy_input.setValue(1.0)
         self.sig_yy_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_yy_input)
+        params_layout.addStretch()
 
         # Filling the fields with initial matrix values if provided
         if self.initial_sigma is not None:
@@ -398,13 +406,14 @@ class SetupDrawer(QDialog):
         self.mass_input.setValue(self.initial_mass)
         self.mass_input.setSingleStep(0.1)
         params_layout.addWidget(self.mass_input)
+        params_layout.addStretch()
 
         layout.addLayout(params_layout)
 
         # Centered Interactivity Row containing the dynamically constrained Canvas
         canvas_area = QHBoxLayout()
         canvas_area.addWidget(self.canvas_container, stretch=1)
-        canvas_area.addSpacing(20)
+        canvas_area.addStretch()
 
         # Build the vertical slider layout
         slider_layout = QHBoxLayout()
@@ -412,7 +421,7 @@ class SetupDrawer(QDialog):
         self.brush_strength_label = QLabel("Brush\nStrength: 15")
         self.brush_strength_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        # Brush width is now measured in grid cells (matching the underlying image).
+        # Brush width is measured in grid cells (matching the underlying image).
         self.brush_width_label = QLabel("Brush\nWidth: 3")
         self.brush_width_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -437,6 +446,9 @@ class SetupDrawer(QDialog):
 
         slider_layout.addWidget(self.brush_strength_label)
         slider_layout.addWidget(self.brush_strength_slider)
+
+        slider_layout.addSpacing(40)
+
         slider_layout.addWidget(self.brush_width_slider)
         slider_layout.addWidget(self.brush_width_label)
 
@@ -469,6 +481,10 @@ class SetupDrawer(QDialog):
         controls.addWidget(self.save_btn)
 
         layout.addLayout(controls)
+
+        # Setting bigger SpinBox size for better visibility
+        for spinbox in self.findChildren((QSpinBox, QDoubleSpinBox)):
+            spinbox.setMinimumWidth(100)
 
         # Enforce memory safety on initial setup
         self.check_memory_limit()
@@ -867,7 +883,7 @@ class SetupDrawer(QDialog):
 
             kx = float((k0x_g - r0x_g) * K_GRID_FACTOR)
             ky = float(-(k0y_g - r0y_g) * K_GRID_FACTOR)
-            p.k0 = np.array([kx, ky], dtype=np.float64)
+            p.k0 = np.array([kx / 10, ky / 10], dtype=np.float64)
         else:
             p.r0 = (p.size_x // 2, p.size_y // 2)
             p.k0 = np.array([0.0, 0.0], dtype=np.float64)

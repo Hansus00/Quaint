@@ -5,7 +5,7 @@
 from typing import Optional
 import numpy as np
 
-from PyQt6.QtCore import QPoint, QPointF, Qt
+from PyQt6.QtCore import QPoint, QPointF, Qt, QEvent
 from PyQt6.QtGui import (
     QColor,
     QImage,
@@ -344,12 +344,12 @@ class CanvasWidget(QWidget):
             
         self.update()
         
-    def leaveEvent(self, a0) -> None:
+    def leaveEvent(self, a0: QEvent | None) -> None:
         """
         Clears the hover preview when the mouse leaves the canvas bounds.
 
         Args:
-            a0: The QEvent containing the cursor position.
+            a0: The QEvent detecting the cursor leaving the widget area.
         """
         self.current_hover_grid = None
         self.update()
