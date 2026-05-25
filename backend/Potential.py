@@ -71,7 +71,7 @@ class HarmonicPotential(Potential):
 
 
 class EmbeddedPotential(Potential):
-    """Places a smaller potential (with its upper-left corner at pos_x, pos_y)
+    """Places a smaller potential (with its LOWER-left corner at pos_x, pos_y)
     inside an empty frame of a larger one (size_x, size_y), ensuring it fits."""
 
     def __init__(
@@ -108,8 +108,10 @@ class WShaped(Potential):
         offset_right = thickness - offset_left
 
         for y in range(size_y):
+            inv_y = (size_y - 1) - y
+
             # left lower
-            x1 = int(y * (center_x / 2) / (size_y - 1)) if size_y > 1 else 0
+            x1 = int(inv_y * (center_x / 2) / (size_y - 1)) if size_y > 1 else 0
 
             # left upper
             x2 = center_x - x1
@@ -117,7 +119,7 @@ class WShaped(Potential):
             # right lower
             x3 = center_x + x1
 
-            # 4. right upper
+            # right upper
             x4 = (size_x - 1) - x1
 
             for x in (x1, x2, x3, x4):

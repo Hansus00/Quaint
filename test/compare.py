@@ -1,5 +1,6 @@
 #!/bin/python3
 # %%
+#TODO: make MANY comparisons between SSFM and CN
 """
 for i in {1..768..32}
 do

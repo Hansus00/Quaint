@@ -1,8 +1,10 @@
 from typing import Callable
+from httplib2 import SAFE_METHODS
 import numpy as np
 from numpy.typing import NDArray
 import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve, factorized
+import sys
 
 from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
@@ -13,18 +15,49 @@ class _Solver:
     delta_t: float
     _wave_func: StationaryWaveFunc
     _steps_evolved: int = 0
+    _dx: float = 1
+    _dy: float = 1
 
     def __init__(
         self,
         potential: Potential,
         wave_func: StationaryWaveFunc,
         delta_t: float = 1e-3,
-        delta_r: float = 1,
+        grid_step: float = 1,
     ):
+        assert potential.matrix.shape == wave_func.matrix.shape
+        assert grid_step <= 1
+
         self.potential = potential
         self._wave_func = wave_func
         self.delta_t = delta_t
-        self.dx, self.dy = delta_r, delta_r  # FIXME: Fine tune the grid step size
+        self._dx, self._dy = grid_step, grid_step  # FIXME: Fine tune the grid step size
+        print(
+            "\nPhysical size of the simulation (L_x,L_y):",
+            self.potential.matrix.shape[0] * self._dx,
+            self.potential.matrix.shape[1] * self._dy,
+        )
+
+    def _stability_conditions(self):
+        """Check wether Courant–Friedrichs–Lewy and Nyquist conditions are satisfied
+        Requires ev_energy() to work, shold be the last function run in __init__"""
+        SAFETY_MARGIN = 0.7
+        k = np.sqrt(2 * self._wave_func.mass * np.abs(self.ev_energy()))
+        k_max = np.pi / (np.mean([self._dx, self._dy]))  # Nyquist
+
+        print(r"k_{max}=", k_max)
+        print(r"|k_0|", np.abs(k))
+        if np.abs(k) >= k_max * SAFETY_MARGIN:
+            print(
+                "WARNING: Nyquist condition (|k_0| < ",
+                SAFETY_MARGIN,
+                r"k_{max}) is not satisfied",
+                file=sys.stderr,
+            )
+        print(
+            "Courant number, should be << 1:",
+            k / self._wave_func.mass * self.delta_t / self._dx,
+        )
 
     def step(self) -> None:
         """Evolves on step of wave function after t + Delta t"""
@@ -45,24 +78,8 @@ class _Solver:
         """Returns wave function at current state at time t"""
         return self._wave_func
 
-    def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
-        # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
-        dx, dy = self.dx, self.dy
-        D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / dx**2  # type: ignore
-        D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / dy**2  # type: ignore
-
-        I_x = sp.identity(Nx)
-        I_y = sp.identity(Ny)
-
-        # 2D Laplacian discretization consistent with C-order flattening used by numpy:
-        # index mapping (i, j) -> i * Ny + j
-        return sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy)
-
-    def _create_hamilton_operator(self, L_2D: sp.spmatrix, mass: float) -> sp.spmatrix:
-        T_matrix = -(1 / (2 * mass)) * L_2D
-        V_1d = self.potential.matrix.flatten()
-        V_matrix = sp.diags(V_1d, offsets=0, format="csr")
-        return T_matrix + V_matrix
+    def ev_energy(self) -> np.complex128:
+        raise NotImplementedError
 
 
 class CrankNicolson(_Solver):
@@ -79,9 +96,9 @@ class CrankNicolson(_Solver):
         potential: Potential,
         wave_func: StationaryWaveFunc,
         delta_t: float = 1e-3,
-        delta_r: float = 1,
+        grid_step: float = 1,
     ):
-        super().__init__(potential, wave_func, delta_t, delta_r)
+        super().__init__(potential, wave_func, delta_t, grid_step)
 
         Nx, Ny = self.potential.matrix.shape
 
@@ -93,6 +110,26 @@ class CrankNicolson(_Solver):
         )  # factorize once for the whole simulation
 
         self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
+        self._stability_conditions()
+
+    def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
+        # TODO: add periodic boundary conditions
+        # similiar to https://stackoverflow.com/questions/34895970/buildin-a-sparse-2d-laplacian-matrix-using-scipy-modules
+        D_xx = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Nx, Nx)) / self._dx**2  # type: ignore
+        D_yy = sp.diags([1, -2, 1], [-1, 0, 1], shape=(Ny, Ny)) / self._dy**2  # type: ignore
+
+        I_x = sp.identity(Nx)
+        I_y = sp.identity(Ny)
+
+        # 2D Laplacian discretization consistent with C-order flattening used by numpy:
+        # index mapping (i, j) -> i * Ny + j
+        return sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy)
+
+    def _create_hamilton_operator(self, L_2D: sp.spmatrix, mass: float) -> sp.spmatrix:
+        T_matrix = -(1 / (2 * mass)) * L_2D
+        V_1d = self.potential.matrix.flatten()
+        V_matrix = sp.diags(V_1d, offsets=0, format="csr")
+        return T_matrix + V_matrix
 
     def _create_cayley_matrices(
         self, N_total: int, H: sp.spmatrix
@@ -117,12 +154,12 @@ class CrankNicolson(_Solver):
 
         return self._wave_func
 
-    def energy(self) -> np.complex128:
+    def ev_energy(self) -> np.complex128:
         """Returns expected value of the hamiltonian.
         There may be some cases where H is not hermitian."""
         return np.sum(
             np.conjugate(self._wave_state_1D) * (self.H @ self._wave_state_1D)  # type: ignore
-        )
+        ) / np.sum(np.conjugate(self._wave_state_1D) * self._wave_state_1D)
 
 
 class Constant(_Solver):
@@ -140,14 +177,15 @@ class _BaseSSFM(_Solver):
         potential: Potential,
         wave_func: StationaryWaveFunc,
         delta_t: float = 1e-3,
-        delta_r: float = 1,
+        grid_step: float = 1,
     ):
-        super().__init__(potential, wave_func, delta_t, delta_r)
+        super().__init__(potential, wave_func, delta_t, grid_step)
 
         Nx, Ny = self.potential.matrix.shape
 
         self._U_V = self._create_real_space_propagator()
         self._U_T = self._create_momentum_propagator(Nx, Ny, wave_func.mass)
+        self._stability_conditions()
 
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         raise NotImplementedError
@@ -156,12 +194,34 @@ class _BaseSSFM(_Solver):
         self, Nx: int, Ny: int, mass: float
     ) -> NDArray[np.complex128]:
         """Creates the momentum space propagator."""
-        kx = np.fft.fftfreq(Nx, d=self.dx) * 2 * np.pi
-        ky = np.fft.fftfreq(Ny, d=self.dy) * 2 * np.pi
+        kx = np.fft.fftfreq(Nx, d=self._dx) * 2 * np.pi
+        ky = np.fft.fftfreq(Ny, d=self._dy) * 2 * np.pi
         kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
 
         T = (kx2 + ky2) / (2 * mass)
         return np.exp(-1j * T * self.delta_t)
+
+    def ev_energy(self) -> np.complex128:
+        psi = self._wave_func.matrix
+        psi_k = np.fft.fft2(psi)
+
+        kx = np.fft.fftfreq(self._wave_func.matrix.shape[0], d=self._dx) * 2 * np.pi
+        ky = np.fft.fftfreq(self._wave_func.matrix.shape[1], d=self._dy) * 2 * np.pi
+        kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
+        # kinetic energy in terms of k
+        T = (kx2 + ky2) / (2 * self._wave_func.mass)
+
+        # expected value of kinetic energy calculated in k-space
+        ev_T = np.sum(np.conjugate(psi_k) * T * psi_k) / np.sum(
+            np.conjugate(psi_k) * psi_k
+        )
+
+        # expected value of potential enrgy calculated in x-space
+        ev_V = np.sum(np.conjugate(psi) * self.potential.matrix * psi) / np.sum(
+            np.conjugate(psi) * psi
+        )
+
+        return ev_T + ev_V
 
 
 class SSFM(_BaseSSFM):
