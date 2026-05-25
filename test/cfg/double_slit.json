@@ -1,31 +1,31 @@
 {
-	"size_x": 128,
-	"size_y": 128,
-	"well_type": "slab",
+	"size_x": 200,
+	"size_y": 256,
+	"well_type": "double_slit",
 	"well_height": 1000000.0,
-	"inside_wall_height": 100,
+	"inside_wall_height": 1000000.0,
 	"solver": "cn",
 	"r0": [
-		16,
-		64
+		32,
+		128
 	],
 	"k0": [
-		0.3,
+		0.4,
 		0
 	],
 	"sigma0": [
 		[
-			16,
+			40,
 			0
 		],
 		[
 			0,
-			16
+			40
 		]
 	],
 	"mass": 0.001,
 	"delta_n": 16,
-	"delta_t": 0.0005,
+	"delta_t": 0.0003,
 	"grid_step": 1,
 	"updates_max": 256
 }

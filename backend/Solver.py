@@ -71,8 +71,8 @@ class _Solver:
                 RED
                 + "Courant number should be << 1, but is "
                 + str(courant_number)
-                + RESET
-                + " decrease delta_t",
+                + " decrease delta_t"
+                + RESET,
                 RuntimeWarning,
             )
         print("\n")
@@ -161,7 +161,7 @@ class CrankNicolson(_Solver):
     def step(self):
         super().step()
         # does the same as np.asarray(spsolve(self.A, self.B @ self._wave_state_1D)), but with pre-factorized matrix A
-        self._wave_state_1D = np.asarray(self._factorized_A(self.B @ self._wave_state_1D))  # type: ignore
+        self._wave_state_1D = self._factorized_A(self.B.dot(self._wave_state_1D))  # type: ignore
 
     def get_wave_function(self) -> StationaryWaveFunc:
         Nx, Ny = self.potential.matrix.shape

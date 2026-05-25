@@ -160,6 +160,32 @@ elif params.well_type == WellType.SLAB:
         0,
         slab,
     )
+elif params.well_type == WellType.DOUBLE_SLIT:
+    slab = Slab(1, params.size_y, params.inside_wall_height)
+
+    slit = Slab(1, 8, params.inside_wall_height)
+    slab -= EmbeddedPotential(
+        slab.matrix.shape[0],
+        slab.matrix.shape[1],
+        0,
+        params.size_y // 2 + 3,
+        slit,
+    )
+    slab -= EmbeddedPotential(
+        slab.matrix.shape[0],
+        slab.matrix.shape[1],
+        0,
+        params.size_y // 2 - 8 - 3,
+        slit,
+    )
+
+    well += EmbeddedPotential(
+        params.size_x,
+        params.size_y,
+        (params.size_x - params.size_x // 16) // 4,
+        0,
+        slab,
+    )
 elif params.well_type == WellType.NONE:
     well = InfiniteWellPotential(params.size_x, params.size_y, 0)
 else:
@@ -208,7 +234,7 @@ start = time.perf_counter()
 
 
 # main simulation
-FRAMES_FOR_POTENTIAL = 2
+FRAMES_FOR_POTENTIAL = 3
 
 
 def update(frame):
@@ -217,8 +243,7 @@ def update(frame):
     if frame < FRAMES_FOR_POTENTIAL:
         return (im,)
     elif frame == FRAMES_FOR_POTENTIAL:
-        # cbar.set_label(r"$|\psi|^2$")
-        cbar.remove()
+        cbar.ax.set_visible(False)
     else:
         solver.update(params.delta_n)
         Energies.append(solver.ev_energy())  # type: ignore
@@ -226,8 +251,6 @@ def update(frame):
 
     new_data = solver.get_wave_function().matrix
     new_dataP = np.float64(np.abs(solver.get_wave_function().matrix)) ** 2
-    # im.set_clim(vmin=new_dataP.min(), vmax=new_dataP.max())
-    # cbar.update_normal(im)
     ax.set_title(
         "Evolved ("
         + str(params.solver)
@@ -271,10 +294,25 @@ else:
 
     if not insideInteractive:
         try:
+            writer = animation.FFMpegWriter(
+                fps=args.fps,
+                codec="libx264",
+                extra_args=[
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-profile:v",
+                    "baseline",
+                    "-level",
+                    "4.0",
+                    "-preset",
+                    "medium",
+                    "-movflags",
+                    "+faststart",
+                ],
+            )
             ani.save(
                 directory / f"gauss_evolution.mp4",
-                writer="ffmpeg",
-                fps=args.fps,
+                writer=writer,
                 dpi=300,
                 savefig_kwargs={"pad_inches": 0},
             )  # similiar as ffmpeg -framerate 2 -pattern_type glob -i "gauss_evolved_n*.png" output.mp4

@@ -11,6 +11,9 @@ class Potential:
     def __add__(self, other: "Potential") -> "Potential":
         return Potential(self.matrix + other.matrix)
 
+    def __sub__(self, other: "Potential") -> "Potential":
+        return Potential(self.matrix - other.matrix)
+
     def __str__(self) -> str:
         return str(self.matrix)
 
