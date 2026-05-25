@@ -21,6 +21,7 @@ class AnimationControlsWidget(QWidget):
 
     # --- Class Fields ---
     frame_changed = pyqtSignal(int)
+    reset_camera_requested = pyqtSignal()
     open_setup_requested = pyqtSignal()
     open_settings_requested = pyqtSignal()
     toggle_potential_requested = pyqtSignal(bool)
@@ -83,6 +84,10 @@ class AnimationControlsWidget(QWidget):
         self.slider.setRange(0, self.total_frames - 1)
         self.slider.valueChanged.connect(self.on_slider_changed)
         layout.addWidget(self.slider)
+
+        self.reset_cam_btn = QPushButton("Reset Camera")
+        self.reset_cam_btn.clicked.connect(self.reset_camera_requested.emit)
+        layout.addWidget(self.reset_cam_btn)
 
         self.toggle_pot_btn = QPushButton("Hide Potential")
         self.toggle_pot_btn.clicked.connect(self.toggle_potential)

@@ -163,6 +163,7 @@ class MainWindow(QMainWindow):
         self.controls.frame_changed.connect(self.update_simulation)
         self.controls.open_setup_requested.connect(self.open_setup_drawer)
         self.controls.open_settings_requested.connect(self.open_settings_window)
+        self.controls.reset_camera_requested.connect(self.animation_widget.reset_camera)
         self.controls.toggle_potential_requested.connect(
             self.animation_widget.set_potential_visible
         )

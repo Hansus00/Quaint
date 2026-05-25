@@ -245,6 +245,15 @@ class AnimationWidget(QWidget):
             )
         )
 
+    def reset_camera(self) -> None:
+        """Resets the 3D camera to the default position and orientation."""
+        self.view.setCameraPosition(
+            pos=QVector3D(self.x_limit / 2.0, self.y_limit / 2.0, 0.0),
+            distance=20,
+            elevation=30,
+            azimuth=45,
+        )
+
     def set_potential_visible(self, visible: bool) -> None:
         """Shows or hides the 3D potential mesh depending on UI button toggle."""
         self.potential_mesh_item.setVisible(visible)
