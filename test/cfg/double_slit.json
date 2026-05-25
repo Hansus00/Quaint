@@ -27,5 +27,5 @@
 	"delta_n": 16,
 	"delta_t": 0.0003,
 	"grid_step": 1,
-	"updates_max": 256
+	"updates_max": 200
 }

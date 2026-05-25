@@ -2,9 +2,11 @@
 # %%
 import sys
 from pathlib import Path
+from importlib.resources import files
 
 # to call backend module from current directory
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+if __name__ == "__main__":
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import warnings
 
@@ -192,7 +194,7 @@ else:
     assert False, "Potential must be specified!"
 
 # draw potential
-plt.style.use("JK_W.mplstyle")
+plt.style.use(files("testing") / "JK_W.mplstyle")  # type: ignore
 fig, ax = plt.subplots(layout="tight")
 fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
 
