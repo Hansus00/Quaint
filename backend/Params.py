@@ -1,4 +1,3 @@
-# %%
 from enum import Enum
 from dataclasses import dataclass, asdict, field
 import json
@@ -36,9 +35,9 @@ class Params:
         default_factory=lambda: np.array([[16, 0], [0, 16]])
     )
     mass: float = 2e-3
-    delta_n: int = 32
-    delta_t: float = 1e-3
-    delta_r: float = 1
+    delta_n: int = 32 # steps per update
+    delta_t: float = 1e-3 # time step per update
+    grid_step: float = 1
     updates_max: int = 4  # how many updates, each one changes by delta_n
 
     @classmethod
@@ -72,6 +71,3 @@ def _enum_dict_factory(data):
         )
         for k, v in data
     }
-
-
-# %%
