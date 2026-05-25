@@ -15,6 +15,7 @@ warnings.filterwarnings(
 from backend.Potential import (
     Potential,
     InfiniteWellPotential,
+    Slab,
     WShaped,
     EmbeddedPotential,
 )
@@ -23,6 +24,7 @@ from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
 from backend.Params import Params, WellType, SolverType
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 from datetime import datetime
 import time
 import argparse
@@ -123,12 +125,11 @@ print("Simulation parameters:", params)
 
 # set potential
 # TODO: maybe make separate Potential instances for this?
-well: Potential
+well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
 if params.well_type == WellType.INFINITE_WELL:
-    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
+    pass
 elif params.well_type == WellType.W_SHAPED:
-    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
-    ws = WShaped(params.size_x // 4, params.size_y // 4, 3, params.well_height)
+    ws = WShaped(params.size_x // 4, params.size_y // 4, 3, params.inside_wall_height)
     ws_inside_grid = EmbeddedPotential(
         params.size_x,
         params.size_y,
@@ -138,10 +139,9 @@ elif params.well_type == WellType.W_SHAPED:
     )
     well += ws_inside_grid
 elif params.well_type == WellType.MATRYOSHKA:
-    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
     inside_size = (params.size_x // 3, params.size_y // 3)
     inside_well = InfiniteWellPotential(
-        inside_size[0], inside_size[1], params.well_height
+        inside_size[0], inside_size[1], params.inside_wall_height
     )
     inside_well_resized = EmbeddedPotential(
         params.size_x,
@@ -151,6 +151,15 @@ elif params.well_type == WellType.MATRYOSHKA:
         inside_well,
     )
     well += inside_well_resized
+elif params.well_type == WellType.SLAB:
+    slab = Slab(params.size_x // 16, params.size_y, params.inside_wall_height)
+    well += EmbeddedPotential(
+        params.size_x,
+        params.size_y,
+        (params.size_x - params.size_x // 16) // 2,
+        0,
+        slab,
+    )
 elif params.well_type == WellType.NONE:
     well = InfiniteWellPotential(params.size_x, params.size_y, 0)
 else:
@@ -163,7 +172,7 @@ fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
 
 ax.set_title("Potential well")
 im = ax.imshow(
-    np.float64(well.matrix).T, aspect="auto", origin="lower"
+    np.float64(well.matrix).T, aspect="auto", origin="lower", norm=LogNorm()
 )  # transposition is needed as imshow draws (y,x)
 cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
@@ -199,12 +208,15 @@ start = time.perf_counter()
 
 
 # main simulation
+FRAMES_FOR_POTENTIAL = 2
+
+
 def update(frame):
     print("frame no", frame, "n", str(solver.get_steps_evolved()))
     """0th frame is potential"""
-    if frame < 1:
+    if frame < FRAMES_FOR_POTENTIAL:
         return (im,)
-    elif frame == 1:
+    elif frame == FRAMES_FOR_POTENTIAL:
         # cbar.set_label(r"$|\psi|^2$")
         cbar.remove()
     else:
@@ -245,13 +257,13 @@ def update(frame):
 
 
 if args.do_not_animate:
-    for i in range(0, params.updates_max + 3):
+    for i in range(0, params.updates_max + FRAMES_FOR_POTENTIAL + 2):
         update(i)
 else:
     ani = animation.FuncAnimation(
         fig,
         update,
-        frames=range(0, params.updates_max + 3),
+        frames=range(0, params.updates_max + FRAMES_FOR_POTENTIAL + 2),
         interval=1e3 / args.fps,
         blit=False,
         repeat=False,

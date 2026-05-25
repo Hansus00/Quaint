@@ -131,3 +131,11 @@ class WShaped(Potential):
                         matrix[nx, y] = wall_value
 
         super().__init__(matrix)
+
+
+class Slab(Potential):
+    """Vertical slab potential"""
+
+    def __init__(self, width: int, height: int, value: float):
+        matrix = np.ones((width, height)) * value
+        super().__init__(matrix)
