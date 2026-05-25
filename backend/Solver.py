@@ -4,7 +4,7 @@ import numpy as np
 from numpy.typing import NDArray
 import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve, factorized
-import sys
+import warnings
 
 from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
@@ -31,33 +31,49 @@ class _Solver:
         self.potential = potential
         self._wave_func = wave_func
         self.delta_t = delta_t
-        self._dx, self._dy = grid_step, grid_step  # FIXME: Fine tune the grid step size
+        self._dx, self._dy = grid_step, grid_step
         print(
             "\nPhysical size of the simulation (L_x,L_y):",
             self.potential.matrix.shape[0] * self._dx,
             self.potential.matrix.shape[1] * self._dy,
+            "\n",
         )
 
     def _stability_conditions(self):
         """Check wether Courant–Friedrichs–Lewy and Nyquist conditions are satisfied
         Requires ev_energy() to work, shold be the last function run in __init__"""
-        SAFETY_MARGIN = 0.7
+        SAFETY_FACTOR = 0.3  # when there is a limit value, some x_{max}, make it smaller by SAFETY_FACTOR
+        assert SAFETY_FACTOR <= 1
+
+        RED = "\033[91m"
+        RESET = "\033[0m"
+
         k = np.sqrt(2 * self._wave_func.mass * np.abs(self.ev_energy()))
         k_max = np.pi / (np.mean([self._dx, self._dy]))  # Nyquist
 
         print(r"k_{max}=", k_max)
         print(r"|k_0|", np.abs(k))
-        if np.abs(k) >= k_max * SAFETY_MARGIN:
-            print(
-                "WARNING: Nyquist condition (|k_0| < ",
-                SAFETY_MARGIN,
-                r"k_{max}) is not satisfied",
-                file=sys.stderr,
+        if np.abs(k) >= k_max * SAFETY_FACTOR:
+            warnings.warn(
+                RED
+                + "Nyquist condition (|k_0| < "
+                + str(SAFETY_FACTOR)
+                + r"k_{max}) is not satisfied, decrease grid_step"
+                + RESET,
+                RuntimeWarning,
             )
-        print(
-            "Courant number, should be << 1:",
-            k / self._wave_func.mass * self.delta_t / self._dx,
-        )
+        courant_number = k / self._wave_func.mass * self.delta_t / self._dx
+        print(r"C", courant_number)
+        if courant_number > SAFETY_FACTOR:
+            warnings.warn(
+                RED
+                + "Courant number should be << 1, but is "
+                + str(courant_number)
+                + RESET
+                + " decrease delta_t",
+                RuntimeWarning,
+            )
+        print("\n")
 
     def step(self) -> None:
         """Evolves on step of wave function after t + Delta t"""
