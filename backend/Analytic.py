@@ -1,9 +1,10 @@
-from Solver import _Solver
-from typing import Callable
-from StationaryWaveFunc import StationaryWaveFunc
 import numpy as np
+from typing import Callable
 from numpy.typing import NDArray
-from Potential import InfiniteWellPotential
+
+from .Solver import _Solver
+from .StationaryWaveFunc import StationaryWaveFunc
+from .Potential import InfiniteWellPotential
 
 
 class _AnalyticSolver(_Solver):
