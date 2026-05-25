@@ -3,6 +3,7 @@
 # ==============================================================================
 
 from typing import Optional
+import numpy as np
 
 from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtGui import (
@@ -152,6 +153,10 @@ class CanvasWidget(QWidget):
         # Brush diameter measured in grid cells (matches underlying image scale).
         self.brush_width = 3
 
+        # Enable mouse tracking to paint the brush preview
+        self.setMouseTracking(True)
+        self.current_hover_grid = None
+
     def _widget_to_grid(self, p: QPoint) -> QPointF:
         """Convert a widget pixel coordinate to fractional grid coordinates."""
         w = max(self.width(), 1)
@@ -242,6 +247,26 @@ class CanvasWidget(QWidget):
         )
         painter.drawImage(0, 0, scaled)
 
+        # Brush / eraser preview rendering
+        if self.mode in ("brush", "eraser") and self.current_hover_grid is not None:
+            # Convert the current hover position to widget coordinates for rendering the preview
+            hover_w = self._grid_to_widget(self.current_hover_grid)
+            
+            scale_ratio = self.width() / self.grid_size_x
+            preview_radius = (self.brush_width * scale_ratio) / 2.0
+
+            if self.mode == "brush":
+                # Preview alpha dependent on brush strength
+                preview_color = QColor(0, 0, 0,  np.clip(self.brush_strength * 3, 0, 255))
+                painter.setBrush(preview_color)
+                painter.setPen(Qt.PenStyle.NoPen)
+            else:
+                # Drawing preview for eraser as well
+                painter.setBrush(QColor(255, 255, 255, 150))
+                painter.setPen(QPen(Qt.GlobalColor.black, 1))
+
+            painter.drawEllipse(hover_w, preview_radius, preview_radius)
+
         if self.r0_grid is not None and self.k0_tip_grid is not None:
             r0_w = self._grid_to_widget(self.r0_grid)
             k0_w = self._grid_to_widget(self.k0_tip_grid)
@@ -293,6 +318,8 @@ class CanvasWidget(QWidget):
             return super().mouseMoveEvent(a0)
 
         pos_grid = self._widget_to_grid(a0.position().toPoint())
+        self.current_hover_grid = pos_grid
+
         if a0.buttons() & Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser") and self.drawing_potential:
                 painter = QPainter(self.image)
@@ -311,11 +338,22 @@ class CanvasWidget(QWidget):
                 painter.setPen(pen)
                 painter.drawLine(self.last_point_grid, pos_grid)
                 self.last_point_grid = pos_grid
-                self.update()
 
             elif self.mode == "wavepacket":
                 self.k0_tip_grid = pos_grid
-                self.update()
+            
+        self.update()
+        
+    def leaveEvent(self, a0) -> None:
+        """
+        Clears the hover preview when the mouse leaves the canvas bounds.
+
+        Args:
+            a0: The QEvent containing the cursor position.
+        """
+        self.current_hover_grid = None
+        self.update()
+        super().leaveEvent(a0)
 
     def mouseReleaseEvent(self, a0: QMouseEvent | None) -> None:
         """
