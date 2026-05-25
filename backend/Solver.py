@@ -1,9 +1,8 @@
 from typing import Callable
-from httplib2 import SAFE_METHODS
 import numpy as np
 from numpy.typing import NDArray
 import scipy.sparse as sp
-from scipy.sparse.linalg import spsolve, factorized
+from scipy.sparse.linalg import factorized
 import sys
 
 from .Potential import Potential
