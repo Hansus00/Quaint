@@ -26,18 +26,20 @@ class _Solver:
         grid_step: float = 1,
     ):
         assert potential.matrix.shape == wave_func.matrix.shape
-        assert grid_step <= 1
 
         self.potential = potential
         self._wave_func = wave_func
         self.delta_t = delta_t
         self._dx, self._dy = grid_step, grid_step
         print(
+            "\n\n\n---------------New simulation---------------",
             "\nPhysical size of the simulation (L_x,L_y):",
             self.potential.matrix.shape[0] * self._dx,
             self.potential.matrix.shape[1] * self._dy,
             "\n",
         )
+        if grid_step <= 1:
+            warnings.warn("Grid step is too big")
 
     def _stability_conditions(self):
         """Check wether Courant–Friedrichs–Lewy and Nyquist conditions are satisfied
@@ -71,7 +73,7 @@ class _Solver:
                 RED
                 + "Courant number should be << 1, but is "
                 + str(courant_number)
-                + " decrease delta_t"
+                + ", decrease delta_t or increase grid_step"
                 + RESET,
                 RuntimeWarning,
             )
