@@ -1,8 +1,10 @@
 from typing import Callable
+from httplib2 import SAFE_METHODS
 import numpy as np
 from numpy.typing import NDArray
 import scipy.sparse as sp
 from scipy.sparse.linalg import spsolve, factorized
+import sys
 
 from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
@@ -23,21 +25,39 @@ class _Solver:
         delta_t: float = 1e-3,
         grid_step: float = 1,
     ):
+        assert potential.matrix.shape == wave_func.matrix.shape
+        assert grid_step <= 1
+
         self.potential = potential
         self._wave_func = wave_func
         self.delta_t = delta_t
         self._dx, self._dy = grid_step, grid_step  # FIXME: Fine tune the grid step size
+        print(
+            "\nPhysical size of the simulation (L_x,L_y):",
+            self.potential.matrix.shape[0] * self._dx,
+            self.potential.matrix.shape[1] * self._dy,
+        )
 
-    def _CFL_condition(self):
-        # FIXME: see github issue
-        """Requires ev_energy() to work, should be the last function run in __init__"""
+    def _stability_conditions(self):
+        """Check wether Courant–Friedrichs–Lewy and Nyquist conditions are satisfied
+        Requires ev_energy() to work, shold be the last function run in __init__"""
+        SAFETY_MARGIN = 0.7
         k = np.sqrt(2 * self._wave_func.mass * np.abs(self.ev_energy()))
-        k_max = np.pi / (2 * np.mean([self._dx, self._dy]))  # Nyquist
+        k_max = np.pi / (np.mean([self._dx, self._dy]))  # Nyquist
 
-        print("\nk_max=", k_max)
-        print("|k_0|", np.abs(k))
-        if np.abs(k) >= k_max:
-            print("WARNING: CFL condition is not satisfied")
+        print(r"k_{max}=", k_max)
+        print(r"|k_0|", np.abs(k))
+        if np.abs(k) >= k_max * SAFETY_MARGIN:
+            print(
+                "WARNING: Nyquist condition (|k_0| < ",
+                SAFETY_MARGIN,
+                r"k_{max}) is not satisfied",
+                file=sys.stderr,
+            )
+        print(
+            "Courant number, should be << 1:",
+            k / self._wave_func.mass * self.delta_t / self._dx,
+        )
 
     def step(self) -> None:
         """Evolves on step of wave function after t + Delta t"""
@@ -90,7 +110,7 @@ class CrankNicolson(_Solver):
         )  # factorize once for the whole simulation
 
         self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
-        self._CFL_condition()
+        self._stability_conditions()
 
     def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
         # TODO: add periodic boundary conditions
@@ -165,7 +185,7 @@ class _BaseSSFM(_Solver):
 
         self._U_V = self._create_real_space_propagator()
         self._U_T = self._create_momentum_propagator(Nx, Ny, wave_func.mass)
-        self._CFL_condition()
+        self._stability_conditions()
 
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         raise NotImplementedError
