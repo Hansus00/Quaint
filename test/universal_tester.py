@@ -194,7 +194,7 @@ else:
     assert False, "Potential must be specified!"
 
 # draw potential
-plt.style.use(files("testing") / "JK_W.mplstyle")  # type: ignore
+plt.style.use("JK_W.mplstyle")  # type: ignore
 fig, ax = plt.subplots(layout="tight")
 fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
 

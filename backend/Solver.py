@@ -9,6 +9,15 @@ import warnings
 from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
 
+RED = "\033[91m"  # for text coloring
+RESET = "\033[0m"  # for text coloring
+SAFETY_FACTOR = 0.3
+"""Conservative scaling applied to theoretical limits.
+
+For a maximum allowed value x_max, the effective operational limit becomes:
+    x_safe = SAFETY_FACTOR * x_max
+"""
+
 
 class _Solver:
     potential: Potential
@@ -38,17 +47,13 @@ class _Solver:
             self.potential.matrix.shape[1] * self._dy,
             "\n",
         )
-        if grid_step <= 1:
-            warnings.warn("Grid step is too big")
+        if grid_step > 1:
+            warnings.warn(RED + "Grid step might be too big" + RESET)
 
     def _stability_conditions(self):
         """Check wether Courant–Friedrichs–Lewy and Nyquist conditions are satisfied
         Requires ev_energy() to work, shold be the last function run in __init__"""
-        SAFETY_FACTOR = 0.3  # when there is a limit value, some x_{max}, make it smaller by SAFETY_FACTOR
         assert SAFETY_FACTOR <= 1
-
-        RED = "\033[91m"
-        RESET = "\033[0m"
 
         ev_energy = self.ev_energy()
         print("<E> =", ev_energy)
