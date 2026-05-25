@@ -48,11 +48,13 @@ class _Solver:
         RED = "\033[91m"
         RESET = "\033[0m"
 
-        k = np.sqrt(2 * self._wave_func.mass * np.abs(self.ev_energy()))
+        ev_energy = self.ev_energy()
+        print("<E> =", ev_energy)
+        k = np.sqrt(2 * self._wave_func.mass * np.abs(ev_energy))
         k_max = np.pi / (np.mean([self._dx, self._dy]))  # Nyquist
 
-        print(r"k_{max}=", k_max)
-        print(r"|k_0|", np.abs(k))
+        print(r"k_{max} =", k_max)
+        print(r"|k_0| =", np.abs(k))
         if np.abs(k) >= k_max * SAFETY_FACTOR:
             warnings.warn(
                 RED
@@ -63,7 +65,7 @@ class _Solver:
                 RuntimeWarning,
             )
         courant_number = k / self._wave_func.mass * self.delta_t / self._dx
-        print(r"C", courant_number)
+        print(r"C =", courant_number)
         if courant_number > SAFETY_FACTOR:
             warnings.warn(
                 RED
