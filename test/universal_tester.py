@@ -189,7 +189,7 @@ if params.solver == SolverType.CN:
 elif params.solver == SolverType.SSFM:
     solver = SSFM(well, gauss, params.delta_t, params.grid_step)
 elif params.solver == SolverType.SYM_SSFM:
-    solver = SSFMSymmetric(well, gauss, params.delta_t, args.grid_step)
+    solver = SSFMSymmetric(well, gauss, params.delta_t, params.grid_step)
 else:
     assert False, "Solver must be specified!"
 
