@@ -2,7 +2,8 @@
 # ### --- FILE frontend/main_window.py --- ###
 # ==============================================================================
 
-from typing import Any, Optional, cast
+from dataclasses import dataclass
+from typing import Any, Optional
 
 import numpy as np
 from backend.Potential import InfiniteWellPotential, Potential
@@ -20,6 +21,26 @@ from .warning_handler import WarningCaptureHandler
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class AnimationSetup:
+    potential_array: np.ndarray
+    r0: tuple[int, int]
+    k0: np.ndarray
+    sigma_matrix: np.ndarray
+    mass: float
+    fps: int
+    total_frames: int
+    size_x: int
+    size_y: int
+    delta_t: float
+    steps_per_frame: int
+    wall_height: float
+    method: str
+    x_limit: float
+    y_limit: float
+    grid_step: float
 
 
 class MainWindow(QMainWindow):
@@ -63,8 +84,7 @@ class MainWindow(QMainWindow):
     simulation: Any
     _settings_dialog: Optional[Settings]
     _setup_drawer: Optional[SetupDrawer]
-    # TODO: move to a dataclass
-    _pending_setup: Optional[dict[str, Any]]
+    _pending_setup: Optional[AnimationSetup]
     _calculation_cancelled: bool
     worker: Optional[SimulationThread]
 
@@ -223,25 +243,25 @@ class MainWindow(QMainWindow):
         solver_logger.removeHandler(capture_handler)
         return simulation
 
-    def _simulation_from_pending(self, pending: dict[str, Any]) -> Any:
+    def _simulation_from_pending(self, pending: AnimationSetup) -> Any:
         """Build a solver for a pending setup without mutating committed state."""
         potential = self._coarse_potential_from_drawer(
-            pending["potential_array"], pending["wall_height"]
+            pending.potential_array, pending.wall_height
         )
         wavefunc = GaussianPacket(
-            cast(tuple[int, int], tuple(np.asarray(pending["r0"]).astype(int))),
-            pending["k0"],
-            pending["sigma_matrix"],
-            pending["mass"],
-            pending["size_x"],
-            pending["size_y"],
+            pending.r0,
+            pending.k0,
+            pending.sigma_matrix,
+            pending.mass,
+            pending.size_x,
+            pending.size_y,
         )
         return self._instantiate_solver(
-            pending["method"],
+            pending.method,
             potential,
             wavefunc,
-            pending["delta_t"],
-            grid_step=pending["grid_step"],
+            pending.delta_t,
+            grid_step=pending.grid_step,
         )
 
     def _commit_pending_setup(self) -> None:
@@ -250,39 +270,37 @@ class MainWindow(QMainWindow):
         if pending is None:
             return
 
-        self.fps = pending["fps"]
-        self.total_frames = pending["total_frames"]
+        self.fps = pending.fps
+        self.total_frames = pending.total_frames
         self.controls.update_settings(self.fps, self.total_frames)
 
-        self.current_delta_t = pending["delta_t"]
-        self.current_steps_per_frame = pending["steps_per_frame"]
-        self.current_wall_height = pending["wall_height"]
+        self.current_delta_t = pending.delta_t
+        self.current_steps_per_frame = pending.steps_per_frame
+        self.current_wall_height = pending.wall_height
 
-        self.size_coarse_x = pending["size_x"]
-        self.size_coarse_y = pending["size_y"]
+        self.size_coarse_x = pending.size_x
+        self.size_coarse_y = pending.size_y
 
-        self.x_limit = pending["x_limit"]
-        self.y_limit = pending["y_limit"]
-        self.current_grid_step = pending["grid_step"]
+        self.x_limit = pending.x_limit
+        self.y_limit = pending.y_limit
+        self.current_grid_step = pending.grid_step
         self.aspect_ratio = self.y_limit / self.x_limit
 
         self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
 
-        self.current_potential_array = pending["potential_array"].copy()
-        self.current_r0 = np.asarray(pending["r0"], dtype=np.float64).copy()
-        self.current_k0 = np.asarray(pending["k0"], dtype=np.float64).copy()
-        self.current_sigma = np.asarray(
-            pending["sigma_matrix"], dtype=np.float64
-        ).copy()
-        self.current_mass = pending["mass"]
-        self.current_method = pending["method"]
+        self.current_potential_array = pending.potential_array.copy()
+        self.current_r0 = np.asarray(pending.r0, dtype=np.float64).copy()
+        self.current_k0 = np.asarray(pending.k0, dtype=np.float64).copy()
+        self.current_sigma = np.asarray(pending.sigma_matrix, dtype=np.float64).copy()
+        self.current_mass = pending.mass
+        self.current_method = pending.method
 
         self.initial_potential = self._coarse_potential_from_drawer(
             self.current_potential_array, self.current_wall_height
         )
         self.initial_wavefunc = GaussianPacket(
-            cast(tuple[int, int], tuple(self.current_r0.astype(int))),
+            pending.r0,
             self.current_k0,
             self.current_sigma,
             self.current_mass,
@@ -318,8 +336,8 @@ class MainWindow(QMainWindow):
 
         if self._pending_setup is not None:
             sim = self._simulation_from_pending(self._pending_setup)
-            total_frames = self._pending_setup["total_frames"]
-            steps_per_frame = self._pending_setup["steps_per_frame"]
+            total_frames = self._pending_setup.total_frames
+            steps_per_frame = self._pending_setup.steps_per_frame
         else:
             self.animation_widget.clear_cache()
             self.switch_simulation_method(self.current_method)
@@ -561,24 +579,27 @@ class MainWindow(QMainWindow):
         logger.info(f"sigma: {sigma_matrix}")
         logger.info(f"mass: {mass}")
 
-        self._pending_setup = {
-            "potential_array": potential_array.copy(),
-            "r0": r0.copy(),
-            "k0": k0.copy(),
-            "sigma_matrix": sigma_matrix.copy(),
-            "mass": mass,
-            "fps": fps,
-            "total_frames": total_frames,
-            "size_x": size_x,
-            "size_y": size_y,
-            "delta_t": delta_t,
-            "steps_per_frame": steps_per_frame,
-            "wall_height": wall_height,
-            "method": self.current_method,
-            "x_limit": x_limit,
-            "y_limit": y_limit,
-            "grid_step": grid_step,
-        }
+        # `GaussianPacket` expects `r0: tuple[int, int]`.
+        r0_int: tuple[int, int] = (int(r0[0]), int(r0[1]))
+
+        self._pending_setup = AnimationSetup(
+            potential_array=potential_array.copy(),
+            r0=r0_int,
+            k0=k0.copy(),
+            sigma_matrix=sigma_matrix.copy(),
+            mass=mass,
+            fps=fps,
+            total_frames=total_frames,
+            size_x=size_x,
+            size_y=size_y,
+            delta_t=delta_t,
+            steps_per_frame=steps_per_frame,
+            wall_height=wall_height,
+            method=self.current_method,
+            x_limit=x_limit,
+            y_limit=y_limit,
+            grid_step=grid_step,
+        )
 
         self.calculate_all_frames()
 
