@@ -228,7 +228,7 @@ elif params.solver == SolverType.SSFM:
     solver = SSFM(well, gauss, params.delta_t, params.grid_step)
 elif params.solver == SolverType.SYM_SSFM:
     solver = SSFMSymmetric(well, gauss, params.delta_t, args.grid_step)
-elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
+elif params.solver == SolverType.ANALYTIC_GAUSSIAN: # TODO: check this branch for error and inconsistencies
     solver = GaussianPacketSolver(params.k0, params.r0, params.sigma0, params.size_x, params.mass, params.delta_t, params.grid_step)
 else:
     assert False, "Solver must be specified!"

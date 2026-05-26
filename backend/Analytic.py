@@ -87,6 +87,9 @@ class GaussianPacketSolver(_AnalyticSolver):
         delta_t: float = 0.001,
         grid_step=1,
     ):
+        ''' Warning: Unlike GaussianPacket this class does not accept general
+            sigma. Instead, quadratic mean of the diagonal entries is taken as
+            the standard deviation'''
         a = np.sqrt(np.hypot(*np.diag(sigma0)) / np.sqrt(2))
         # source: https://en.wikipedia.org/wiki/Wave_packet#The_2D_case
         psi = lambda i, t: (
