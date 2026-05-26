@@ -23,8 +23,13 @@ class SolverType(str, Enum):
 
 @dataclass
 class Params:
-    size_x: int = 128
-    size_y: int = 128
+
+    x_limit: float = 10.0
+    y_limit: float = 10.0
+    grid_step: float = 0.2
+
+    size_x: int = 50
+    size_y: int = 50
 
     well_type: WellType = (
         WellType.INFINITE_WELL
@@ -43,7 +48,6 @@ class Params:
     mass: float = 1e-3
     delta_n: int = 32  # steps per update
     delta_t: float = 1e-4  # time step per update
-    grid_step: float = 1
     updates_max: int = 4  # how many updates, each one changes by delta_n
 
     @classmethod

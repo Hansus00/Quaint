@@ -56,7 +56,7 @@ class SetupDrawer(QDialog):
     # Emits: (method_name)
     simulation_changed = pyqtSignal(str)
 
-    # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, fps, total_frames, size_x, size_y, delta_t, steps_per_frame, wall_height)
+    # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, fps, total_frames, size_x, size_y, delta_t, steps_per_frame, wall_height, x_limit, y_limit, grid_step)
     setup_saved = pyqtSignal(
         np.ndarray,
         np.ndarray,
@@ -69,6 +69,9 @@ class SetupDrawer(QDialog):
         int,
         float,
         int,
+        float,
+        float,
+        float,
         float,
     )
 
@@ -122,6 +125,7 @@ class SetupDrawer(QDialog):
         grid_size_y: int = 35,
         x_limit: float = 5.0,
         y_limit: float = 5.0,
+        initial_grid_step: float = 0.2,
         initial_potential: Optional[np.ndarray] = None,
         initial_r0: Optional[np.ndarray] = None,
         initial_k0: Optional[np.ndarray] = None,
@@ -179,6 +183,7 @@ class SetupDrawer(QDialog):
         self.grid_size_y = grid_size_y
         self.x_limit = x_limit
         self.y_limit = y_limit
+        self.initial_grid_step = initial_grid_step
 
         self.initial_sigma = initial_sigma
         self.initial_mass = initial_mass
@@ -284,28 +289,39 @@ class SetupDrawer(QDialog):
         sim_params_layout.addWidget(self.frames_input)
         sim_params_layout.addStretch()
 
-        sim_params_layout.addWidget(QLabel("Grid X:"))
-        self.size_x_input = QSpinBox()
-        self.size_x_input.setRange(10, 1000)
-        self.size_x_input.setValue(self.grid_size_x)
-        self.size_x_input.valueChanged.connect(lambda _: self.check_memory_limit())
-        sim_params_layout.addWidget(self.size_x_input)
-        sim_params_layout.addStretch()
-
-        sim_params_layout.addWidget(QLabel("Grid Y:"))
-        self.size_y_input = QSpinBox()
-        self.size_y_input.setRange(10, 1000)
-        self.size_y_input.setValue(self.grid_size_y)
-        self.size_y_input.valueChanged.connect(lambda _: self.check_memory_limit())
-        sim_params_layout.addWidget(self.size_y_input)
-        sim_params_layout.addStretch()
-
-        self.update_grid_btn = QPushButton("Snap Aspect Ratio")
-        self.update_grid_btn.clicked.connect(self.update_canvas_size)
-        sim_params_layout.addWidget(self.update_grid_btn)
-
-        sim_params_layout.addStretch()
         layout.addLayout(sim_params_layout)
+
+        grid_params_layout = QHBoxLayout()
+        
+        grid_params_layout.addWidget(QLabel("Field X Limit:"))
+        self.x_limit_input = QDoubleSpinBox()
+        self.x_limit_input.setRange(1.0, 1000.0)
+        self.x_limit_input.setValue(self.x_limit)
+        grid_params_layout.addWidget(self.x_limit_input)
+        grid_params_layout.addStretch()
+
+        grid_params_layout.addWidget(QLabel("Field Y Limit:"))
+        self.y_limit_input = QDoubleSpinBox()
+        self.y_limit_input.setRange(1.0, 1000.0)
+        self.y_limit_input.setValue(self.y_limit)
+        grid_params_layout.addWidget(self.y_limit_input)
+        grid_params_layout.addStretch()
+
+        grid_params_layout.addWidget(QLabel("Grid Step:"))
+        self.grid_step_input = QDoubleSpinBox()
+        self.grid_step_input.setDecimals(3)
+        self.grid_step_input.setRange(0.01, 10.0)
+        self.grid_step_input.setValue(self.initial_grid_step)
+        self.grid_step_input.setSingleStep(0.05)
+        grid_params_layout.addWidget(self.grid_step_input)
+        grid_params_layout.addStretch()
+
+        self.update_grid_btn = QPushButton("Apply Grid Settings")
+        self.update_grid_btn.clicked.connect(self.update_canvas_size)
+        grid_params_layout.addWidget(self.update_grid_btn)
+        grid_params_layout.addStretch()
+
+        layout.addLayout(grid_params_layout)
 
         # Physics Parameters Layout
         physics_layout = QHBoxLayout()
@@ -373,8 +389,8 @@ class SetupDrawer(QDialog):
         # Sigma xx with physical units
         params_layout.addWidget(QLabel("s<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:"))
         self.sig_xx_input = QDoubleSpinBox()
-        self.sig_xx_input.setRange(0.1, 100.0)
-        self.sig_xx_input.setValue(15.0)
+        self.sig_xx_input.setRange(0.1, 50.0)
+        self.sig_xx_input.setValue(4.0)
         self.sig_xx_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_xx_input)
         params_layout.addStretch()
@@ -391,8 +407,8 @@ class SetupDrawer(QDialog):
         # Sigma yy with physical units
         params_layout.addWidget(QLabel("s<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:"))
         self.sig_yy_input = QDoubleSpinBox()
-        self.sig_yy_input.setRange(0.1, 100.0)
-        self.sig_yy_input.setValue(15.0)
+        self.sig_yy_input.setRange(0.1, 50.0)
+        self.sig_yy_input.setValue(4.0)
         self.sig_yy_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_yy_input)
         params_layout.addStretch()
@@ -500,8 +516,17 @@ class SetupDrawer(QDialog):
         interpolation); the aspect-ratio container and stored wavepacket
         anchors are synchronised so on-screen content stays in place.
         """
-        new_x = self.size_x_input.value()
-        new_y = self.size_y_input.value()
+        new_x_limit = self.x_limit_input.value()
+        new_y_limit = self.y_limit_input.value()
+
+        grid_step = self.grid_step_input.value()
+        
+        # Wyliczenie i odcięcie reszty z dzielenia
+        new_x = int(new_x_limit / grid_step)
+        new_y = int(new_y_limit / grid_step)
+
+        if new_x <= 0 or new_y <= 0:
+            return
 
         self.grid_size_x = new_x
         self.grid_size_y = new_y
@@ -526,8 +551,8 @@ class SetupDrawer(QDialog):
         # Reserve 2GB buffer for OS, cache
         safe_mem = max(0, mem_available - 2000 * 1024 * 1024)
 
-        nx = self.size_x_input.value()
-        ny = self.size_y_input.value()
+        nx = int(self.x_limit_input.value() / self.grid_step_input.value())
+        ny = int(self.y_limit_input.value() / self.grid_step_input.value())
 
         # Conservative estimation:
         # np.complex128 takes up 16 bytes
@@ -682,8 +707,12 @@ class SetupDrawer(QDialog):
         QApplication.processEvents()
 
         # Capture the newly desired grid sizes from user input
-        new_size_x = self.size_x_input.value()
-        new_size_y = self.size_y_input.value()
+        new_x_limit = self.x_limit_input.value()
+        new_y_limit = self.y_limit_input.value()
+        grid_step = self.grid_step_input.value()
+
+        new_size_x = int(new_x_limit / grid_step)
+        new_size_y = int(new_y_limit / grid_step)
         wall_height = self.wall_height_input.value()
 
         # 1. Process Potential Matrix
@@ -765,6 +794,9 @@ class SetupDrawer(QDialog):
             delta_t,
             steps_per_frame,
             wall_height,
+            new_x_limit, 
+            new_y_limit, 
+            grid_step,
         )
         self.accept()
 
@@ -782,8 +814,9 @@ class SetupDrawer(QDialog):
         p.read(file_path)
 
         # Update pure numeric fields
-        self.size_x_input.setValue(p.size_x)
-        self.size_y_input.setValue(p.size_y)
+        self.x_limit_input.setValue(p.x_limit)
+        self.y_limit_input.setValue(p.y_limit)
+        self.grid_step_input.setValue(p.grid_step)
         self.mass_input.setValue(p.mass)
         self.frames_input.setValue(p.updates_max)
 
@@ -845,8 +878,10 @@ class SetupDrawer(QDialog):
             file_path += ".json"
 
         p = Params()
-        p.size_x = self.size_x_input.value()
-        p.size_y = self.size_y_input.value()
+        p.x_limit = self.x_limit_input.value()
+        p.y_limit = self.y_limit_input.value()
+        p.size_x = int(p.x_limit / p.grid_step)
+        p.size_y = int(p.y_limit / p.grid_step)
         p.mass = self.mass_input.value()
         p.updates_max = self.frames_input.value()
         p.delta_t = self.delta_t_input.value()

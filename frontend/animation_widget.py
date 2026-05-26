@@ -116,6 +116,7 @@ class AnimationWidget(QWidget):
         self,
         size_x: int,
         size_y: int,
+        x_limit: float,
         y_limit: float,
         z_offset: float,
         z_scale: float,
@@ -134,6 +135,7 @@ class AnimationWidget(QWidget):
         self.size_fine_x = self.fine_grid_scale * size_x
         self.size_fine_y = self.fine_grid_scale * size_y
 
+        self.x_limit = x_limit
         self.y_limit = y_limit
         self.z_potential_offset = z_offset
         self.z_scale = z_scale

@@ -83,8 +83,13 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("3D Wave Function & Potential Simulation")
         self.resize(950, 750)
 
-        self.size_coarse_x = size_x
-        self.size_coarse_y = size_y
+        self.x_limit = 10.0
+        self.y_limit = 10.0
+        self.current_grid_step = 0.2
+        
+        self.size_coarse_x = int(self.x_limit / self.current_grid_step)
+        self.size_coarse_y = int(self.y_limit / self.current_grid_step)
+        self.aspect_ratio = self.y_limit / self.x_limit
         self.z_potential_offset = z_potential_offset
         self.z_scale = 150.0
         self.fine_grid_scale = 4
@@ -95,8 +100,8 @@ class MainWindow(QMainWindow):
         self.total_frames = 150
         self.fps = 30
 
-        self.current_delta_t = 0.1
-        self.current_steps_per_frame = 15
+        self.current_delta_t = 0.001
+        self.current_steps_per_frame = 50
         self.current_wall_height = 50.0
 
         self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
@@ -113,7 +118,7 @@ class MainWindow(QMainWindow):
         self.initial_wavefunc = GaussianPacket(
             r0=(self.size_coarse_x // 2, self.size_coarse_y // 2),
             k0=np.array([0.0, 0.0]),
-            sigma0=np.array([[15.0, 0.0], [0.0, 15.0]]),
+            sigma0=np.array([[4.0, 0.0], [0.0, 4.0]]),
             mass=1.0,
             size_x=self.size_coarse_x,
             size_y=self.size_coarse_y,
@@ -124,7 +129,7 @@ class MainWindow(QMainWindow):
         self.current_potential_array = self.initial_potential.matrix[:, ::-1].copy()
         self.current_r0 = np.array([self.size_coarse_x / 2, self.size_coarse_y / 2])
         self.current_k0 = np.array([0.0, 0.0])
-        self.current_sigma = np.array([[15.0, 0.0], [0.0, 15.0]])
+        self.current_sigma = np.array([[4.0, 0.0], [0.0, 4.0]])
         self.current_mass = 1.0
 
         # Default simulation method
@@ -192,6 +197,7 @@ class MainWindow(QMainWindow):
         potential: Potential,
         wavefunc: GaussianPacket,
         delta_t: float,
+        grid_step: float,
     ) -> Any:
 
         capture_handler = WarningCaptureHandler()
@@ -199,11 +205,11 @@ class MainWindow(QMainWindow):
         solver_logger.addHandler(capture_handler)
 
         if method_name == "Constant":
-            simulation = Constant(potential, wavefunc, delta_t)
+            simulation = Constant(potential, wavefunc, delta_t, grid_step=self.current_grid_step)
         elif method_name == "Crank-Nicolson":
-            simulation = CrankNicolson(potential, wavefunc, delta_t)
+            simulation = CrankNicolson(potential, wavefunc, delta_t, grid_step=self.current_grid_step)
         elif method_name == "SSFM":
-            simulation = SSFM(potential, wavefunc, delta_t)
+            simulation = SSFM(potential, wavefunc, delta_t, grid_step=self.current_grid_step)
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
 
@@ -227,7 +233,7 @@ class MainWindow(QMainWindow):
             pending["size_y"],
         )
         return self._instantiate_solver(
-            pending["method"], potential, wavefunc, pending["delta_t"]
+            pending["method"], potential, wavefunc, pending["delta_t"], grid_step=pending["grid_step"]
         )
 
     def _commit_pending_setup(self) -> None:
@@ -246,8 +252,11 @@ class MainWindow(QMainWindow):
 
         self.size_coarse_x = pending["size_x"]
         self.size_coarse_y = pending["size_y"]
-        self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
-        self.y_limit = 10.0 * self.aspect_ratio
+
+        self.x_limit = pending["x_limit"]
+        self.y_limit = pending["y_limit"]
+        self.current_grid_step = pending["grid_step"]
+        self.aspect_ratio = self.y_limit / self.x_limit
 
         self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
         self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
@@ -277,6 +286,7 @@ class MainWindow(QMainWindow):
         self.animation_widget.update_config(
             self.size_coarse_x,
             self.size_coarse_y,
+            self.x_limit,
             self.y_limit,
             self.z_potential_offset,
             self.z_scale,
@@ -457,6 +467,7 @@ class MainWindow(QMainWindow):
         self.animation_widget.update_config(
             self.size_coarse_x,
             self.size_coarse_y,
+            self.x_limit,
             self.y_limit,
             self.z_potential_offset,
             self.z_scale,
@@ -522,6 +533,9 @@ class MainWindow(QMainWindow):
         delta_t: float,
         steps_per_frame: int,
         wall_height: float,
+        x_limit: float,
+        y_limit: float,
+        grid_step: float,
     ) -> None:
         """
         Applies physics configuration, rebuilds the internal arrays if resolution changes,
@@ -548,6 +562,9 @@ class MainWindow(QMainWindow):
             "steps_per_frame": steps_per_frame,
             "wall_height": wall_height,
             "method": self.current_method,
+            "x_limit": x_limit,
+            "y_limit": y_limit,
+            "grid_step": grid_step,
         }
 
         self.calculate_all_frames()
@@ -572,4 +589,5 @@ class MainWindow(QMainWindow):
             self.initial_potential,
             self.initial_wavefunc,
             self.current_delta_t,
+            self.current_grid_step,
         )
