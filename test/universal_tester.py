@@ -118,7 +118,7 @@ params = Params()
 if args.config is not None:
     params.read(args.config)
 if args.solver is not None:
-    params.solver = args.solver
+    params.solver = SolverType(args.solver)
 if args.updates_max is not None:
     params.updates_max = args.updates_max
 if args.grid_step is not None:
