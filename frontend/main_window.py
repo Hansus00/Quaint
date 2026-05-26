@@ -207,17 +207,13 @@ class MainWindow(QMainWindow):
         solver_logger.addHandler(capture_handler)
 
         if method_name == "Constant":
-            simulation = Constant(
-                potential, wavefunc, delta_t, grid_step=grid_step
-            )
+            simulation = Constant(potential, wavefunc, delta_t, grid_step=grid_step)
         elif method_name == "Crank-Nicolson":
             simulation = CrankNicolson(
                 potential, wavefunc, delta_t, grid_step=grid_step
             )
         elif method_name == "SSFM":
-            simulation = SSFM(
-                potential, wavefunc, delta_t, grid_step=grid_step
-            )
+            simulation = SSFM(potential, wavefunc, delta_t, grid_step=grid_step)
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
 
@@ -514,6 +510,7 @@ class MainWindow(QMainWindow):
             grid_size_y=self.size_coarse_y,
             x_limit=self.x_limit,
             y_limit=self.y_limit,
+            initial_grid_step=self.current_grid_step,
             initial_potential=self.current_potential_array,
             initial_r0=self.current_r0,
             initial_k0=self.current_k0,

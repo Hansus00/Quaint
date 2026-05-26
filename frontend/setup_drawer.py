@@ -292,7 +292,7 @@ class SetupDrawer(QDialog):
         layout.addLayout(sim_params_layout)
 
         grid_params_layout = QHBoxLayout()
-        
+
         grid_params_layout.addWidget(QLabel("Field X Limit:"))
         self.x_limit_input = QDoubleSpinBox()
         self.x_limit_input.setRange(1.0, 1000.0)
@@ -520,7 +520,7 @@ class SetupDrawer(QDialog):
         new_y_limit = self.y_limit_input.value()
 
         grid_step = self.grid_step_input.value()
-        
+
         # Wyliczenie i odcięcie reszty z dzielenia
         new_x = int(new_x_limit / grid_step)
         new_y = int(new_y_limit / grid_step)
@@ -794,8 +794,8 @@ class SetupDrawer(QDialog):
             delta_t,
             steps_per_frame,
             wall_height,
-            new_x_limit, 
-            new_y_limit, 
+            new_x_limit,
+            new_y_limit,
             grid_step,
         )
         self.accept()
@@ -834,7 +834,6 @@ class SetupDrawer(QDialog):
             self.simulation_menu.setCurrentText("Crank-Nicolson")
         elif p.solver == SolverType.SSFM:
             self.simulation_menu.setCurrentText("SSFM")
-        
 
         # Map WellType back to dropdown presets
         if p.potential_matrix is not None:
@@ -932,7 +931,6 @@ class SetupDrawer(QDialog):
         else:
             p.r0 = (p.size_x // 2, p.size_y // 2)
             p.k0 = np.array([0.0, 0.0], dtype=np.float64)
-        
 
         img_at_grid = self.canvas.image
 
@@ -944,7 +942,7 @@ class SetupDrawer(QDialog):
         arr = np.frombuffer(bytes(buffer), dtype=np.uint8).reshape((height, bpl)).copy()
         arr = arr[:, :width]
         potential = (255 - arr) / 255.0 * p.well_height
-        
+
         p.potential_matrix = potential.T
 
         p.write(file_path)
