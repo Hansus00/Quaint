@@ -880,6 +880,7 @@ class SetupDrawer(QDialog):
         p = Params()
         p.x_limit = self.x_limit_input.value()
         p.y_limit = self.y_limit_input.value()
+        p.grid_step = self.grid_step_input.value()
         p.size_x = int(p.x_limit / p.grid_step)
         p.size_y = int(p.y_limit / p.grid_step)
         p.mass = self.mass_input.value()
