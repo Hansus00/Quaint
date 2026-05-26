@@ -9,7 +9,7 @@
         64
     ],
     "k0": [
-        1,
+        0.2,
         0
     ],
     "sigma0": [
@@ -24,6 +24,7 @@
     ],
     "mass": 0.001,
     "delta_n": 1,
-    "delta_t": 0.001,
-    "updates_max": 256
+    "delta_t": 0.0005,
+    "updates_max": 100,
+    "grid_step": 1
 }

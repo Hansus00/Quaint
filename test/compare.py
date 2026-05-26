@@ -1,61 +1,112 @@
-#!/bin/python3
-# %%
-#TODO: make MANY comparisons between SSFM and CN
-"""
-for i in {1..768..32}
-do
-  ./universal_tester.py --config cfg/cn_infinite_well.json --solver $1 --do-not-animate --updates-max $i | grep time_of_execution | awk '{print $2}'
-done
-"""
-
-import matplotlib.pyplot as plt
+import argparse
+import cv2
 import numpy as np
+import time
+import subprocess
 
-ssfm = [
-    0.033270379004534334,
-    0.46097060000465717,
-    0.8748223450020305,
-    1.27824421999685,
-    1.7219209559989395,
-    2.2511497710002004,
-    2.59488736899948,
-    2.9571416130056605,
-    3.3812333820023923,
-    3.7863753659985377,
-    4.182772079999268,
-    4.605682979003177,
-    5.194134122997639,
-    6.4011442930059275,
-    6.185901182994712,
-    6.890854798999499,
-    7.271706210995035,
-    7.3693398569957935,
-    8.250443771998107,
-    8.4362572789978,
-    8.752036078003584,
-    9.145607837002899,
-    9.429098639993754,
-    9.826586912000494,
-]
-cn = [
-    0.3045116350040189,
-    4.00873622099607,
-    8.094484094996005,
-    11.87760201900528,
-    16.102367402003438,
-    20.53830732699862,
-    22.168233389995294,
-    25.751470375005738,
-    29.362546188000124,
-    34.61801016400568,
-    43.442937526000605,
-    47.14149319400167,
-    53.05923842399352,
-]
-plt.plot(32 * np.arange(len(cn)), cn, label="CN")
-plt.plot(32 * np.arange(len(ssfm)), ssfm, label="SSFM")
-plt.legend()
-plt.xlabel("Steps of simulation")
-plt.ylabel("Time of execution [s]")
+parser = argparse.ArgumentParser(description="Compare two videos")
+parser.add_argument("video1", help="First video path")
+parser.add_argument("video2", help="Second video path")
+parser.add_argument("fps", help="Playback FPS", type=float)
+parser.add_argument(
+    "-o",
+    "--output",
+    default="comparison.mp4",
+    help="Output video file",
+)
 
-# %%
+args = parser.parse_args()
+
+cap1 = cv2.VideoCapture(args.video1)
+cap2 = cv2.VideoCapture(args.video2)
+
+if not cap1.isOpened():
+    raise RuntimeError(f"Cannot open {args.video1}")
+
+if not cap2.isOpened():
+    raise RuntimeError(f"Cannot open {args.video2}")
+
+# Read first frame to determine output size
+r1, f1 = cap1.read()
+r2, f2 = cap2.read()
+
+if not r1 or not r2:
+    raise RuntimeError("Could not read frames")
+
+if f1.shape != f2.shape:
+    f2 = cv2.resize(f2, (f1.shape[1], f1.shape[0]))
+
+diff = cv2.absdiff(f1, f2)
+
+top = np.hstack((f1, f2))
+bottom = np.hstack((diff, diff))
+combined = np.vstack((top, bottom))
+
+scale = 0.2
+combined = cv2.resize(combined, None, fx=scale, fy=scale)
+
+height, width = combined.shape[:2]
+
+cmd = [
+    "ffmpeg",
+    "-y",
+    "-f",
+    "rawvideo",
+    "-vcodec",
+    "rawvideo",
+    "-pix_fmt",
+    "bgr24",
+    "-s",
+    f"{width}x{height}",
+    "-r",
+    str(args.fps),
+    "-i",
+    "-",
+    "-an",
+    "-vcodec",
+    "libx264",
+    "-pix_fmt",
+    "yuv420p",
+    args.output,
+]
+
+proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+
+cv2.namedWindow("Comparison", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("Comparison", width, height)
+
+# rewind videos
+cap1.set(cv2.CAP_PROP_POS_FRAMES, 0)
+cap2.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
+while True:
+    r1, f1 = cap1.read()
+    r2, f2 = cap2.read()
+
+    if not r1 or not r2:
+        break
+
+    if f1.shape != f2.shape:
+        f2 = cv2.resize(f2, (f1.shape[1], f1.shape[0]))
+
+    diff = cv2.absdiff(f1, f2)
+
+    top = np.hstack((f1, f2))
+    bottom = np.hstack((diff, diff))
+
+    combined = np.vstack((top, bottom))
+    combined = cv2.resize(combined, None, fx=scale, fy=scale)
+
+    # writer.write(combined)
+    proc.stdin.write(combined.tobytes())
+    cv2.imshow("Comparison", combined)
+
+    if cv2.waitKey(1) == 27:  # ESC
+        break
+
+    time.sleep(1 / args.fps)
+
+cap1.release()
+cap2.release()
+
+cv2.destroyAllWindows()

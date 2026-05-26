@@ -63,7 +63,7 @@ p.add_argument(
 p.add_argument(
     "--fps",
     type=float,
-    default=5,
+    default=10,
     required=False,
     help="Set FPS rate for animation",
     metavar="FPS",
