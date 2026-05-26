@@ -17,6 +17,12 @@ class Potential:
 
 class InfiniteWellPotential(Potential):
     def __init__(self, size_x: int, size_y: int, wall_value: float = 100):
+        """
+        Uniform zero potential on the simulation domain.
+
+        Confinement is enforced by Dirichlet boundary conditions,
+        i.e. psi(edge) = 0.
+        TODO: remove or change name to FlatPotential"""
         matrix = np.zeros((size_x, size_y), dtype=np.float64)
 
         super().__init__(matrix)

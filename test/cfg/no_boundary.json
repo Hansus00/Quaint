@@ -3,14 +3,14 @@
     "size_y": 128,
     "well_type": "none",
     "well_height": 1000000.0,
-    "solver": "ssfm",
+    "solver": "cn",
     "r0": [
         64,
         64
     ],
     "k0": [
-        1,
-        1
+        0.1,
+        0.1
     ],
     "sigma0": [
         [
@@ -24,6 +24,7 @@
     ],
     "mass": 0.001,
     "delta_n": 32,
-    "delta_t": 0.001,
-    "updates_max": 128
+    "delta_t": 0.0001,
+    "grid_step": 1,
+    "updates_max": 100
 }
