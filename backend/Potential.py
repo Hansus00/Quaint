@@ -11,6 +11,9 @@ class Potential:
     def __add__(self, other: "Potential") -> "Potential":
         return Potential(self.matrix + other.matrix)
 
+    def __sub__(self, other: "Potential") -> "Potential":
+        return Potential(self.matrix - other.matrix)
+
     def __str__(self) -> str:
         return str(self.matrix)
 
@@ -130,4 +133,12 @@ class WShaped(Potential):
                     if 0 <= nx < size_x:
                         matrix[nx, y] = wall_value
 
+        super().__init__(matrix)
+
+
+class Slab(Potential):
+    """Vertical slab potential"""
+
+    def __init__(self, width: int, height: int, value: float):
+        matrix = np.ones((width, height)) * value
         super().__init__(matrix)
