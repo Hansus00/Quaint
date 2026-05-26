@@ -208,15 +208,15 @@ class MainWindow(QMainWindow):
 
         if method_name == "Constant":
             simulation = Constant(
-                potential, wavefunc, delta_t, grid_step=self.current_grid_step
+                potential, wavefunc, delta_t, grid_step=grid_step
             )
         elif method_name == "Crank-Nicolson":
             simulation = CrankNicolson(
-                potential, wavefunc, delta_t, grid_step=self.current_grid_step
+                potential, wavefunc, delta_t, grid_step=grid_step
             )
         elif method_name == "SSFM":
             simulation = SSFM(
-                potential, wavefunc, delta_t, grid_step=self.current_grid_step
+                potential, wavefunc, delta_t, grid_step=grid_step
             )
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
@@ -293,7 +293,11 @@ class MainWindow(QMainWindow):
             self.size_coarse_x,
             self.size_coarse_y,
         )
-        self.switch_simulation_method(self.current_method)
+
+        # Solver was already created for the worker in calculate_all_frames;
+        # re-instantiating here would log "New simulation" twice per save.
+        if self.worker is not None:
+            self.simulation = self.worker.simulation
 
         self.animation_widget.update_config(
             self.size_coarse_x,
