@@ -273,12 +273,6 @@ class AnimationWidget(QWidget):
         v_hi = float(np.max(potential_coarse))
         potential_fine = np.clip(potential_fine, v_lo, v_hi)
 
-        zoom_factor_x = self.size_fine_x / potential_coarse.shape[0]
-        zoom_factor_y = self.size_fine_y / potential_coarse.shape[1]
-        nearest_fine = zoom(potential_coarse, (zoom_factor_x, zoom_factor_y), order=1)
-        # Choose the maximum value between the interpolated and nearest coarse cell.
-        potential_fine = np.maximum(potential_fine, nearest_fine)
-
         Z_potential = potential_fine * self.z_potential_scale
 
         base_gray: float = 0.7
