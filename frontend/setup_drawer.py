@@ -39,7 +39,7 @@ from .canvas_widget import CanvasWidget, AspectRatioContainer
 # wavevector magnitude. With 1.0 a drag of N grid cells encodes |k| = N, which
 # is grid-resolution independent and yields exact round-trips through the
 # (canvas <-> Params) boundary.
-K_GRID_FACTOR: float = 0.02
+K_GRID_FACTOR: float = 0.01
 
 
 class SetupDrawer(QDialog):
@@ -892,7 +892,7 @@ class SetupDrawer(QDialog):
 
             kx = float((k0x_g - r0x_g) * K_GRID_FACTOR)
             ky = float(-(k0y_g - r0y_g) * K_GRID_FACTOR)
-            p.k0 = np.array([kx / 10, ky / 10], dtype=np.float64)
+            p.k0 = np.array([kx, ky], dtype=np.float64)
         else:
             p.r0 = (p.size_x // 2, p.size_y // 2)
             p.k0 = np.array([0.0, 0.0], dtype=np.float64)
