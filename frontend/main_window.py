@@ -63,6 +63,7 @@ class MainWindow(QMainWindow):
     simulation: Any
     _settings_dialog: Optional[Settings]
     _setup_drawer: Optional[SetupDrawer]
+    # TODO: move to a dataclass
     _pending_setup: Optional[dict[str, Any]]
     _calculation_cancelled: bool
     worker: Optional[SimulationThread]
