@@ -38,7 +38,7 @@ import logging
 import frontend.LoggerTools as LoggerTools
 
 logger = logging.getLogger(__name__)
-LoggerTools.setupLogger(LoggerTools.INFO)
+LoggerTools.configLogger(LoggerTools.INFO)
 
 
 # load or use default params

@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QApplication
 import frontend.LoggerTools as LoggerTools
 
 if __name__ == "__main__":
-    LoggerTools.setupLogger(
+    LoggerTools.configLogger(
         LoggerTools.INFO
     )  # TODO: change it with flags as --dbg --info --quiet --verbose etc.
     # Ensure full numpy print outputs for debugging purposes if needed

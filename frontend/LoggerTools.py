@@ -24,7 +24,7 @@ class ColorFormatter(logging.Formatter):
         return formatted
 
 
-def setupLogger(level):
+def configLogger(level):
     handler = logging.StreamHandler()
     handler.setFormatter(ColorFormatter("%(levelname)s %(name)s: %(message)s"))
     root = logging.getLogger()
