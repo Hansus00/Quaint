@@ -29,6 +29,9 @@ from PyQt6.QtWidgets import (
     QSpinBox,
     QVBoxLayout,
     QWidget,
+    QGroupBox,
+    QFormLayout,
+    QScrollArea,
 )
 
 from backend.Params import Params, SolverType, WellType
@@ -166,7 +169,7 @@ class SetupDrawer(QDialog):
 
         # Enforce minimum boundary constraints and add native OS window buttons (Minimize/Maximize)
         self.setMinimumSize(800, 800)
-        self.resize(950, 900)
+        self.resize(1300, 920)
 
         self.setWindowFlags(
             Qt.WindowType.Window
@@ -253,130 +256,154 @@ class SetupDrawer(QDialog):
 
     def _setup_ui(self) -> None:
         """
-        Sets up the radio buttons, input fields, and layouts for the canvas dialog.
-        Builds the visual interface layout dynamically via automated Qt structural managers.
+        Sets up the visual interface layout dynamically via automated Qt structural managers.
+        Uses a side-panel architecture with grouped settings (QGroupBox) for better UX.
         """
-        layout = QVBoxLayout(self)
+        # Main window layout (vertical: top is content, bottom is action buttons)
+        main_layout = QVBoxLayout(self)
 
-        # Simulation Method Layout
-        sim_layout = QHBoxLayout()
+        # HBoxLayout dividing the window into left (Canvas) and right (Settings) sides
+        content_layout = QHBoxLayout()
+        main_layout.addLayout(content_layout, stretch=1)
+
+        # ==========================================
+        # LEFT SIDE: Canvas
+        # ==========================================
+        left_panel = QVBoxLayout()
+        left_panel.addWidget(self.canvas_container, stretch=1)
+        content_layout.addLayout(left_panel, stretch=3)  # Giving the canvas more space
+
+        # ==========================================
+        # RIGHT SIDE: Settings Panel (with ScrollArea)
+        # ==========================================
+        right_panel_widget = QWidget()
+        right_panel_layout = QVBoxLayout(right_panel_widget)
+        right_panel_layout.setSpacing(15)
+
+        # --- GROUP 1: Simulation Settings ---
+        sim_group = QGroupBox("Simulation Settings")
+        sim_form = QFormLayout()
+
         self.simulation_menu = QComboBox()
-        self.simulation_menu.addItem("Crank-Nicolson")
-        self.simulation_menu.addItem("SSFM")
-        self.simulation_menu.addItem("Constant")
+        self.simulation_menu.addItems(["Crank-Nicolson", "SSFM", "Constant"])
         self.simulation_menu.setCurrentText(self.initial_method)
         self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
-        sim_layout.addWidget(QLabel("Simulation Method:"))
-        sim_layout.addWidget(self.simulation_menu)
-        sim_layout.addStretch()
-        layout.addLayout(sim_layout)
 
-        # UI/Video Parameters Layout
-        sim_params_layout = QHBoxLayout()
-
-        sim_params_layout.addWidget(QLabel("UI FPS:"))
         self.fps_input = QSpinBox()
         self.fps_input.setRange(1, 120)
         self.fps_input.setValue(self.current_fps)
-        sim_params_layout.addWidget(self.fps_input)
-        sim_params_layout.addStretch()
 
-        sim_params_layout.addWidget(
-            QLabel("Total Frames To generate (n<sub>tot</sub>):")
-        )
         self.frames_input = QSpinBox()
         self.frames_input.setRange(10, 10000)
         self.frames_input.setValue(self.current_frames)
-        sim_params_layout.addWidget(self.frames_input)
-        sim_params_layout.addStretch()
 
-        layout.addLayout(sim_params_layout)
-
-        grid_params_layout = QHBoxLayout()
-
-        grid_params_layout.addWidget(QLabel("Width (w) [a<sub>0</sub>]:"))
-        self.x_limit_input = QDoubleSpinBox()
-        self.x_limit_input.setRange(1.0, 1000.0)
-        self.x_limit_input.setValue(self.x_limit)
-        grid_params_layout.addWidget(self.x_limit_input)
-        grid_params_layout.addStretch()
-
-        grid_params_layout.addWidget(QLabel("Height (h) [a<sub>0</sub>]:"))
-        self.y_limit_input = QDoubleSpinBox()
-        self.y_limit_input.setRange(1.0, 1000.0)
-        self.y_limit_input.setValue(self.y_limit)
-        grid_params_layout.addWidget(self.y_limit_input)
-        grid_params_layout.addStretch()
-
-        grid_params_layout.addWidget(
-            QLabel(
-                "Grid Step (&delta;=n<sub>x</sub>/w=n<sub>y</sub>/h) [a<sub>0</sub><sup>-1</sup>]:"
-            )
-        )
-        self.grid_step_input = QDoubleSpinBox()
-        self.grid_step_input.setDecimals(3)
-        self.grid_step_input.setRange(0.01, 10.0)
-        self.grid_step_input.setValue(self.initial_grid_step)
-        self.grid_step_input.setSingleStep(0.05)
-        grid_params_layout.addWidget(self.grid_step_input)
-        grid_params_layout.addStretch()
-
-        self.update_grid_btn = QPushButton("Apply Grid Settings")
-        self.update_grid_btn.clicked.connect(self.update_canvas_size)
-        grid_params_layout.addWidget(self.update_grid_btn)
-        grid_params_layout.addStretch()
-
-        layout.addLayout(grid_params_layout)
-
-        # Physics Parameters Layout
-        physics_layout = QHBoxLayout()
-        physics_layout.addWidget(QLabel("\u0394t (Time Step):"))
         self.delta_t_input = QDoubleSpinBox()
         self.delta_t_input.setDecimals(5)
         self.delta_t_input.setRange(0.00001, 1.0)
         self.delta_t_input.setSingleStep(0.001)
         self.delta_t_input.setValue(self.initial_delta_t)
-        physics_layout.addWidget(self.delta_t_input)
-        physics_layout.addStretch()
 
-        physics_layout.addWidget(QLabel("Steps per Frame (\u0394n):"))
         self.steps_per_frame_input = QSpinBox()
         self.steps_per_frame_input.setRange(1, 2000)
         self.steps_per_frame_input.setValue(self.initial_steps_per_frame)
-        physics_layout.addWidget(self.steps_per_frame_input)
-        physics_layout.addStretch()
 
-        physics_layout.addWidget(QLabel("Wall Height:"))
+        sim_form.addRow("Simulation Method:", self.simulation_menu)
+        sim_form.addRow("UI FPS:", self.fps_input)
+        sim_form.addRow("Total Frames (n<sub>tot</sub>):", self.frames_input)
+        sim_form.addRow("\u0394t (Time Step):", self.delta_t_input)
+        sim_form.addRow("Steps per Frame (\u0394n):", self.steps_per_frame_input)
+        sim_group.setLayout(sim_form)
+        right_panel_layout.addWidget(sim_group)
+
+        # --- GROUP 2: Grid & Domain ---
+        grid_group = QGroupBox("Grid Domain")
+        grid_form = QFormLayout()
+
+        self.x_limit_input = QDoubleSpinBox()
+        self.x_limit_input.setRange(1.0, 1000.0)
+        self.x_limit_input.setValue(self.x_limit)
+
+        self.y_limit_input = QDoubleSpinBox()
+        self.y_limit_input.setRange(1.0, 1000.0)
+        self.y_limit_input.setValue(self.y_limit)
+
+        self.grid_step_input = QDoubleSpinBox()
+        self.grid_step_input.setDecimals(3)
+        self.grid_step_input.setRange(0.01, 10.0)
+        self.grid_step_input.setValue(self.initial_grid_step)
+        self.grid_step_input.setSingleStep(0.05)
+
         self.wall_height_input = QDoubleSpinBox()
         self.wall_height_input.setRange(1.0, 1000000.0)
         self.wall_height_input.setSingleStep(10.0)
         self.wall_height_input.setValue(self.initial_wall_height)
-        physics_layout.addWidget(self.wall_height_input)
-        physics_layout.addStretch()
 
-        layout.addLayout(physics_layout)
+        self.update_grid_btn = QPushButton("Apply Grid Settings")
+        self.update_grid_btn.clicked.connect(self.update_canvas_size)
 
-        # Preset Potential Selection Layout
-        preset_layout = QHBoxLayout()
-        self.preset_menu = QComboBox()
-        self.preset_menu.addItem("Custom / Clear")
-        self.preset_menu.addItem("Gaussian Bump")
-        self.preset_menu.addItem("Harmonic Oscillator")
-        self.preset_menu.addItem("W-shape")
-        self.preset_menu.addItem("Matryoshka")
+        grid_form.addRow("Width (w) [a<sub>0</sub>]:", self.x_limit_input)
+        grid_form.addRow("Height (h) [a<sub>0</sub>]:", self.y_limit_input)
+        grid_form.addRow(
+            "Grid Step (\u03b4) [a<sub>0</sub>\u207b\u00b9]:", self.grid_step_input
+        )
+        grid_form.addRow("Wall Height (V<sub>0</sub>):", self.wall_height_input)
 
-        self.preset_menu.textActivated.connect(self.load_preset_potential)
-        preset_layout.addWidget(QLabel("Preset Potential:"))
-        preset_layout.addWidget(self.preset_menu)
-        preset_layout.addStretch()
-        layout.addLayout(preset_layout)
+        grid_layout = QVBoxLayout()
+        grid_layout.addLayout(grid_form)
+        grid_layout.addWidget(self.update_grid_btn)
+        grid_group.setLayout(grid_layout)
+        right_panel_layout.addWidget(grid_group)
 
-        # Mode Selection Layout
+        # --- GROUP 3: Wavepacket Parameters ---
+        wave_group = QGroupBox("Wavepacket Parameters")
+        wave_form = QFormLayout()
+
+        self.mass_input = QDoubleSpinBox()
+        self.mass_input.setRange(0.01, 100.0)
+        self.mass_input.setValue(self.initial_mass)
+        self.mass_input.setSingleStep(0.1)
+
+        self.sig_xx_input = QDoubleSpinBox()
+        self.sig_xx_input.setRange(0.1, 50.0)
+        self.sig_xx_input.setValue(4.0)
+        self.sig_xx_input.setSingleStep(0.1)
+
+        self.sig_xy_input = QDoubleSpinBox()
+        self.sig_xy_input.setRange(-100.0, 100.0)
+        self.sig_xy_input.setValue(0.0)
+        self.sig_xy_input.setSingleStep(0.1)
+
+        self.sig_yy_input = QDoubleSpinBox()
+        self.sig_yy_input.setRange(0.1, 50.0)
+        self.sig_yy_input.setValue(4.0)
+        self.sig_yy_input.setSingleStep(0.1)
+
+        if self.initial_sigma is not None:
+            self.sig_xx_input.setValue(float(self.initial_sigma[0, 0]))
+            self.sig_xy_input.setValue(float(self.initial_sigma[0, 1]))
+            self.sig_yy_input.setValue(float(self.initial_sigma[1, 1]))
+
+        wave_form.addRow("mass [m<sub>e</sub>]:", self.mass_input)
+        wave_form.addRow(
+            "&sigma;<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:", self.sig_xx_input
+        )
+        wave_form.addRow(
+            "&sigma;<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:", self.sig_xy_input
+        )
+        wave_form.addRow(
+            "&sigma;<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:", self.sig_yy_input
+        )
+        wave_group.setLayout(wave_form)
+        right_panel_layout.addWidget(wave_group)
+
+        # --- GROUP 4: Editor Mode ---
+        mode_group = QGroupBox("Editor Mode")
         mode_layout = QHBoxLayout()
-        self.radio_brush = QRadioButton("Brush Potential")
+
+        self.radio_brush = QRadioButton("Brush")
         self.radio_brush.setChecked(True)
-        self.radio_eraser = QRadioButton("Erase Potential")
-        self.radio_wave = QRadioButton("Set Wavepacket")
+        self.radio_eraser = QRadioButton("Erase")
+        self.radio_wave = QRadioButton("Wavepacket r\u2080 && k\u2080")
 
         self.radio_brush.toggled.connect(self.update_mode)
         self.radio_eraser.toggled.connect(self.update_mode)
@@ -385,110 +412,80 @@ class SetupDrawer(QDialog):
         mode_layout.addWidget(self.radio_brush)
         mode_layout.addWidget(self.radio_eraser)
         mode_layout.addWidget(self.radio_wave)
-        mode_layout.addStretch()
-        layout.addLayout(mode_layout)
 
-        # Wavepacket Parameters (Sigma Matrix & Mass)
-        params_layout = QHBoxLayout()
+        mode_group.setLayout(mode_layout)
+        right_panel_layout.addWidget(mode_group)
 
-        # Sigma xx with physical units
-        params_layout.addWidget(
-            QLabel("&sigma;<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:")
+        # --- GROUP 5: Tools & Potential ---
+        tools_group = QGroupBox("Potential Editor Tools (Brush && Erease)")
+        tools_layout = QVBoxLayout()
+
+        preset_form = QFormLayout()
+        self.preset_menu = QComboBox()
+        self.preset_menu.addItems(
+            [
+                "Custom / Clear",
+                "Gaussian Bump",
+                "Harmonic Oscillator",
+                "W-shape",
+                "Matryoshka",
+            ]
         )
-        self.sig_xx_input = QDoubleSpinBox()
-        self.sig_xx_input.setRange(0.1, 50.0)
-        self.sig_xx_input.setValue(4.0)
-        self.sig_xx_input.setSingleStep(0.1)
-        params_layout.addWidget(self.sig_xx_input)
-        params_layout.addStretch()
+        self.preset_menu.textActivated.connect(self.load_preset_potential)
+        preset_form.addRow("Preset Potential:", self.preset_menu)
+        tools_layout.addLayout(preset_form)
 
-        # Sigma xy with physical units
-        params_layout.addWidget(
-            QLabel("&sigma;<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:")
-        )
-        self.sig_xy_input = QDoubleSpinBox()
-        self.sig_xy_input.setRange(-100.0, 100.0)
-        self.sig_xy_input.setValue(0.0)
-        self.sig_xy_input.setSingleStep(0.1)
-        params_layout.addWidget(self.sig_xy_input)
-        params_layout.addStretch()
-
-        # Sigma yy with physical units
-        params_layout.addWidget(
-            QLabel("&sigma;<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:")
-        )
-        self.sig_yy_input = QDoubleSpinBox()
-        self.sig_yy_input.setRange(0.1, 50.0)
-        self.sig_yy_input.setValue(4.0)
-        self.sig_yy_input.setSingleStep(0.1)
-        params_layout.addWidget(self.sig_yy_input)
-        params_layout.addStretch()
-
-        # Filling the fields with initial matrix values if provided
-        if self.initial_sigma is not None:
-            self.sig_xx_input.setValue(float(self.initial_sigma[0, 0]))
-            self.sig_xy_input.setValue(float(self.initial_sigma[0, 1]))
-            self.sig_yy_input.setValue(float(self.initial_sigma[1, 1]))
-
-        # Mass with physical units
-        params_layout.addWidget(QLabel("mass [m<sub>e</sub>]:"))
-        self.mass_input = QDoubleSpinBox()
-        self.mass_input.setRange(0.01, 100.0)
-        self.mass_input.setValue(self.initial_mass)
-        self.mass_input.setSingleStep(0.1)
-        params_layout.addWidget(self.mass_input)
-        params_layout.addStretch()
-
-        layout.addLayout(params_layout)
-
-        # Centered Interactivity Row containing the dynamically constrained Canvas
-        canvas_area = QHBoxLayout()
-        canvas_area.addWidget(self.canvas_container, stretch=1)
-        canvas_area.addStretch()
-
-        # Build the vertical slider layout
-        slider_layout = QHBoxLayout()
-
-        self.brush_strength_label = QLabel("Brush\nStrength: 15")
-        self.brush_strength_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        # Brush width is measured in grid cells (matching the underlying image).
-        self.brush_width_label = QLabel("Brush\nWidth: 3")
-        self.brush_width_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
-        self.brush_strength_slider = QSlider(Qt.Orientation.Vertical)
+        # Sliders changed to horizontal (to better fit the side panel)
+        slider_form = QFormLayout()
+        self.brush_strength_label = QLabel("Strength: 15")
+        self.brush_strength_slider = QSlider(Qt.Orientation.Horizontal)
         self.brush_strength_slider.setRange(1, 100)
         self.brush_strength_slider.setValue(15)
 
-        self.brush_width_slider = QSlider(Qt.Orientation.Vertical)
+        self.brush_width_label = QLabel("Width: 3")
+        self.brush_width_slider = QSlider(Qt.Orientation.Horizontal)
         self.brush_width_slider.setRange(1, 30)
         self.brush_width_slider.setValue(3)
 
         def set_strength(v):
-            self.brush_strength_label.setText(f"Brush\nStrength: {v}")
+            self.brush_strength_label.setText(f"Strength: {v}")
             self.canvas.brush_strength = v
 
         def set_width(v):
-            self.brush_width_label.setText(f"Brush\nWidth: {v}")
+            self.brush_width_label.setText(f"Width: {v}")
             self.canvas.brush_width = v
 
         self.brush_strength_slider.valueChanged.connect(set_strength)
         self.brush_width_slider.valueChanged.connect(set_width)
 
-        slider_layout.addWidget(self.brush_strength_label)
-        slider_layout.addWidget(self.brush_strength_slider)
+        slider_form.addRow(self.brush_strength_label, self.brush_strength_slider)
+        slider_form.addRow(self.brush_width_label, self.brush_width_slider)
+        tools_layout.addLayout(slider_form)
 
-        slider_layout.addSpacing(40)
+        tools_group.setLayout(tools_layout)
+        right_panel_layout.addWidget(tools_group)
 
-        slider_layout.addWidget(self.brush_width_slider)
-        slider_layout.addWidget(self.brush_width_label)
+        right_panel_layout.addStretch()
 
-        canvas_area.addLayout(slider_layout)
+        # Wrap the right panel in a ScrollArea (protects against clipping on small screens)
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(right_panel_widget)
+        scroll_area.setMinimumWidth(320)
+        scroll_area.setMaximumWidth(400)
+        content_layout.addWidget(scroll_area)
 
-        layout.addLayout(canvas_area, stretch=1)
-
-        # Action Controls
+        # ==========================================
+        # BOTTOM BAR: Actions
+        # ==========================================
         controls = QHBoxLayout()
+
+        self.load_params_btn = QPushButton("Load from JSON")
+        self.load_params_btn.clicked.connect(self.load_params_from_file)
+
+        self.save_params_btn = QPushButton("Save to JSON")
+        self.save_params_btn.clicked.connect(self.save_params_to_file)
+
         clear_btn = QPushButton("Clear Potential")
         clear_btn.clicked.connect(self.clear_canvas)
 
@@ -496,13 +493,9 @@ class SetupDrawer(QDialog):
         cancel_btn.clicked.connect(self.reject)
 
         self.save_btn = QPushButton("Save && Update Simulation")
+        # Highlighting the main button
+        self.save_btn.setStyleSheet("font-weight: bold; padding: 5px 15px;")
         self.save_btn.clicked.connect(self.save_and_close)
-
-        self.load_params_btn = QPushButton("Load from JSON")
-        self.load_params_btn.clicked.connect(self.load_params_from_file)
-
-        self.save_params_btn = QPushButton("Save to JSON")
-        self.save_params_btn.clicked.connect(self.save_params_to_file)
 
         controls.addWidget(self.load_params_btn)
         controls.addWidget(self.save_params_btn)
@@ -511,13 +504,12 @@ class SetupDrawer(QDialog):
         controls.addWidget(cancel_btn)
         controls.addWidget(self.save_btn)
 
-        layout.addLayout(controls)
+        main_layout.addLayout(controls)
 
-        # Setting bigger SpinBox size for better visibility
+        # Increase minimum width of spinboxes for convenience
         for spinbox in self.findChildren((QSpinBox, QDoubleSpinBox)):
-            spinbox.setMinimumWidth(100)
+            spinbox.setMinimumWidth(80)
 
-        # Enforce memory safety on initial setup
         self.check_memory_limit()
 
     def update_canvas_size(self) -> None:
@@ -532,7 +524,7 @@ class SetupDrawer(QDialog):
 
         grid_step = self.grid_step_input.value()
 
-        # Wyliczenie i odcięcie reszty z dzielenia
+        # Calculate and truncate the remainder from division
         new_x = int(new_x_limit / grid_step)
         new_y = int(new_y_limit / grid_step)
 
