@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
         self.x_limit = 10.0
         self.y_limit = 10.0
         self.current_grid_step = 0.2
-        
+
         self.size_coarse_x = int(self.x_limit / self.current_grid_step)
         self.size_coarse_y = int(self.y_limit / self.current_grid_step)
         self.aspect_ratio = self.y_limit / self.x_limit
@@ -114,6 +114,9 @@ class MainWindow(QMainWindow):
         self.wave_frames = []
         self.initial_potential = InfiniteWellPotential(
             self.size_coarse_x, self.size_coarse_y
+        )
+        self.initial_potential = self._coarse_potential_from_drawer(
+            self.initial_potential.matrix, self.current_wall_height
         )
         self.initial_wavefunc = GaussianPacket(
             r0=(self.size_coarse_x // 2, self.size_coarse_y // 2),
@@ -204,11 +207,17 @@ class MainWindow(QMainWindow):
         solver_logger.addHandler(capture_handler)
 
         if method_name == "Constant":
-            simulation = Constant(potential, wavefunc, delta_t, grid_step=self.current_grid_step)
+            simulation = Constant(
+                potential, wavefunc, delta_t, grid_step=self.current_grid_step
+            )
         elif method_name == "Crank-Nicolson":
-            simulation = CrankNicolson(potential, wavefunc, delta_t, grid_step=self.current_grid_step)
+            simulation = CrankNicolson(
+                potential, wavefunc, delta_t, grid_step=self.current_grid_step
+            )
         elif method_name == "SSFM":
-            simulation = SSFM(potential, wavefunc, delta_t, grid_step=self.current_grid_step)
+            simulation = SSFM(
+                potential, wavefunc, delta_t, grid_step=self.current_grid_step
+            )
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
 
@@ -232,7 +241,11 @@ class MainWindow(QMainWindow):
             pending["size_y"],
         )
         return self._instantiate_solver(
-            pending["method"], potential, wavefunc, pending["delta_t"], grid_step=pending["grid_step"]
+            pending["method"],
+            potential,
+            wavefunc,
+            pending["delta_t"],
+            grid_step=pending["grid_step"],
         )
 
     def _commit_pending_setup(self) -> None:
