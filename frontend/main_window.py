@@ -16,6 +16,9 @@ from .animation_widget import AnimationWidget
 from .settings import Settings
 from .setup_drawer import SetupDrawer
 from .simulation_thread import SimulationThread
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class MainWindow(QMainWindow):
@@ -352,7 +355,7 @@ class MainWindow(QMainWindow):
         else:
             self.animation_widget.max_cache_size = self.total_frames
 
-        print(
+        logger.info(
             f"Physics complete. Set UI cache limit to: {self.animation_widget.max_cache_size} frames."
         )
 
@@ -501,11 +504,11 @@ class MainWindow(QMainWindow):
         and triggers a complete simulation recalculation.
         Committed state is updated only after the calculation finishes successfully.
         """
-        print("Received setup:")
-        print(f"k0: {k0}")
-        print(f"r0: {r0}")
-        print(f"sigma: {sigma_matrix}")
-        print(f"mass: {mass}")
+        logger.info("Received setup:")
+        logger.info(f"k0: {k0}")
+        logger.info(f"r0: {r0}")
+        logger.info(f"sigma: {sigma_matrix}")
+        logger.info(f"mass: {mass}")
 
         self._pending_setup = {
             "potential_array": potential_array.copy(),

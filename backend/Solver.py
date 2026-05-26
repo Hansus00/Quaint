@@ -39,7 +39,7 @@ class _Solver:
         self._wave_func = wave_func
         self.delta_t = delta_t
         self._dx, self._dy = grid_step, grid_step
-        logger.info("---------------New simulation---------------")
+        logger.info("\n\n\n---------------New simulation---------------")
         logger.info(
             "Physical size of the simulation (L_x,L_y): %s, %s",
             self.potential.matrix.shape[0] * self._dx,
@@ -73,7 +73,7 @@ class _Solver:
             logger.warning(
                 "Nyquist condition (|k_0| < %s * k_{max}) is not satisfied, "
                 "decrease grid_step",
-                SAFETY_FACTOR
+                SAFETY_FACTOR,
             )
         courant_number = k / self._wave_func.mass * self.delta_t / self._dx
         logger.info(r"C = %s", courant_number)
@@ -81,7 +81,7 @@ class _Solver:
             logger.warning(
                 "Courant number should be << 1, but is %s, "
                 "decrease delta_t or increase grid_step",
-                courant_number
+                courant_number,
             )
 
     def step(self) -> None:
@@ -129,17 +129,13 @@ class CrankNicolson(_Solver):
         Nx, Ny = self.potential.matrix.shape
 
         self.L_2D = self._create_laplace_operator(Nx, Ny)
-        self.H = self._create_hamilton_operator(
-            self.L_2D, self._wave_func.mass
-        )
+        self.H = self._create_hamilton_operator(self.L_2D, self._wave_func.mass)
         self.A, self.B = self._create_cayley_matrices(Nx * Ny, self.H)
         self._factorized_A = factorized(
             sp.csc_matrix(self.A)
         )  # factorize once for the whole simulation
 
-        self._wave_state_1D = self._wave_func.matrix.flatten().astype(
-            np.complex128
-        )
+        self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
 
     def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
         # TODO: add periodic boundary conditions
@@ -161,9 +157,7 @@ class CrankNicolson(_Solver):
         # index mapping (i, j) -> i * Ny + j
         return sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy)
 
-    def _create_hamilton_operator(
-        self, L_2D: sp.spmatrix, mass: float
-    ) -> sp.spmatrix:
+    def _create_hamilton_operator(self, L_2D: sp.spmatrix, mass: float) -> sp.spmatrix:
         T_matrix = -(1 / (2 * mass)) * L_2D
         V_1d = self.potential.matrix.flatten()
         V_matrix = sp.diags(V_1d, offsets=0, format="csr")
@@ -189,8 +183,7 @@ class CrankNicolson(_Solver):
         Nx, Ny = self.potential.matrix.shape
 
         self._wave_func = StationaryWaveFunc(
-            np.array(self._wave_state_1D.reshape((Nx, Ny))),
-            self._wave_func.mass
+            np.array(self._wave_state_1D.reshape((Nx, Ny))), self._wave_func.mass
         )
 
         return self._wave_func
@@ -198,13 +191,14 @@ class CrankNicolson(_Solver):
     def ev_energy(self) -> np.complex128:
         """Returns expected value of the hamiltonian.
         There may be some cases where H is not hermitian."""
-        denom = np.sum(
-            np.conjugate(self._wave_state_1D) * self._wave_state_1D
+        denom = np.sum(np.conjugate(self._wave_state_1D) * self._wave_state_1D)
+        return (
+            np.sum(
+                np.conjugate(self._wave_state_1D)
+                * (self.H @ self._wave_state_1D)  # type: ignore
+            )
+            / denom
         )
-        return np.sum(
-            np.conjugate(self._wave_state_1D)
-            * (self.H @ self._wave_state_1D)  # type: ignore
-        ) / denom
 
 
 class Constant(_Solver):
@@ -230,9 +224,7 @@ class _BaseSSFM(_Solver):
         Nx, Ny = self.potential.matrix.shape
 
         self._U_V = self._create_real_space_propagator()
-        self._U_T = self._create_momentum_propagator(
-            Nx, Ny, self._wave_func.mass
-        )
+        self._U_T = self._create_momentum_propagator(Nx, Ny, self._wave_func.mass)
 
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         raise NotImplementedError
@@ -266,9 +258,7 @@ class _BaseSSFM(_Solver):
 
         # expected value of potential energy calculated in x-space
         denom_v = np.sum(np.conjugate(psi) * psi)
-        ev_V = np.sum(
-            np.conjugate(psi) * self.potential.matrix * psi
-        ) / denom_v
+        ev_V = np.sum(np.conjugate(psi) * self.potential.matrix * psi) / denom_v
 
         return ev_T + ev_V
 
