@@ -25,8 +25,9 @@ class ColorFormatter(logging.Formatter):
 
 
 def configLogger(level):
-    handler = logging.StreamHandler()
-    handler.setFormatter(ColorFormatter("%(levelname)s %(name)s: %(message)s"))
     root = logging.getLogger()
-    root.setLevel(level)
-    root.addHandler(handler)
+    if not root.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(ColorFormatter("%(levelname)s %(name)s: %(message)s"))
+        root.setLevel(level)
+        root.addHandler(handler)

@@ -135,6 +135,7 @@ class CanvasWidget(QWidget):
         self.setMinimumSize(100, 100)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
+        assert grid_size_x > 0 and grid_size_y > 0
         self.grid_size_x = grid_size_x
         self.grid_size_y = grid_size_y
 
@@ -251,13 +252,15 @@ class CanvasWidget(QWidget):
         if self.mode in ("brush", "eraser") and self.current_hover_grid is not None:
             # Convert the current hover position to widget coordinates for rendering the preview
             hover_w = self._grid_to_widget(self.current_hover_grid)
-            
+
             scale_ratio = self.width() / self.grid_size_x
             preview_radius = (self.brush_width * scale_ratio) / 2.0
 
             if self.mode == "brush":
                 # Preview alpha dependent on brush strength
-                preview_color = QColor(0, 0, 0,  np.clip(self.brush_strength * 3, 0, 255))
+                preview_color = QColor(
+                    0, 0, 0, np.clip(self.brush_strength * 3, 0, 255)
+                )
                 painter.setBrush(preview_color)
                 painter.setPen(Qt.PenStyle.NoPen)
             else:
@@ -341,9 +344,9 @@ class CanvasWidget(QWidget):
 
             elif self.mode == "wavepacket":
                 self.k0_tip_grid = pos_grid
-            
+
         self.update()
-        
+
     def leaveEvent(self, a0: QEvent | None) -> None:
         """
         Clears the hover preview when the mouse leaves the canvas bounds.
