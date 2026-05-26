@@ -207,6 +207,7 @@ class MainWindow(QMainWindow):
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
         
+        # TODO: fix typing (_Solver has no field stability_warnings)
         simulation.stability_warnings = capture_handler.captured_warnings
         
         solver_logger.removeHandler(capture_handler)
