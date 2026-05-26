@@ -9,13 +9,14 @@ from backend.Potential import InfiniteWellPotential, Potential
 from backend.Solver import SSFM, Constant, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QMessageBox
 
 from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
 from .settings import Settings
 from .setup_drawer import SetupDrawer
 from .simulation_thread import SimulationThread
+from .warning_handler import WarningCaptureHandler
 import logging
 
 logger = logging.getLogger(__name__)
@@ -84,7 +85,7 @@ class MainWindow(QMainWindow):
         self.size_coarse_x = size_x
         self.size_coarse_y = size_y
         self.z_potential_offset = z_potential_offset
-        self.z_scale = 15.0
+        self.z_scale = 150.0
         self.fine_grid_scale = 4
         self.z_potential_scale = 0.07
         self.brightness_multiplier = 25.0
@@ -93,8 +94,8 @@ class MainWindow(QMainWindow):
         self.total_frames = 150
         self.fps = 30
 
-        self.current_delta_t = 0.002
-        self.current_steps_per_frame = 30
+        self.current_delta_t = 0.1
+        self.current_steps_per_frame = 15
         self.current_wall_height = 50.0
 
         self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
@@ -111,7 +112,7 @@ class MainWindow(QMainWindow):
         self.initial_wavefunc = GaussianPacket(
             r0=(self.size_coarse_x // 2, self.size_coarse_y // 2),
             k0=np.array([0.0, 0.0]),
-            sigma0=np.array([[1.0, 0.0], [0.0, 1.0]]),
+            sigma0=np.array([[15.0, 0.0], [0.0, 15.0]]),
             mass=1.0,
             size_x=self.size_coarse_x,
             size_y=self.size_coarse_y,
@@ -122,7 +123,7 @@ class MainWindow(QMainWindow):
         self.current_potential_array = self.initial_potential.matrix[:, ::-1].copy()
         self.current_r0 = np.array([self.size_coarse_x / 2, self.size_coarse_y / 2])
         self.current_k0 = np.array([0.0, 0.0])
-        self.current_sigma = np.array([[1.0, 0.0], [0.0, 1.0]])
+        self.current_sigma = np.array([[15.0, 0.0], [0.0, 15.0]])
         self.current_mass = 1.0
 
         # Default simulation method
@@ -191,13 +192,24 @@ class MainWindow(QMainWindow):
         wavefunc: GaussianPacket,
         delta_t: float,
     ) -> Any:
+
+        capture_handler = WarningCaptureHandler()
+        solver_logger = logging.getLogger("backend.Solver")
+        solver_logger.addHandler(capture_handler)
+
         if method_name == "Constant":
-            return Constant(potential, wavefunc, delta_t)
-        if method_name == "Crank-Nicolson":
-            return CrankNicolson(potential, wavefunc, delta_t)
-        if method_name == "SSFM":
-            return SSFM(potential, wavefunc, delta_t)
-        raise ValueError(f"Unknown simulation method: {method_name}")
+            simulation = Constant(potential, wavefunc, delta_t)
+        elif method_name == "Crank-Nicolson":
+            simulation = CrankNicolson(potential, wavefunc, delta_t)
+        elif method_name == "SSFM":
+            simulation = SSFM(potential, wavefunc, delta_t)
+        else:
+            raise ValueError(f"Unknown simulation method: {method_name}")
+        
+        simulation.stability_warnings = capture_handler.captured_warnings
+        
+        solver_logger.removeHandler(capture_handler)
+        return simulation
 
     def _simulation_from_pending(self, pending: dict[str, Any]) -> Any:
         """Build a solver for a pending setup without mutating committed state."""
@@ -290,6 +302,16 @@ class MainWindow(QMainWindow):
             sim = self.simulation
             total_frames = self.total_frames
             steps_per_frame = self.current_steps_per_frame
+        
+        if hasattr(sim, 'stability_warnings') and sim.stability_warnings:
+            warning_text = "\n\n".join(sim.stability_warnings)
+            QMessageBox.warning(
+                self,
+                "Simulation Stability Warning",
+                f"The physical parameters might cause the simulation to become unstable "
+                f"or mathematically inaccurate:\n\n{warning_text}"
+            )
+            return
 
         self.controls.enter_calculating_mode()
         self.controls.time_label.setText("Calculating...")

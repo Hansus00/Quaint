@@ -72,7 +72,7 @@ class Settings(QDialog):
 
         # Set maximum z scale for the probability wave
         self.z_scale_spin = QDoubleSpinBox()
-        self.z_scale_spin.setRange(0.1, 100.0)
+        self.z_scale_spin.setRange(1, 1000.0)
         self.z_scale_spin.setValue(current_z_scale)
         self.z_scale_spin.setSingleStep(1.0)
         layout.addRow("Wave Amplitude (Z Scale):", self.z_scale_spin)

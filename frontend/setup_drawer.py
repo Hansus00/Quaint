@@ -39,7 +39,7 @@ from .canvas_widget import CanvasWidget, AspectRatioContainer
 # wavevector magnitude. With 1.0 a drag of N grid cells encodes |k| = N, which
 # is grid-resolution independent and yields exact round-trips through the
 # (canvas <-> Params) boundary.
-K_GRID_FACTOR: float = 1.0
+K_GRID_FACTOR: float = 0.02
 
 
 class SetupDrawer(QDialog):
@@ -373,8 +373,8 @@ class SetupDrawer(QDialog):
         # Sigma xx with physical units
         params_layout.addWidget(QLabel("s<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:"))
         self.sig_xx_input = QDoubleSpinBox()
-        self.sig_xx_input.setRange(0.1, 20.0)
-        self.sig_xx_input.setValue(1.0)
+        self.sig_xx_input.setRange(0.1, 100.0)
+        self.sig_xx_input.setValue(15.0)
         self.sig_xx_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_xx_input)
         params_layout.addStretch()
@@ -382,7 +382,7 @@ class SetupDrawer(QDialog):
         # Sigma xy with physical units
         params_layout.addWidget(QLabel("s<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:"))
         self.sig_xy_input = QDoubleSpinBox()
-        self.sig_xy_input.setRange(-10.0, 10.0)
+        self.sig_xy_input.setRange(-100.0, 100.0)
         self.sig_xy_input.setValue(0.0)
         self.sig_xy_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_xy_input)
@@ -391,8 +391,8 @@ class SetupDrawer(QDialog):
         # Sigma yy with physical units
         params_layout.addWidget(QLabel("s<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:"))
         self.sig_yy_input = QDoubleSpinBox()
-        self.sig_yy_input.setRange(0.1, 20.0)
-        self.sig_yy_input.setValue(1.0)
+        self.sig_yy_input.setRange(0.1, 100.0)
+        self.sig_yy_input.setValue(15.0)
         self.sig_yy_input.setSingleStep(0.1)
         params_layout.addWidget(self.sig_yy_input)
         params_layout.addStretch()
