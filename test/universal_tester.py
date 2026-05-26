@@ -228,9 +228,8 @@ elif params.solver == SolverType.SSFM:
     solver = SSFM(well, gauss, params.delta_t, params.grid_step)
 elif params.solver == SolverType.SYM_SSFM:
     solver = SSFMSymmetric(well, gauss, params.delta_t, args.grid_step)
-elif params.solver == SolverType.ANALYTICAL_GAUSSIAN:
-    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
-    raise NotImplementedError
+elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
+    solver = GaussianPacketSolver(params.k0, params.r0, params.sigma0, params.size_x, params.mass, params.delta_t, params.grid_step)
 else:
     assert False, "Solver must be specified!"
 
