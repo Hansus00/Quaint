@@ -300,6 +300,10 @@ class SetupDrawer(QDialog):
         sim_params_layout.addWidget(self.size_y_input)
         sim_params_layout.addStretch()
 
+        self.update_grid_btn = QPushButton("Snap Aspect Ratio")
+        self.update_grid_btn.clicked.connect(self.update_canvas_size)
+        sim_params_layout.addWidget(self.update_grid_btn)
+
         sim_params_layout.addStretch()
         layout.addLayout(sim_params_layout)
 
