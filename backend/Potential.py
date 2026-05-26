@@ -19,11 +19,6 @@ class InfiniteWellPotential(Potential):
     def __init__(self, size_x: int, size_y: int, wall_value: float = 100):
         matrix = np.zeros((size_x, size_y), dtype=np.float64)
 
-        matrix[:, 0] = wall_value
-        matrix[:, -1] = wall_value
-        matrix[0, :] = wall_value
-        matrix[-1, :] = wall_value
-
         super().__init__(matrix)
 
 

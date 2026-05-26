@@ -203,20 +203,23 @@ class _BaseSSFM(_Solver):
 
     def ev_energy(self) -> np.complex128:
         psi = self._wave_func.matrix
-        psi_k = np.fft.fft2(psi)
+        Nx, Ny = psi.shape
 
-        kx = np.fft.fftfreq(self._wave_func.matrix.shape[0], d=self._dx) * 2 * np.pi
-        ky = np.fft.fftfreq(self._wave_func.matrix.shape[1], d=self._dy) * 2 * np.pi
+        psi_k = dstn(psi, type=1)
+
+        kx = np.arange(1, Nx + 1) * np.pi / ((Nx + 1) * self._dx)
+        ky = np.arange(1, Ny + 1) * np.pi / ((Ny + 1) * self._dy)
         kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
-        # kinetic energy in terms of k
+
+        # kinetic energy operator in k-space
         T = (kx2 + ky2) / (2 * self._wave_func.mass)
 
-        # expected value of kinetic energy calculated in k-space
+        # expected value of kinetic energy calculated in sine-basis
         ev_T = np.sum(np.conjugate(psi_k) * T * psi_k) / np.sum(
             np.conjugate(psi_k) * psi_k
         )
 
-        # expected value of potential enrgy calculated in x-space
+        # expected value of potential energy calculated in x-space
         ev_V = np.sum(np.conjugate(psi) * self.potential.matrix * psi) / np.sum(
             np.conjugate(psi) * psi
         )
