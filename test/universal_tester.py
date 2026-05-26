@@ -34,6 +34,12 @@ import argparse
 import json
 import matplotlib.animation as animation
 import colorsys as cs
+import logging
+import frontend.LoggerTools as LoggerTools
+
+logger = logging.getLogger(__name__)
+LoggerTools.configLogger(LoggerTools.INFO)
+
 
 # load or use default params
 p = argparse.ArgumentParser(description="Testing program for Quaint by Jaclav")
@@ -100,7 +106,7 @@ p.add_argument(
 )
 args = p.parse_args()
 if args.params:
-    print("Default params:\n", Params())
+    logger.info("Default params:\n" + str(Params()))
     exit(0)
 
 insideInteractive = args.f is not None
@@ -124,7 +130,7 @@ if args.updates_max is not None:
 if args.grid_step is not None:
     params.grid_step = args.grid_step
 params.write(str(directory / "params.json"))
-print("Simulation parameters:", params)
+logger.info("Simulation parameters: %s", params)
 
 # set potential
 # TODO: maybe make separate Potential instances for this?
@@ -255,7 +261,7 @@ FRAMES_FOR_POTENTIAL = 3
 
 
 def update(frame):
-    print("frame no", frame, "n", str(solver.get_steps_evolved()))
+    logger.info("frame no. %d step %d", frame, solver.get_steps_evolved())
     """0th frame is potential"""
     if frame < FRAMES_FOR_POTENTIAL:
         return (im,)
@@ -267,7 +273,6 @@ def update(frame):
         Probabilities.append(solver.get_wave_function().total_probability())
 
     new_data = solver.get_wave_function().matrix
-    new_dataP = np.float64(np.abs(solver.get_wave_function().matrix)) ** 2
     ax.set_title(
         "Evolved ("
         + str(params.solver)
@@ -334,12 +339,12 @@ else:
                 savefig_kwargs={"pad_inches": 0},
             )  # similiar as ffmpeg -framerate 2 -pattern_type glob -i "gauss_evolved_n*.png" output.mp4
         except Exception as e:
-            print("ffmpeg missing or broken:", e)
+            logger.critical("ffmpeg missing or broken:", e)
             exit(-1)
     else:
         plt.show()
 end = time.perf_counter()
-print("time_of_execution/", float(end - start), sep="\t")
+logger.info("time_of_execution %f", float(end - start))
 
 
 # %%

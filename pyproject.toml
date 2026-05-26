@@ -1,8 +1,7 @@
 [project]
-name = "zps"
+name = "quaint"
 version = "0.0.1"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.14"
-dependencies = ["PyQt6", "pyqtgraph", "numpy", "scipy", "matplotlib", "PyOpenGL"]
-
+requires-python = ">=3.10.11"
+dependencies = ["PyQt6", "pyqtgraph", "numpy", "scipy", "matplotlib", "PyOpenGL", "psutil"]

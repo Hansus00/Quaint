@@ -6,17 +6,17 @@ from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pyqtgraph.opengl as gl
+from backend.StationaryWaveFunc import StationaryWaveFunc
 from PyQt6.QtGui import QVector3D
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from scipy.interpolate import RectBivariateSpline
 from scipy.ndimage import zoom
-from backend.StationaryWaveFunc import StationaryWaveFunc
 
 
 class AnimationWidget(QWidget):
     """
     Widget handling the 3D OpenGL rendering of the simulation.
-    Manages high-performance matrix transformations and mesh updates for both 
+    Manages high-performance matrix transformations and mesh updates for both
     the probability wave and the underlying physical potential landscape.
     """
 
@@ -35,16 +35,16 @@ class AnimationWidget(QWidget):
     potential_alpha: float
     x_coarse: np.ndarray
     y_coarse: np.ndarray
-    
+
     _wave_cache: Dict[int, Tuple[np.ndarray, np.ndarray]]
     max_cache_size: int
-    
+
     view: gl.GLViewWidget
     axis: gl.GLAxisItem
     wave_mesh_item: gl.GLMeshItem
     potential_mesh_item: gl.GLMeshItem
     grid: gl.GLGridItem
-    
+
     x_fine: np.ndarray
     y_fine: np.ndarray
     X_fine: np.ndarray
@@ -106,8 +106,7 @@ class AnimationWidget(QWidget):
 
         # Lazy memory cache mapping frame object IDs -> pre-computed (verts, rgba)
         self._wave_cache = {}
-        # Maximum cache limit
-        # TODO: put in settings
+        # Default maximum cache limit. It's later changed based on available memory
         self.max_cache_size = 150
 
         self._setup_ui()
@@ -117,6 +116,7 @@ class AnimationWidget(QWidget):
         self,
         size_x: int,
         size_y: int,
+        x_limit: float,
         y_limit: float,
         z_offset: float,
         z_scale: float,
@@ -135,6 +135,7 @@ class AnimationWidget(QWidget):
         self.size_fine_x = self.fine_grid_scale * size_x
         self.size_fine_y = self.fine_grid_scale * size_y
 
+        self.x_limit = x_limit
         self.y_limit = y_limit
         self.z_potential_offset = z_offset
         self.z_scale = z_scale
@@ -200,7 +201,7 @@ class AnimationWidget(QWidget):
         Nx = self.size_fine_x
         Ny = self.size_fine_y
 
-        I, J = np.meshgrid(np.arange(Nx - 1), np.arange(Ny - 1), indexing="ij")
+        I, J = np.meshgrid(np.arange(Nx - 1), np.arange(Ny - 1), indexing="ij")  # noqa: E741
 
         P1 = I * Ny + J
         P2 = P1 + 1
@@ -235,6 +236,26 @@ class AnimationWidget(QWidget):
         )
         self.potential_mesh_item.setMeshData(meshdata=self.potential_mesh_data)
 
+        # Placeholder wave mesh so OpenGL never draws GLMeshItem with faces=None
+        wave_rgba = np.zeros((self.size_fine_x * self.size_fine_y, 4), dtype=np.float32)
+        wave_rgba[:, 3] = 1.0
+        self.wave_mesh_item.setMeshData(
+            meshdata=gl.MeshData(
+                vertexes=self.verts_template.copy(),
+                faces=self.faces,
+                vertexColors=wave_rgba,
+            )
+        )
+
+    def reset_camera(self) -> None:
+        """Resets the 3D camera to the default position and orientation."""
+        self.view.setCameraPosition(
+            pos=QVector3D(self.x_limit / 2.0, self.y_limit / 2.0, 0.0),
+            distance=20,
+            elevation=30,
+            azimuth=45,
+        )
+
     def set_potential_visible(self, visible: bool) -> None:
         """Shows or hides the 3D potential mesh depending on UI button toggle."""
         self.potential_mesh_item.setVisible(visible)
@@ -243,8 +264,16 @@ class AnimationWidget(QWidget):
         """Updates the 3D potential landscape and evicts outdated cache tracking."""
         self.clear_cache()
 
-        spline = RectBivariateSpline(self.x_coarse, self.y_coarse, potential_coarse)
+        # Bilinear interpolation (piecewise-linear) to avoid cubic spline ringing
+        spline = RectBivariateSpline(
+            self.x_coarse, self.y_coarse, potential_coarse, kx=1, ky=1
+        )
         potential_fine = spline(self.x_fine, self.y_fine)
+
+        # Clamp to the coarse range
+        v_lo = float(np.min(potential_coarse))
+        v_hi = float(np.max(potential_coarse))
+        potential_fine = np.clip(potential_fine, v_lo, v_hi)
 
         Z_potential = potential_fine * self.z_potential_scale
 
@@ -256,7 +285,7 @@ class AnimationWidget(QWidget):
         self.potential_rgba[:, 0] = gray_values.reshape(-1)
         self.potential_rgba[:, 1] = gray_values.reshape(-1)
         self.potential_rgba[:, 2] = gray_values.reshape(-1)
-        
+
         # Use dynamic alpha value from the user settings
         self.potential_rgba[:, 3] = self.potential_alpha
 
@@ -267,7 +296,7 @@ class AnimationWidget(QWidget):
         mesh_data = gl.MeshData(
             vertexes=self.potential_verts,
             faces=self.faces,
-            vertexColors=self.potential_rgba
+            vertexColors=self.potential_rgba,
         )
         self.potential_mesh_item.setMeshData(meshdata=mesh_data)
 
@@ -321,21 +350,21 @@ class AnimationWidget(QWidget):
         zoom_factor_x = self.size_fine_x / wave_matrix.shape[0]
         zoom_factor_y = self.size_fine_y / wave_matrix.shape[1]
 
-        prob_coarse = np.abs(wave_matrix) ** 2
-        prob_fine = zoom(prob_coarse, (zoom_factor_x, zoom_factor_y), order=3)
+        # This creates smooth color gradients
+        # TODO: find a different interpolation technique that doesn't cause over-or-under-shooting
+        psi_real_fine = zoom(wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=3)
+        psi_imag_fine = zoom(wave_matrix.imag, (zoom_factor_x, zoom_factor_y), order=3)
 
-        prob_fine = np.clip(prob_fine, 0.0, None)
+        # Reconstruct the high-resolution complex wave matrix
+        psi_fine = psi_real_fine + 1j * psi_imag_fine
+
+        # Calculate probability from the interpolated complex matrix
+        prob_fine = np.abs(psi_fine) ** 2
 
         Z_fine = prob_fine * self.z_scale
 
-        psi_real_linear = zoom(
-            wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=1
-        )
-        psi_imag_linear = zoom(
-            wave_matrix.imag, (zoom_factor_x, zoom_factor_y), order=1
-        )
-
-        phase = np.angle(psi_real_linear + 1j * psi_imag_linear)
+        # Calculate phase from the interpolated complex fine matrix
+        phase = np.angle(psi_fine)
         hue = (phase + np.pi) / (2 * np.pi)
 
         # Exposure multiplier for visual brightness

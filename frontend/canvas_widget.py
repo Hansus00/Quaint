@@ -3,14 +3,24 @@
 # ==============================================================================
 
 from typing import Optional
-from PyQt6.QtCore import QPoint, Qt
-from PyQt6.QtGui import QColor, QImage, QPainter, QPen, QResizeEvent
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QSizePolicy
+import numpy as np
+
+from PyQt6.QtCore import QPoint, QPointF, Qt, QEvent
+from PyQt6.QtGui import (
+    QColor,
+    QImage,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QResizeEvent,
+)
+from PyQt6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
 
 
 class AspectRatioContainer(QWidget):
     """
-    A layout wrapper widget that forces its central child to maintain a strict 
+    A layout wrapper widget that forces its central child to maintain a strict
     aspect ratio dynamically, responding organically to parent window resizes.
     """
 
@@ -19,7 +29,9 @@ class AspectRatioContainer(QWidget):
     child_widget: QWidget
     _layout: QVBoxLayout
 
-    def __init__(self, widget: QWidget, aspect_ratio: float, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self, widget: QWidget, aspect_ratio: float, parent: Optional[QWidget] = None
+    ) -> None:
         """
         Initializes the dynamic framing container.
 
@@ -46,21 +58,25 @@ class AspectRatioContainer(QWidget):
         """
         self.aspect_ratio = aspect_ratio
         from PyQt6.QtGui import QResizeEvent
+
         self.resizeEvent(QResizeEvent(self.size(), self.size()))
 
-    def resizeEvent(self, event: QResizeEvent) -> None:
+    def resizeEvent(self, a0: QResizeEvent | None) -> None:
         """
-        Calculates the largest bounded box fitting the ratio and pads the excess 
+        Calculates the largest bounded box fitting the ratio and pads the excess
         space with dynamic layout margins to strictly center the child canvas.
 
         Args:
-            event (QResizeEvent): The resize event containing new and old dimensions.
+            a0 (QResizeEvent | None): The resize event containing new and old dimensions.
         """
-        w = event.size().width()
-        h = event.size().height()
+        if a0 is None:
+            return super().resizeEvent(a0)
+
+        w = a0.size().width()
+        h = a0.size().height()
 
         if w == 0 or h == 0:
-            return super().resizeEvent(event)
+            return super().resizeEvent(a0)
 
         if h / w > self.aspect_ratio:
             # Layout is too tall, limit by width
@@ -75,144 +91,239 @@ class AspectRatioContainer(QWidget):
         margin_y = (h - new_h) // 2
 
         self._layout.setContentsMargins(margin_x, margin_y, margin_x, margin_y)
-        super().resizeEvent(event)
+        super().resizeEvent(a0)
 
 
 class CanvasWidget(QWidget):
     """
-    An isolated interactive 2D canvas element dedicated entirely to graphical user input.
-    It operates in its own localized pixel coordinate space and adapts seamlessly to layout resizes.
+    Interactive 2D canvas backing the potential drawer. The underlying QImage is
+    stored at the native physics-grid resolution (grid_size_x by grid_size_y);
+    on screen the image is merely upscaled for display. Wavepacket anchors are
+    likewise kept in grid coordinates (Qt's top-to-bottom Y), so opening and
+    saving the dialog without changes is a lossless identity operation.
     """
 
     # --- Class Fields ---
+    grid_size_x: int
+    grid_size_y: int
     image: QImage
     mode: str
     drawing_potential: bool
-    last_point: QPoint
-    r0_px: Optional[QPoint]
-    k0_tip_px: Optional[QPoint]
+    last_point_grid: QPointF
+    r0_grid: Optional[QPointF]
+    k0_tip_grid: Optional[QPointF]
     brush_strength: int
     brush_width: int
 
-    def __init__(self, width: int, height: int, parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self,
+        grid_size_x: int,
+        grid_size_y: int,
+        parent: Optional[QWidget] = None,
+    ) -> None:
         """
-        Initializes the drawing surface with a base pixel resolution.
+        Initializes the drawing surface at the simulation grid resolution.
 
         Args:
-            width (int): Initial width of the canvas.
-            height (int): Initial height of the canvas.
+            grid_size_x (int): Horizontal physics grid resolution (canvas width in pixels).
+            grid_size_y (int): Vertical physics grid resolution (canvas height in pixels).
             parent (Optional[QWidget]): Parent widget.
         """
         super().__init__(parent)
-        
+
         # Allow the widget to shrink and expand freely within the container
         self.setMinimumSize(100, 100)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
-        # The underlying image layout storing the raw potential configuration
-        self.image = QImage(width, height, QImage.Format.Format_ARGB32)
+        assert grid_size_x > 0 and grid_size_y > 0
+        self.grid_size_x = grid_size_x
+        self.grid_size_y = grid_size_y
+
+        # The underlying image lives in grid pixel space; one pixel per simulation cell.
+        self.image = QImage(grid_size_x, grid_size_y, QImage.Format.Format_ARGB32)
         self.image.fill(Qt.GlobalColor.white)
 
-        # Current interaction mode state
         self.mode = "brush"
         self.drawing_potential = False
-        self.last_point = QPoint()
+        self.last_point_grid = QPointF()
 
-        self.r0_px = None
-        self.k0_tip_px = None
+        self.r0_grid = None
+        self.k0_tip_grid = None
 
         self.brush_strength = 15
-        self.brush_width = 30
+        # Brush diameter measured in grid cells (matches underlying image scale).
+        self.brush_width = 3
 
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        """
-        Automatically triggered by the Qt framework whenever the widget boundaries change.
-        Rescales the internal image and adjusts wavepacket vectors proportionally.
+        # Enable mouse tracking to paint the brush preview
+        self.setMouseTracking(True)
+        self.current_hover_grid = None
 
-        Args:
-            event (QResizeEvent): The resize event containing new and old dimensions.
-        """
-        new_size = event.size()
-        old_size = event.oldSize()
+    def _widget_to_grid(self, p: QPoint) -> QPointF:
+        """Convert a widget pixel coordinate to fractional grid coordinates."""
+        w = max(self.width(), 1)
+        h = max(self.height(), 1)
+        return QPointF(
+            p.x() * self.grid_size_x / w,
+            p.y() * self.grid_size_y / h,
+        )
 
-        if old_size.isValid() and old_size.width() > 0 and old_size.height() > 0:
-            self.image = self.image.scaled(
-                new_size.width(),
-                new_size.height(),
-                Qt.AspectRatioMode.IgnoreAspectRatio,  # Safe because Container enforces ratio
-                Qt.TransformationMode.SmoothTransformation,
-            )
-
-            # Move anchors proportionally to remain physically accurate visually
-            if self.r0_px:
-                self.r0_px.setX(int((self.r0_px.x() / old_size.width()) * new_size.width()))
-                self.r0_px.setY(int((self.r0_px.y() / old_size.height()) * new_size.height()))
-            if self.k0_tip_px:
-                self.k0_tip_px.setX(int((self.k0_tip_px.x() / old_size.width()) * new_size.width()))
-                self.k0_tip_px.setY(int((self.k0_tip_px.y() / old_size.height()) * new_size.height()))
-        else:
-            self.image = self.image.scaled(
-                new_size.width(),
-                new_size.height(),
-                Qt.AspectRatioMode.IgnoreAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-
-        super().resizeEvent(event)
+    def _grid_to_widget(self, p: QPointF) -> QPointF:
+        """Convert a fractional grid coordinate to widget pixel space for rendering."""
+        return QPointF(
+            p.x() * self.width() / self.grid_size_x,
+            p.y() * self.height() / self.grid_size_y,
+        )
 
     def set_image(self, img: QImage) -> None:
         """
-        Directly loads an external predefined image pattern onto the workspace view.
+        Replace the canvas image. Inputs at the wrong resolution are scaled once
+        to match the current grid size; otherwise the image is stored verbatim
+        so that open/save round-trips do not interpolate.
 
         Args:
-            img (QImage): The QImage containing the new potential layout.
+            img (QImage): New potential image to display.
         """
-        self.image = img
+        if img.width() != self.grid_size_x or img.height() != self.grid_size_y:
+            img = img.scaled(
+                self.grid_size_x,
+                self.grid_size_y,
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+        self.image = img.convertToFormat(QImage.Format.Format_ARGB32)
         self.update()
 
-    def paintEvent(self, event) -> None:
+    def set_grid_size(self, grid_size_x: int, grid_size_y: int) -> None:
         """
-        Renders the active canvas element, superimposing interactive vector overlays.
+        Rebind the canvas to a new grid resolution. Both the stored image and
+        the wavepacket anchors are rescaled proportionally so that visible
+        content stays in place across a resolution change.
 
         Args:
-            event: The QPaintEvent triggered by the Qt framework.
+            grid_size_x (int): New horizontal grid resolution.
+            grid_size_y (int): New vertical grid resolution.
+        """
+        if grid_size_x == self.grid_size_x and grid_size_y == self.grid_size_y:
+            return
+
+        new_img = self.image.scaled(
+            grid_size_x,
+            grid_size_y,
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        ).convertToFormat(QImage.Format.Format_ARGB32)
+
+        scale_x = grid_size_x / self.grid_size_x
+        scale_y = grid_size_y / self.grid_size_y
+        if self.r0_grid is not None:
+            self.r0_grid = QPointF(
+                self.r0_grid.x() * scale_x,
+                self.r0_grid.y() * scale_y,
+            )
+        if self.k0_tip_grid is not None:
+            self.k0_tip_grid = QPointF(
+                self.k0_tip_grid.x() * scale_x,
+                self.k0_tip_grid.y() * scale_y,
+            )
+
+        self.grid_size_x = grid_size_x
+        self.grid_size_y = grid_size_y
+        self.image = new_img
+        self.update()
+
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
+        """
+        Renders the active canvas element, superimposing interactive vector overlays.
+        The image is upscaled to the current widget size for display only.
+
+        Args:
+            a0: The QPaintEvent triggered by the Qt framework.
         """
         painter = QPainter(self)
-        painter.drawImage(0, 0, self.image)
+        scaled = self.image.scaled(
+            self.width(),
+            self.height(),
+            Qt.AspectRatioMode.IgnoreAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,  # FIXME: it runs at every mouse movement
+        )
+        painter.drawImage(0, 0, scaled)
 
-        if self.r0_px and self.k0_tip_px:
+        # Brush / eraser preview rendering
+        if self.mode in ("brush", "eraser") and self.current_hover_grid is not None:
+            # Convert the current hover position to widget coordinates for rendering the preview
+            hover_w = self._grid_to_widget(self.current_hover_grid)
+
+            scale_ratio = self.width() / self.grid_size_x
+            preview_radius = (self.brush_width * scale_ratio) / 2.0
+
+            if self.mode == "brush":
+                # Preview alpha dependent on brush strength
+                preview_color = QColor(
+                    0, 0, 0, np.clip(self.brush_strength * 3, 0, 255)
+                )
+                painter.setBrush(preview_color)
+                painter.setPen(Qt.PenStyle.NoPen)
+            else:
+                # Drawing preview for eraser as well
+                painter.setBrush(QColor(255, 255, 255, 150))
+                painter.setPen(QPen(Qt.GlobalColor.black, 1))
+
+            painter.drawEllipse(hover_w, preview_radius, preview_radius)
+
+        if self.r0_grid is not None and self.k0_tip_grid is not None:
+            r0_w = self._grid_to_widget(self.r0_grid)
+            k0_w = self._grid_to_widget(self.k0_tip_grid)
             pen = QPen(Qt.GlobalColor.red, 3, Qt.PenStyle.SolidLine)
             painter.setPen(pen)
             painter.setBrush(Qt.GlobalColor.red)
-            painter.drawLine(self.r0_px, self.k0_tip_px)
-            painter.drawEllipse(self.r0_px, 4, 4)
+            painter.drawLine(r0_w, k0_w)
+            painter.drawEllipse(r0_w, 4, 4)
 
-    def mousePressEvent(self, event) -> None:
+    def resizeEvent(self, a0: QResizeEvent | None) -> None:
+        """
+        Image resolution is locked to the physics grid, so no rescale of the
+        underlying QImage is performed on widget resize - only the on-screen
+        rendering rescales (cf. ``paintEvent``).
+
+        Args:
+            a0 (QResizeEvent | None): The resize event containing new and old dimensions.
+        """
+        super().resizeEvent(a0)
+
+    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
         """
         Captures user interaction starts, anchoring the drawing tool or setting state coordinates.
 
         Args:
-            event: The QMouseEvent containing the click position and button state.
+            a0: The QMouseEvent containing the click position and button state.
         """
-        pos = event.position().toPoint()
-        if event.button() == Qt.MouseButton.LeftButton:
+        if a0 is None:
+            return super().mousePressEvent(a0)
+
+        pos_grid = self._widget_to_grid(a0.position().toPoint())
+        if a0.button() == Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser"):
                 self.drawing_potential = True
-                self.last_point = pos
+                self.last_point_grid = pos_grid
             elif self.mode == "wavepacket":
-                self.r0_px = pos
-                self.k0_tip_px = pos
+                self.r0_grid = pos_grid
+                self.k0_tip_grid = pos_grid
                 self.update()
 
-    def mouseMoveEvent(self, event) -> None:
+    def mouseMoveEvent(self, a0: QMouseEvent | None) -> None:
         """
         Processes drag inputs, drawing stroke pathways or modifying the active state vector length.
 
         Args:
-            event: The QMouseEvent containing the cursor position.
+            a0: The QMouseEvent containing the cursor position.
         """
-        pos = event.position().toPoint()
-        if event.buttons() & Qt.MouseButton.LeftButton:
+        if a0 is None:
+            return super().mouseMoveEvent(a0)
+
+        pos_grid = self._widget_to_grid(a0.position().toPoint())
+        self.current_hover_grid = pos_grid
+
+        if a0.buttons() & Qt.MouseButton.LeftButton:
             if self.mode in ("brush", "eraser") and self.drawing_potential:
                 painter = QPainter(self.image)
                 if self.mode == "brush":
@@ -222,26 +333,40 @@ class CanvasWidget(QWidget):
 
                 pen = QPen(
                     color,
-                    self.brush_width,
+                    max(1.0, float(self.brush_width)),
                     Qt.PenStyle.SolidLine,
                     Qt.PenCapStyle.RoundCap,
                     Qt.PenJoinStyle.RoundJoin,
                 )
                 painter.setPen(pen)
-                painter.drawLine(self.last_point, pos)
-                self.last_point = pos
-                self.update()
-                
-            elif self.mode == "wavepacket":
-                self.k0_tip_px = pos
-                self.update()
+                painter.drawLine(self.last_point_grid, pos_grid)
+                self.last_point_grid = pos_grid
 
-    def mouseReleaseEvent(self, event) -> None:
+            elif self.mode == "wavepacket":
+                self.k0_tip_grid = pos_grid
+
+        self.update()
+
+    def leaveEvent(self, a0: QEvent | None) -> None:
+        """
+        Clears the hover preview when the mouse leaves the canvas bounds.
+
+        Args:
+            a0: The QEvent detecting the cursor leaving the widget area.
+        """
+        self.current_hover_grid = None
+        self.update()
+        super().leaveEvent(a0)
+
+    def mouseReleaseEvent(self, a0: QMouseEvent | None) -> None:
         """
         Closes active input streams upon releasing mouse actions.
 
         Args:
-            event: The QMouseEvent triggering the release.
+            a0: The QMouseEvent triggering the release.
         """
-        if event.button() == Qt.MouseButton.LeftButton:
+        if a0 is None:
+            return super().mouseReleaseEvent(a0)
+
+        if a0.button() == Qt.MouseButton.LeftButton:
             self.drawing_potential = False
