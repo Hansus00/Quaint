@@ -81,13 +81,13 @@ class GaussianPacketSolver(_AnalyticSolver):
         self,
         k0: NDArray[np.float64],
         r0: NDArray[np.float64],
-        a: float,
+        sigma0: NDArray[np.float64],
         grid_size: float,
         mass: float,
         delta_t: float = 0.001,
         grid_step=1,
     ):
-
+        a = np.sqrt(np.hypot(*np.diag(sigma0)) / np.sqrt(2))
         # source: https://en.wikipedia.org/wiki/Wave_packet#The_2D_case
         psi = lambda i, t: (
             np.power(2 * a**2 / np.pi / (a**4 + 4 * t**2 / mass**2), 0.25)
@@ -98,7 +98,7 @@ class GaussianPacketSolver(_AnalyticSolver):
                     - 0.5 * np.arctan(2 * t / mass / a**2)
                     - k0[i] ** 2 / 2 / mass * t
                 )
-                - (self._grid[i] - k0[i] * t / mass) ** 2 / (a**2 + 2j * t / mass)
+                - (self._grid[i] - r0[i] - k0[i] * t / mass) ** 2 / (a**2 + 2j * t / mass)
             )
         )
 
@@ -107,3 +107,5 @@ class GaussianPacketSolver(_AnalyticSolver):
         super().__init__(
             InfiniteWellPotential, wave_func, grid_size, mass, delta_t, grid_step
         )
+    def ev_energy(self) -> float:
+        return 1 # for testing purposes
