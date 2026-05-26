@@ -34,7 +34,6 @@ from PyQt6.QtWidgets import (
 from backend.Params import Params, SolverType, WellType
 from .canvas_widget import CanvasWidget, AspectRatioContainer
 
-
 # Conversion factor between an arrow's grid-cell displacement and the physical
 # wavevector magnitude. With 1.0 a drag of N grid cells encodes |k| = N, which
 # is grid-resolution independent and yields exact round-trips through the
@@ -282,7 +281,9 @@ class SetupDrawer(QDialog):
         sim_params_layout.addWidget(self.fps_input)
         sim_params_layout.addStretch()
 
-        sim_params_layout.addWidget(QLabel("Total Frames:"))
+        sim_params_layout.addWidget(
+            QLabel("Total Frames To generate (n<sub>tot</sub>):")
+        )
         self.frames_input = QSpinBox()
         self.frames_input.setRange(10, 10000)
         self.frames_input.setValue(self.current_frames)
@@ -293,21 +294,25 @@ class SetupDrawer(QDialog):
 
         grid_params_layout = QHBoxLayout()
 
-        grid_params_layout.addWidget(QLabel("Field X Limit:"))
+        grid_params_layout.addWidget(QLabel("Width (w) [a<sub>0</sub>]:"))
         self.x_limit_input = QDoubleSpinBox()
         self.x_limit_input.setRange(1.0, 1000.0)
         self.x_limit_input.setValue(self.x_limit)
         grid_params_layout.addWidget(self.x_limit_input)
         grid_params_layout.addStretch()
 
-        grid_params_layout.addWidget(QLabel("Field Y Limit:"))
+        grid_params_layout.addWidget(QLabel("Height (h) [a<sub>0</sub>]:"))
         self.y_limit_input = QDoubleSpinBox()
         self.y_limit_input.setRange(1.0, 1000.0)
         self.y_limit_input.setValue(self.y_limit)
         grid_params_layout.addWidget(self.y_limit_input)
         grid_params_layout.addStretch()
 
-        grid_params_layout.addWidget(QLabel("Grid Step:"))
+        grid_params_layout.addWidget(
+            QLabel(
+                "Grid Step (&delta;=n<sub>x</sub>/w=n<sub>y</sub>/h) [a<sub>0</sub><sup>-1</sup>]:"
+            )
+        )
         self.grid_step_input = QDoubleSpinBox()
         self.grid_step_input.setDecimals(3)
         self.grid_step_input.setRange(0.01, 10.0)
@@ -387,7 +392,9 @@ class SetupDrawer(QDialog):
         params_layout = QHBoxLayout()
 
         # Sigma xx with physical units
-        params_layout.addWidget(QLabel("s<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:"))
+        params_layout.addWidget(
+            QLabel("&sigma;<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:")
+        )
         self.sig_xx_input = QDoubleSpinBox()
         self.sig_xx_input.setRange(0.1, 50.0)
         self.sig_xx_input.setValue(4.0)
@@ -396,7 +403,9 @@ class SetupDrawer(QDialog):
         params_layout.addStretch()
 
         # Sigma xy with physical units
-        params_layout.addWidget(QLabel("s<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:"))
+        params_layout.addWidget(
+            QLabel("&sigma;<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:")
+        )
         self.sig_xy_input = QDoubleSpinBox()
         self.sig_xy_input.setRange(-100.0, 100.0)
         self.sig_xy_input.setValue(0.0)
@@ -405,7 +414,9 @@ class SetupDrawer(QDialog):
         params_layout.addStretch()
 
         # Sigma yy with physical units
-        params_layout.addWidget(QLabel("s<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:"))
+        params_layout.addWidget(
+            QLabel("&sigma;<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:")
+        )
         self.sig_yy_input = QDoubleSpinBox()
         self.sig_yy_input.setRange(0.1, 50.0)
         self.sig_yy_input.setValue(4.0)
@@ -420,7 +431,7 @@ class SetupDrawer(QDialog):
             self.sig_yy_input.setValue(float(self.initial_sigma[1, 1]))
 
         # Mass with physical units
-        params_layout.addWidget(QLabel("m [m<sub>e</sub>]:"))
+        params_layout.addWidget(QLabel("mass [m<sub>e</sub>]:"))
         self.mass_input = QDoubleSpinBox()
         self.mass_input.setRange(0.01, 100.0)
         self.mass_input.setValue(self.initial_mass)
