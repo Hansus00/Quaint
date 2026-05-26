@@ -63,8 +63,6 @@ class MainWindow(QMainWindow):
     aspect_ratio: float
     x_limit: float
     y_limit: float
-    x_coarse: np.ndarray
-    y_coarse: np.ndarray
     wave_frames: list
     initial_potential: Potential
     initial_wavefunc: GaussianPacket
@@ -127,9 +125,6 @@ class MainWindow(QMainWindow):
         self.aspect_ratio = self.size_coarse_y / self.size_coarse_x
         self.x_limit = 10.0
         self.y_limit = 10.0 * self.aspect_ratio
-
-        self.x_coarse = np.linspace(0.0, self.x_limit, self.size_coarse_x)
-        self.y_coarse = np.linspace(0.0, self.y_limit, self.size_coarse_y)
 
         self.wave_frames = []
         self.initial_potential = InfiniteWellPotential(
