@@ -129,7 +129,7 @@ if args.updates_max is not None:
 if args.grid_step is not None:
     params.grid_step = args.grid_step
 params.write(str(directory / "params.json"))
-logger.info("Simulation parameters:", params)
+logger.info("Simulation parameters: %s", params)
 
 # set potential
 # TODO: maybe make separate Potential instances for this?
@@ -246,7 +246,7 @@ FRAMES_FOR_POTENTIAL = 3
 
 
 def update(frame):
-    logger.info("frame no", frame, "n", str(solver.get_steps_evolved()))
+    logger.info("frame no. %d step %d", frame, solver.get_steps_evolved())
     """0th frame is potential"""
     if frame < FRAMES_FOR_POTENTIAL:
         return (im,)
@@ -258,7 +258,6 @@ def update(frame):
         Probabilities.append(solver.get_wave_function().total_probability())
 
     new_data = solver.get_wave_function().matrix
-    new_dataP = np.float64(np.abs(solver.get_wave_function().matrix)) ** 2
     ax.set_title(
         "Evolved ("
         + str(params.solver)
@@ -330,7 +329,7 @@ else:
     else:
         plt.show()
 end = time.perf_counter()
-logger.info("time_of_execution/", float(end - start), sep="\t")
+logger.info("time_of_execution %f", float(end - start))
 
 
 # %%
