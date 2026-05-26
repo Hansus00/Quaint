@@ -64,6 +64,7 @@ class MainWindow(QMainWindow):
     x_limit: float
     y_limit: float
     wave_frames: list
+    # TODO: rename to just "potential" as it doesn't change over time
     initial_potential: Potential
     initial_wavefunc: GaussianPacket
     current_potential_array: np.ndarray
