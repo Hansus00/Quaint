@@ -130,9 +130,6 @@ class MainWindow(QMainWindow):
         self.initial_potential = InfiniteWellPotential(
             self.size_coarse_x, self.size_coarse_y
         )
-        self.initial_potential = self._coarse_potential_from_drawer(
-            self.initial_potential.matrix, self.current_wall_height
-        )
         self.initial_wavefunc = GaussianPacket(
             r0=(self.size_coarse_x // 2, self.size_coarse_y // 2),
             k0=np.array([0.0, 0.0]),
@@ -161,6 +158,9 @@ class MainWindow(QMainWindow):
 
         self._setup_ui()
         # Populate the 3D potential mesh immediately on startup to prevent NoneType crash
+        self.initial_potential = self._coarse_potential_from_drawer(
+            self.initial_potential.matrix, self.current_wall_height
+        )
         self.animation_widget.update_potential(self.initial_potential.matrix)
         self.calculate_all_frames()
 
