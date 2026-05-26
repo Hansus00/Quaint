@@ -9,6 +9,8 @@ class WellType(str, Enum):
     W_SHAPED = "w-shaped"
     INFINITE_WELL = "infiniteWell"
     MATRYOSHKA = "matryoshka"
+    SLAB = "slab"
+    DOUBLE_SLIT = "double_slit"
     NONE = "none"
 
 
@@ -27,16 +29,17 @@ class Params:
         WellType.INFINITE_WELL
     )  # TODO: maybe save entire Potential.matrix?
     well_height: float = 1e6
+    inside_wall_height: float = 1e6  # height of whatever is inside
 
     solver: SolverType = SolverType.SSFM
     r0: tuple[int, int] = field(default_factory=lambda: (64, 64))
-    k0: NDArray[np.float64] = field(default_factory=lambda: np.array([1, 0]))
+    k0: NDArray[np.float64] = field(default_factory=lambda: np.array([0.1, 0]))
     sigma0: NDArray[np.float64] = field(
         default_factory=lambda: np.array([[16, 0], [0, 16]])
     )
-    mass: float = 2e-3
-    delta_n: int = 32 # steps per update
-    delta_t: float = 1e-3 # time step per update
+    mass: float = 1e-3
+    delta_n: int = 32  # steps per update
+    delta_t: float = 1e-4  # time step per update
     grid_step: float = 1
     updates_max: int = 4  # how many updates, each one changes by delta_n
 

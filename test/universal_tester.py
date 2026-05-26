@@ -2,9 +2,11 @@
 # %%
 import sys
 from pathlib import Path
+from importlib.resources import files
 
 # to call backend module from current directory
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+if __name__ == "__main__":
+    sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import warnings
 
@@ -15,6 +17,7 @@ warnings.filterwarnings(
 from backend.Potential import (
     Potential,
     InfiniteWellPotential,
+    Slab,
     WShaped,
     EmbeddedPotential,
 )
@@ -23,6 +26,7 @@ from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
 from backend.Params import Params, WellType, SolverType
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 from datetime import datetime
 import time
 import argparse
@@ -123,12 +127,11 @@ print("Simulation parameters:", params)
 
 # set potential
 # TODO: maybe make separate Potential instances for this?
-well: Potential
+well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
 if params.well_type == WellType.INFINITE_WELL:
-    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
+    pass
 elif params.well_type == WellType.W_SHAPED:
-    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
-    ws = WShaped(params.size_x // 4, params.size_y // 4, 3, params.well_height)
+    ws = WShaped(params.size_x // 4, params.size_y // 4, 3, params.inside_wall_height)
     ws_inside_grid = EmbeddedPotential(
         params.size_x,
         params.size_y,
@@ -138,10 +141,9 @@ elif params.well_type == WellType.W_SHAPED:
     )
     well += ws_inside_grid
 elif params.well_type == WellType.MATRYOSHKA:
-    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
     inside_size = (params.size_x // 3, params.size_y // 3)
     inside_well = InfiniteWellPotential(
-        inside_size[0], inside_size[1], params.well_height
+        inside_size[0], inside_size[1], params.inside_wall_height
     )
     inside_well_resized = EmbeddedPotential(
         params.size_x,
@@ -151,19 +153,60 @@ elif params.well_type == WellType.MATRYOSHKA:
         inside_well,
     )
     well += inside_well_resized
+elif params.well_type == WellType.SLAB:
+    slab = Slab(params.size_x // 16, params.size_y, params.inside_wall_height)
+    well += EmbeddedPotential(
+        params.size_x,
+        params.size_y,
+        (params.size_x - params.size_x // 16) // 2,
+        0,
+        slab,
+    )
+elif params.well_type == WellType.DOUBLE_SLIT:
+    slab = Slab(1, params.size_y, params.inside_wall_height)
+
+    slit = Slab(1, 8, params.inside_wall_height)
+    slab -= EmbeddedPotential(
+        slab.matrix.shape[0],
+        slab.matrix.shape[1],
+        0,
+        params.size_y // 2 + 3,
+        slit,
+    )
+    slab -= EmbeddedPotential(
+        slab.matrix.shape[0],
+        slab.matrix.shape[1],
+        0,
+        params.size_y // 2 - 8 - 3,
+        slit,
+    )
+
+    well += EmbeddedPotential(
+        params.size_x,
+        params.size_y,
+        (params.size_x - params.size_x // 16) // 4,
+        0,
+        slab,
+    )
 elif params.well_type == WellType.NONE:
     well = InfiniteWellPotential(params.size_x, params.size_y, 0)
 else:
     assert False, "Potential must be specified!"
 
 # draw potential
-plt.style.use("JK_W.mplstyle")
+plt.style.use("JK_W.mplstyle")  # type: ignore
 fig, ax = plt.subplots(layout="tight")
 fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
 
 ax.set_title("Potential well")
 im = ax.imshow(
-    np.float64(well.matrix).T, aspect="auto", origin="lower"
+    np.float64(well.matrix).T,
+    aspect="auto",
+    origin="lower",
+    norm=LogNorm(
+        vmin=np.min(np.float64(well.matrix)) + 0.001,
+        vmax=np.max(np.float64(well.matrix)) + 0.01,
+    ),
 )  # transposition is needed as imshow draws (y,x)
 cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
@@ -199,14 +242,16 @@ start = time.perf_counter()
 
 
 # main simulation
+FRAMES_FOR_POTENTIAL = 3
+
+
 def update(frame):
     print("frame no", frame, "n", str(solver.get_steps_evolved()))
     """0th frame is potential"""
-    if frame < 1:
+    if frame < FRAMES_FOR_POTENTIAL:
         return (im,)
-    elif frame == 1:
-        # cbar.set_label(r"$|\psi|^2$")
-        cbar.remove()
+    elif frame == FRAMES_FOR_POTENTIAL:
+        cbar.ax.set_visible(False)
     else:
         solver.update(params.delta_n)
         Energies.append(solver.ev_energy())  # type: ignore
@@ -214,8 +259,6 @@ def update(frame):
 
     new_data = solver.get_wave_function().matrix
     new_dataP = np.float64(np.abs(solver.get_wave_function().matrix)) ** 2
-    # im.set_clim(vmin=new_dataP.min(), vmax=new_dataP.max())
-    # cbar.update_normal(im)
     ax.set_title(
         "Evolved ("
         + str(params.solver)
@@ -245,13 +288,13 @@ def update(frame):
 
 
 if args.do_not_animate:
-    for i in range(0, params.updates_max + 3):
+    for i in range(0, params.updates_max + FRAMES_FOR_POTENTIAL + 2):
         update(i)
 else:
     ani = animation.FuncAnimation(
         fig,
         update,
-        frames=range(0, params.updates_max + 3),
+        frames=range(0, params.updates_max + FRAMES_FOR_POTENTIAL + 2),
         interval=1e3 / args.fps,
         blit=False,
         repeat=False,
@@ -259,10 +302,25 @@ else:
 
     if not insideInteractive:
         try:
+            writer = animation.FFMpegWriter(
+                fps=args.fps,
+                codec="libx264",
+                extra_args=[
+                    "-pix_fmt",
+                    "yuv420p",
+                    "-profile:v",
+                    "baseline",
+                    "-level",
+                    "4.0",
+                    "-preset",
+                    "medium",
+                    "-movflags",
+                    "+faststart",
+                ],
+            )
             ani.save(
                 directory / f"gauss_evolution.mp4",
-                writer="ffmpeg",
-                fps=args.fps,
+                writer=writer,
                 dpi=300,
                 savefig_kwargs={"pad_inches": 0},
             )  # similiar as ffmpeg -framerate 2 -pattern_type glob -i "gauss_evolved_n*.png" output.mp4
