@@ -21,21 +21,23 @@ class AnimationControlsWidget(QWidget):
 
     # --- Class Fields ---
     frame_changed = pyqtSignal(int)
+    reset_camera_requested = pyqtSignal()
     open_setup_requested = pyqtSignal()
     open_settings_requested = pyqtSignal()
     toggle_potential_requested = pyqtSignal(bool)
+    stop_calculation_requested = pyqtSignal()
 
     total_frames: int
     fps: int
     timer: QTimer
     potential_visible: bool
-    play_btn: QPushButton
-    pause_btn: QPushButton
+    play_pause_btn: QPushButton
     time_label: QLabel
     slider: QSlider
     toggle_pot_btn: QPushButton
     setup_btn: QPushButton
     settings_btn: QPushButton
+    stop_calc_btn: QPushButton
 
     def __init__(
         self, total_frames: int, fps: int, parent: Optional[QWidget] = None
@@ -66,13 +68,9 @@ class AnimationControlsWidget(QWidget):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.play_btn = QPushButton("Play")
-        self.play_btn.clicked.connect(self.play)
-        layout.addWidget(self.play_btn)
-
-        self.pause_btn = QPushButton("Pause")
-        self.pause_btn.clicked.connect(self.pause)
-        layout.addWidget(self.pause_btn)
+        self.play_pause_btn = QPushButton("Play")
+        self.play_pause_btn.clicked.connect(self.toggle_play_pause)
+        layout.addWidget(self.play_pause_btn)
 
         self.time_label = QLabel("Time: 0")
         layout.addWidget(self.time_label)
@@ -81,6 +79,10 @@ class AnimationControlsWidget(QWidget):
         self.slider.setRange(0, self.total_frames - 1)
         self.slider.valueChanged.connect(self.on_slider_changed)
         layout.addWidget(self.slider)
+
+        self.reset_cam_btn = QPushButton("Reset Camera")
+        self.reset_cam_btn.clicked.connect(self.reset_camera_requested.emit)
+        layout.addWidget(self.reset_cam_btn)
 
         self.toggle_pot_btn = QPushButton("Hide Potential")
         self.toggle_pot_btn.clicked.connect(self.toggle_potential)
@@ -94,16 +96,50 @@ class AnimationControlsWidget(QWidget):
         self.settings_btn.clicked.connect(self.open_settings_requested.emit)
         layout.addWidget(self.settings_btn)
 
+        self.stop_calc_btn = QPushButton("Stop Calculation")
+        self.stop_calc_btn.clicked.connect(self.stop_calculation_requested.emit)
+        self.stop_calc_btn.setVisible(False)
+        layout.addWidget(self.stop_calc_btn)
+
+    def enter_calculating_mode(self) -> None:
+        """Disable playback controls and show the stop-calculation button."""
+        self.pause()
+        self.play_pause_btn.setEnabled(False)
+        self.slider.setEnabled(False)
+        self.toggle_pot_btn.setEnabled(False)
+        self.setup_btn.setEnabled(False)
+        self.settings_btn.setEnabled(False)
+        self.stop_calc_btn.setVisible(True)
+        self.stop_calc_btn.setEnabled(True)
+
+    def exit_calculating_mode(self) -> None:
+        """Restore normal playback controls after calculation finishes or is stopped."""
+        self.stop_calc_btn.setVisible(False)
+        self.play_pause_btn.setEnabled(True)
+        self.slider.setEnabled(True)
+        self.toggle_pot_btn.setEnabled(True)
+        self.setup_btn.setEnabled(True)
+        self.settings_btn.setEnabled(True)
+
+    def toggle_play_pause(self) -> None:
+        """Starts or pauses animation depending on current playback state."""
+        if self.timer.isActive():
+            self.pause()
+        else:
+            self.play()
+
     def play(self) -> None:
         """Starts animation playback. Resets to frame 0 if at the final frame."""
         if self.slider.value() >= self.total_frames - 1:
             self.slider.setValue(0)
         # Wait for the delay duration (in milliseconds) before emitting the second frame
         self.timer.start(1000 // self.fps)
+        self.play_pause_btn.setText("Pause")
 
     def pause(self) -> None:
         """Pauses animation playback by stopping the internal timer."""
         self.timer.stop()
+        self.play_pause_btn.setText("Play")
 
     def advance_frame(self) -> None:
         """Advances playback to the next frame or pauses if the simulation ends."""

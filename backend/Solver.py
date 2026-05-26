@@ -17,6 +17,22 @@ SAFETY_FACTOR = 0.3
 For a maximum allowed value x_max, the effective operational limit becomes:
     x_safe = SAFETY_FACTOR * x_max
 """
+assert SAFETY_FACTOR <= 1
+
+
+def _nyquist_k_max(grid_step: float) -> float:
+    """Return a safety-limited Nyquist wave number.
+
+    The theoretical Nyquist limit is reduced by ``SAFETY_FACTOR``
+    to avoid numerical artifacts near the frequency cutoff.
+
+    Args:
+        grid_step (float): Spatial discretization step.
+
+    Returns:
+        float: Maximum reliable wave number.
+    """
+    return np.pi / (grid_step) * SAFETY_FACTOR
 
 
 class _Solver:
@@ -40,7 +56,7 @@ class _Solver:
         self._wave_func = wave_func
         self.delta_t = delta_t
         self._dx, self._dy = grid_step, grid_step
-        logger.info("---------------New simulation---------------")
+        logger.info("\n\n\n---------------New simulation---------------")
         logger.info(
             "Physical size of the simulation (L_x,L_y): %s, %s",
             self.potential.matrix.shape[0] * self._dx,
@@ -60,21 +76,19 @@ class _Solver:
     def _stability_conditions(self):
         """Check whether Courant-Friedrichs-Lewy and Nyquist conditions
         are satisfied. Requires ev_energy() to work."""
-        assert SAFETY_FACTOR <= 1
 
         ev_energy = self.ev_energy()
 
         logger.info("<E> = %s", ev_energy)
         k = np.sqrt(2 * self._wave_func.mass * np.abs(ev_energy))
-        k_max = np.pi / (np.mean([self._dx, self._dy]))  # Nyquist
+        k_max = _nyquist_k_max(np.max([self._dx, self._dy]))
 
         logger.info(r"k_{max} = %s", k_max)
         logger.info(r"|k_0| = %s", np.abs(k))
-        if np.abs(k) >= k_max * SAFETY_FACTOR:
+        if np.abs(k) >= k_max:
             logger.warning(
-                "Nyquist condition (|k_0| < %s * k_{max}) is not satisfied, "
+                "Nyquist condition (|k| << k_{max}) is not satisfied, "
                 "decrease grid_step",
-                SAFETY_FACTOR,
             )
         courant_number = k / self._wave_func.mass * self.delta_t / self._dx
         logger.info(r"C = %s", courant_number)
