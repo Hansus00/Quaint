@@ -11,7 +11,6 @@ class WellType(str, Enum):
     MATRYOSHKA = "matryoshka"
     SLAB = "slab"
     DOUBLE_SLIT = "double_slit"
-    NONE = "none"
 
 
 class SolverType(str, Enum):

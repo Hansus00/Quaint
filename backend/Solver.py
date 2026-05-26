@@ -1,9 +1,10 @@
-from typing import Callable
+from typing import Callable, cast
 import logging
 import numpy as np
 from numpy.typing import NDArray
 import scipy.sparse as sp
 from scipy.sparse.linalg import factorized
+from scipy.fft import dstn, idstn
 
 from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
@@ -73,7 +74,7 @@ class _Solver:
             logger.warning(
                 "Nyquist condition (|k_0| < %s * k_{max}) is not satisfied, "
                 "decrease grid_step",
-                SAFETY_FACTOR
+                SAFETY_FACTOR,
             )
         courant_number = k / self._wave_func.mass * self.delta_t / self._dx
         logger.info(r"C = %s", courant_number)
@@ -81,15 +82,15 @@ class _Solver:
             logger.warning(
                 "Courant number should be << 1, but is %s, "
                 "decrease delta_t or increase grid_step",
-                courant_number
+                courant_number,
             )
 
     def step(self) -> None:
-        """Evolves on step of wave function after t + Delta t"""
+        """Evolves one step of wave function after t + Delta t"""
         self._steps_evolved += 1
 
     def get_steps_evolved(self) -> int:
-        """Returns number ov evolves steps"""
+        """Returns number of evolved steps"""
         return self._steps_evolved
 
     def update(self, n_step: int = 1) -> StationaryWaveFunc:
@@ -129,17 +130,13 @@ class CrankNicolson(_Solver):
         Nx, Ny = self.potential.matrix.shape
 
         self.L_2D = self._create_laplace_operator(Nx, Ny)
-        self.H = self._create_hamilton_operator(
-            self.L_2D, self._wave_func.mass
-        )
+        self.H = self._create_hamilton_operator(self.L_2D, self._wave_func.mass)
         self.A, self.B = self._create_cayley_matrices(Nx * Ny, self.H)
         self._factorized_A = factorized(
             sp.csc_matrix(self.A)
         )  # factorize once for the whole simulation
 
-        self._wave_state_1D = self._wave_func.matrix.flatten().astype(
-            np.complex128
-        )
+        self._wave_state_1D = self._wave_func.matrix.flatten().astype(np.complex128)
 
     def _create_laplace_operator(self, Nx: int, Ny: int) -> sp.spmatrix:
         # TODO: add periodic boundary conditions
@@ -161,9 +158,7 @@ class CrankNicolson(_Solver):
         # index mapping (i, j) -> i * Ny + j
         return sp.kron(D_xx, I_y) + sp.kron(I_x, D_yy)
 
-    def _create_hamilton_operator(
-        self, L_2D: sp.spmatrix, mass: float
-    ) -> sp.spmatrix:
+    def _create_hamilton_operator(self, L_2D: sp.spmatrix, mass: float) -> sp.spmatrix:
         T_matrix = -(1 / (2 * mass)) * L_2D
         V_1d = self.potential.matrix.flatten()
         V_matrix = sp.diags(V_1d, offsets=0, format="csr")
@@ -189,8 +184,7 @@ class CrankNicolson(_Solver):
         Nx, Ny = self.potential.matrix.shape
 
         self._wave_func = StationaryWaveFunc(
-            np.array(self._wave_state_1D.reshape((Nx, Ny))),
-            self._wave_func.mass
+            np.array(self._wave_state_1D.reshape((Nx, Ny))), self._wave_func.mass
         )
 
         return self._wave_func
@@ -198,13 +192,14 @@ class CrankNicolson(_Solver):
     def ev_energy(self) -> np.complex128:
         """Returns expected value of the hamiltonian.
         There may be some cases where H is not hermitian."""
-        denom = np.sum(
-            np.conjugate(self._wave_state_1D) * self._wave_state_1D
+        denom = np.sum(np.conjugate(self._wave_state_1D) * self._wave_state_1D)
+        return (
+            np.sum(
+                np.conjugate(self._wave_state_1D)
+                * (self.H @ self._wave_state_1D)  # type: ignore
+            )
+            / denom
         )
-        return np.sum(
-            np.conjugate(self._wave_state_1D)
-            * (self.H @ self._wave_state_1D)  # type: ignore
-        ) / denom
 
 
 class Constant(_Solver):
@@ -230,9 +225,7 @@ class _BaseSSFM(_Solver):
         Nx, Ny = self.potential.matrix.shape
 
         self._U_V = self._create_real_space_propagator()
-        self._U_T = self._create_momentum_propagator(
-            Nx, Ny, self._wave_func.mass
-        )
+        self._U_T = self._create_momentum_propagator(Nx, Ny, self._wave_func.mass)
 
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         raise NotImplementedError
@@ -241,8 +234,8 @@ class _BaseSSFM(_Solver):
         self, Nx: int, Ny: int, mass: float
     ) -> NDArray[np.complex128]:
         """Creates the momentum space propagator."""
-        kx = np.fft.fftfreq(Nx, d=self._dx) * 2 * np.pi
-        ky = np.fft.fftfreq(Ny, d=self._dy) * 2 * np.pi
+        kx = np.arange(1, Nx + 1) * np.pi / ((Nx + 1) * self._dx)
+        ky = np.arange(1, Ny + 1) * np.pi / ((Ny + 1) * self._dy)
         kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
 
         T = (kx2 + ky2) / (2 * mass)
@@ -250,25 +243,26 @@ class _BaseSSFM(_Solver):
 
     def ev_energy(self) -> np.complex128:
         psi = self._wave_func.matrix
-        psi_k = np.fft.fft2(psi)
+        Nx, Ny = psi.shape
 
-        shape = self._wave_func.matrix.shape
-        kx = np.fft.fftfreq(shape[0], d=self._dx) * 2 * np.pi
-        ky = np.fft.fftfreq(shape[1], d=self._dy) * 2 * np.pi
+        psi_k = dstn(psi, type=1)
+
+        kx = np.arange(1, Nx + 1) * np.pi / ((Nx + 1) * self._dx)
+        ky = np.arange(1, Ny + 1) * np.pi / ((Ny + 1) * self._dy)
         kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
-        # kinetic energy in terms of k
+
+        # kinetic energy operator in k-space
         T = (kx2 + ky2) / (2 * self._wave_func.mass)
 
-        # expected value of kinetic energy calculated in k-space
+        # expected value of kinetic energy calculated in sine-basis
         ev_T = np.sum(np.conjugate(psi_k) * T * psi_k) / np.sum(
             np.conjugate(psi_k) * psi_k
         )
 
         # expected value of potential energy calculated in x-space
-        denom_v = np.sum(np.conjugate(psi) * psi)
-        ev_V = np.sum(
-            np.conjugate(psi) * self.potential.matrix * psi
-        ) / denom_v
+        ev_V = np.sum(np.conjugate(psi) * self.potential.matrix * psi) / np.sum(
+            np.conjugate(psi) * psi
+        )
 
         return ev_T + ev_V
 
@@ -285,11 +279,12 @@ class SSFM(_BaseSSFM):
 
         psi = self._wave_func.matrix * self._U_V
 
-        psi_k = np.fft.fft2(psi)
+        psi_k = cast(NDArray[np.complex128], dstn(psi, type=1))
         psi_k *= self._U_T
-        psi = np.fft.ifft2(psi_k)
+        psi = cast(NDArray[np.complex128], idstn(psi_k, type=1))
 
-        self._wave_func = StationaryWaveFunc(psi, self._wave_func.mass)
+        prob = np.sqrt(np.sum(np.abs(psi) ** 2))
+        self._wave_func = StationaryWaveFunc(psi / prob, self._wave_func.mass)
 
 
 class SSFMSymmetric(_BaseSSFM):
@@ -304,10 +299,11 @@ class SSFMSymmetric(_BaseSSFM):
 
         psi = self._wave_func.matrix * self._U_V
 
-        psi_k = np.fft.fft2(psi)
+        psi_k = cast(NDArray[np.complex128], dstn(psi, type=1))
         psi_k *= self._U_T
-        psi = np.fft.ifft2(psi_k)
+        psi = cast(NDArray[np.complex128], idstn(psi_k, type=1))
 
         psi *= self._U_V
 
-        self._wave_func = StationaryWaveFunc(psi, self._wave_func.mass)
+        prob = np.sqrt(np.sum(np.abs(psi) ** 2))
+        self._wave_func = StationaryWaveFunc(psi / prob, self._wave_func.mass)
