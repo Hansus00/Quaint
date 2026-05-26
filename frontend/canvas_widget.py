@@ -244,7 +244,7 @@ class CanvasWidget(QWidget):
             self.width(),
             self.height(),
             Qt.AspectRatioMode.IgnoreAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
+            Qt.TransformationMode.SmoothTransformation,  # FIXME: it runs at every mouse movement
         )
         painter.drawImage(0, 0, scaled)
 

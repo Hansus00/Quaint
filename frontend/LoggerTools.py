@@ -14,14 +14,22 @@ class ColorFormatter(logging.Formatter):
     def format(self, record):
         color = self.COLORS.get(record.levelname, "")
         reset = self.COLORS["RESET"]
+        WHITE = "\033[97m"
 
-        original_msg = record.msg
-        record.msg = f"{color}{record.msg}{reset}"
+        orig_msg = record.msg
+        orig_levelname = record.levelname
+        orig_name = record.name
 
-        formatted = super().format(record)
+        try:
+            record.levelname = f"{WHITE}{record.levelname}{reset}"
+            record.name = f"{WHITE}{record.name}{reset}"
+            record.msg = f"{color}{record.msg}{reset}"
 
-        record.msg = original_msg
-        return formatted
+            return super().format(record)
+        finally:
+            record.msg = orig_msg
+            record.levelname = orig_levelname
+            record.name = orig_name
 
 
 def configLogger(level):
