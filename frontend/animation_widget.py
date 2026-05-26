@@ -264,13 +264,13 @@ class AnimationWidget(QWidget):
         """Updates the 3D potential landscape and evicts outdated cache tracking."""
         self.clear_cache()
 
-        spline = RectBivariateSpline(self.x_coarse, self.y_coarse, potential_coarse)
+        # Bilinear interpolation (piecewise-linear) to avoid cubic spline ringing
+        spline = RectBivariateSpline(
+            self.x_coarse, self.y_coarse, potential_coarse, kx=1, ky=1
+        )
         potential_fine = spline(self.x_fine, self.y_fine)
 
-        # Cubic splines undershoot near sharp walls and corners (values below 0
-        # or below the local wall height). Clip to the coarse range, then raise
-        # each fine cell to at least its source coarse cell so corner walls do
-        # not dip below the edges they meet.
+        # Clamp to the coarse range
         v_lo = float(np.min(potential_coarse))
         v_hi = float(np.max(potential_coarse))
         potential_fine = np.clip(potential_fine, v_lo, v_hi)
