@@ -1,3 +1,4 @@
+from typing import Optional
 from enum import Enum
 from dataclasses import dataclass, asdict, field
 import json
@@ -27,9 +28,11 @@ class Params:
 
     well_type: WellType = (
         WellType.INFINITE_WELL
-    )  # TODO: maybe save entire Potential.matrix?
+    )
     well_height: float = 1e6
     inside_wall_height: float = 1e6  # height of whatever is inside
+
+    potential_matrix: Optional[NDArray[np.float64]] = None
 
     solver: SolverType = SolverType.SSFM
     r0: tuple[int, int] = field(default_factory=lambda: (64, 64))
@@ -49,6 +52,14 @@ class Params:
             data["well_type"] = WellType(data["well_type"])
         if "solver" in data:
             data["solver"] = SolverType(data["solver"])
+        
+        # Convert lists back to numpy arrays
+        if "k0" in data:
+            data["k0"] = np.array(data["k0"], dtype=np.float64)
+        if "sigma0" in data:
+            data["sigma0"] = np.array(data["sigma0"], dtype=np.float64)
+        if "potential_matrix" in data and data["potential_matrix"] is not None:
+            data["potential_matrix"] = np.array(data["potential_matrix"], dtype=np.float64)
         return cls(**data)
 
     def read(self, filepath: str) -> None:

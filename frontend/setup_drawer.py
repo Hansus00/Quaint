@@ -801,9 +801,14 @@ class SetupDrawer(QDialog):
             self.simulation_menu.setCurrentText("Crank-Nicolson")
         elif p.solver == SolverType.SSFM:
             self.simulation_menu.setCurrentText("SSFM")
+        
 
         # Map WellType back to dropdown presets
-        if p.well_type == WellType.W_SHAPED:
+        if p.potential_matrix is not None:
+            # Custom matrix loading
+            self.preset_menu.setCurrentText("Custom / Clear")
+            self._restore_canvas(p.potential_matrix)
+        elif p.well_type == WellType.W_SHAPED:
             self.preset_menu.setCurrentText("W-shape")
             self.load_preset_potential("W-shape")
         elif p.well_type == WellType.MATRYOSHKA:
@@ -891,5 +896,19 @@ class SetupDrawer(QDialog):
         else:
             p.r0 = (p.size_x // 2, p.size_y // 2)
             p.k0 = np.array([0.0, 0.0], dtype=np.float64)
+        
+
+        img_at_grid = self.canvas.image
+
+        gray_img = img_at_grid.convertToFormat(QImage.Format.Format_Grayscale8)
+        width, height = gray_img.width(), gray_img.height()
+        bpl = gray_img.bytesPerLine()
+        buffer = gray_img.constBits().asarray(height * bpl)
+
+        arr = np.frombuffer(bytes(buffer), dtype=np.uint8).reshape((height, bpl)).copy()
+        arr = arr[:, :width]
+        potential = (255 - arr) / 255.0 * p.well_height
+        
+        p.potential_matrix = potential.T
 
         p.write(file_path)
