@@ -259,7 +259,7 @@ class _BaseSSFM(_Solver):
             np.conjugate(psi_k) * psi_k
         )
 
-        # expected value of potential enrgy calculated in x-space
+        # expected value of potential energy calculated in x-space
         ev_V = np.sum(np.conjugate(psi) * self.potential.matrix * psi) / np.sum(
             np.conjugate(psi) * psi
         )
