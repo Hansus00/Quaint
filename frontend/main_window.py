@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
 
         self.wave_frames = []
         self.initial_potential = InfiniteWellPotential(
-            self.size_coarse_x, self.size_coarse_y, wall_value=self.current_wall_height
+            self.size_coarse_x, self.size_coarse_y
         )
         self.initial_wavefunc = GaussianPacket(
             r0=(self.size_coarse_x // 2, self.size_coarse_y // 2),
@@ -206,10 +206,10 @@ class MainWindow(QMainWindow):
             simulation = SSFM(potential, wavefunc, delta_t)
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
-        
+
         # TODO: fix typing (_Solver has no field stability_warnings)
         simulation.stability_warnings = capture_handler.captured_warnings
-        
+
         solver_logger.removeHandler(capture_handler)
         return simulation
 
@@ -304,14 +304,14 @@ class MainWindow(QMainWindow):
             sim = self.simulation
             total_frames = self.total_frames
             steps_per_frame = self.current_steps_per_frame
-        
-        if hasattr(sim, 'stability_warnings') and sim.stability_warnings:
+
+        if hasattr(sim, "stability_warnings") and sim.stability_warnings:
             warning_text = "\n\n".join(sim.stability_warnings)
             QMessageBox.warning(
                 self,
                 "Simulation Stability Warning",
                 f"The physical parameters might cause the simulation to become unstable "
-                f"or mathematically inaccurate:\n\n{warning_text}"
+                f"or mathematically inaccurate:\n\n{warning_text}",
             )
             return
 
