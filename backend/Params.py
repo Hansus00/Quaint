@@ -18,6 +18,7 @@ class SolverType(str, Enum):
     CN = "cn"
     SSFM = "ssfm"
     SYM_SSFM = "sym_ssfm"
+    ANALYTIC_GAUSSIAN = "analytic_gaussian"
 
 
 @dataclass

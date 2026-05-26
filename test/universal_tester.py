@@ -24,6 +24,7 @@ from backend.Potential import (
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
 from backend.Params import Params, WellType, SolverType
+from backend.Analytic import GaussianPacketSolver
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -227,6 +228,9 @@ elif params.solver == SolverType.SSFM:
     solver = SSFM(well, gauss, params.delta_t, params.grid_step)
 elif params.solver == SolverType.SYM_SSFM:
     solver = SSFMSymmetric(well, gauss, params.delta_t, args.grid_step)
+elif params.solver == SolverType.ANALYTICAL_GAUSSIAN:
+    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
+    raise NotImplementedError
 else:
     assert False, "Solver must be specified!"
 
