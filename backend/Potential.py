@@ -19,7 +19,7 @@ class Potential:
 
 
 class InfiniteWellPotential(Potential):
-    def __init__(self, size_x: int, size_y: int, wall_value: float = 100):
+    def __init__(self, size_x: int, size_y: int):
         """
         Uniform zero potential on the simulation domain.
 

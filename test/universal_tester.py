@@ -128,7 +128,7 @@ print("Simulation parameters:", params)
 
 # set potential
 # TODO: maybe make separate Potential instances for this?
-well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
+well = InfiniteWellPotential(params.size_x, params.size_y)
 if params.well_type == WellType.INFINITE_WELL:
     pass
 elif params.well_type == WellType.W_SHAPED:
@@ -143,9 +143,7 @@ elif params.well_type == WellType.W_SHAPED:
     well += ws_inside_grid
 elif params.well_type == WellType.MATRYOSHKA:
     inside_size = (params.size_x // 3, params.size_y // 3)
-    inside_well = InfiniteWellPotential(
-        inside_size[0], inside_size[1], params.inside_wall_height
-    )
+    inside_well = InfiniteWellPotential(inside_size[0], inside_size[1])
     inside_well_resized = EmbeddedPotential(
         params.size_x,
         params.size_y,
@@ -189,8 +187,6 @@ elif params.well_type == WellType.DOUBLE_SLIT:
         0,
         slab,
     )
-elif params.well_type == WellType.NONE:
-    well = InfiniteWellPotential(params.size_x, params.size_y, 0)
 else:
     assert False, "Potential must be specified!"
 
@@ -235,7 +231,7 @@ elif params.solver == SolverType.SSFM:
 elif params.solver == SolverType.SYM_SSFM:
     solver = SSFMSymmetric(well, gauss, params.delta_t, args.grid_step)
 elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
-    well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
+    well = InfiniteWellPotential(params.size_x, params.size_y)
     raise NotImplementedError
 else:
     assert False, "Solver must be specified!"
