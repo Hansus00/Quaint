@@ -24,6 +24,7 @@ from backend.Potential import (
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
 from backend.Params import Params, WellType, SolverType
+from backend.Analytic import GaussianPacketSolver
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -133,7 +134,7 @@ logger.info("Simulation parameters: %s", params)
 
 # set potential
 # TODO: maybe make separate Potential instances for this?
-well = InfiniteWellPotential(params.size_x, params.size_y, params.well_height)
+well = InfiniteWellPotential(params.size_x, params.size_y)
 if params.well_type == WellType.INFINITE_WELL:
     pass
 elif params.well_type == WellType.W_SHAPED:
@@ -148,9 +149,7 @@ elif params.well_type == WellType.W_SHAPED:
     well += ws_inside_grid
 elif params.well_type == WellType.MATRYOSHKA:
     inside_size = (params.size_x // 3, params.size_y // 3)
-    inside_well = InfiniteWellPotential(
-        inside_size[0], inside_size[1], params.inside_wall_height
-    )
+    inside_well = InfiniteWellPotential(inside_size[0], inside_size[1])
     inside_well_resized = EmbeddedPotential(
         params.size_x,
         params.size_y,
@@ -194,8 +193,6 @@ elif params.well_type == WellType.DOUBLE_SLIT:
         0,
         slab,
     )
-elif params.well_type == WellType.NONE:
-    well = InfiniteWellPotential(params.size_x, params.size_y, 0)
 else:
     assert False, "Potential must be specified!"
 
@@ -206,7 +203,13 @@ fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=None, hspace=None)
 
 ax.set_title("Potential well")
 im = ax.imshow(
-    np.float64(well.matrix).T, aspect="auto", origin="lower", norm=LogNorm()
+    np.float64(well.matrix).T,
+    aspect="auto",
+    origin="lower",
+    norm=LogNorm(
+        vmin=np.min(np.float64(well.matrix)) + 0.001,
+        vmax=np.max(np.float64(well.matrix)) + 0.01,
+    ),
 )  # transposition is needed as imshow draws (y,x)
 cbar = plt.colorbar(im)
 cbar.set_label(r"$V(x,y)$")
@@ -233,6 +236,9 @@ elif params.solver == SolverType.SSFM:
     solver = SSFM(well, gauss, params.delta_t, params.grid_step)
 elif params.solver == SolverType.SYM_SSFM:
     solver = SSFMSymmetric(well, gauss, params.delta_t, args.grid_step)
+elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
+    well = InfiniteWellPotential(params.size_x, params.size_y)
+    raise NotImplementedError
 else:
     assert False, "Solver must be specified!"
 
