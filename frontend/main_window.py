@@ -43,6 +43,9 @@ class AnimationSetup:
     x_limit: float
     y_limit: float
     grid_step: float
+    # Solver instance built by SetupDrawer for the stability check; if not
+    # None the main window reuses it instead of rebuilding from scratch.
+    prebuilt_solver: Optional[Any] = None
 
 
 class MainWindow(QMainWindow):
@@ -298,7 +301,14 @@ class MainWindow(QMainWindow):
         self._calculation_cancelled = False
 
         if self._pending_setup is not None:
-            sim = self._simulation_from_pending(self._pending_setup)
+            # SetupDrawer already constructed and stability-checked the solver
+            # for us, so reuse it directly. For Crank-Nicolson on big grids
+            # this saves a second sparse LU factorization (>seconds of hang
+            # between dialog close and worker start).
+            if self._pending_setup.prebuilt_solver is not None:
+                sim = self._pending_setup.prebuilt_solver
+            else:
+                sim = self._simulation_from_pending(self._pending_setup)
             total_frames = self._pending_setup.total_frames
             steps_per_frame = self._pending_setup.steps_per_frame
         else:
@@ -524,11 +534,15 @@ class MainWindow(QMainWindow):
         x_limit: float,
         y_limit: float,
         grid_step: float,
+        prebuilt_solver: Optional[Any] = None,
     ) -> None:
         """
         Applies physics configuration, rebuilds the internal arrays if resolution changes,
         and triggers a complete simulation recalculation.
         Committed state is updated only after the calculation finishes successfully.
+
+        ``prebuilt_solver`` is the solver already constructed by ``SetupDrawer``
+        for its stability check; reusing it avoids a second expensive build on large grids.
         """
         logger.info("Received setup:")
         logger.info(f"k0: {k0}")
@@ -540,10 +554,10 @@ class MainWindow(QMainWindow):
         r0_int: tuple[int, int] = (int(r0[0]), int(r0[1]))
 
         self._pending_setup = AnimationSetup(
-            potential_array=potential_array.copy(),
+            potential_array=potential_array,
             r0=r0_int,
-            k0=k0.copy(),
-            sigma_matrix=sigma_matrix.copy(),
+            k0=k0,
+            sigma_matrix=sigma_matrix,
             mass=mass,
             total_frames=total_frames,
             size_x=size_x,
@@ -555,6 +569,7 @@ class MainWindow(QMainWindow):
             x_limit=x_limit,
             y_limit=y_limit,
             grid_step=grid_step,
+            prebuilt_solver=prebuilt_solver,
         )
 
         self.calculate_all_frames()

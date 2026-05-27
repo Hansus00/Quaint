@@ -63,7 +63,11 @@ class SetupDrawer(QDialog):
     # Emits: (method_name)
     simulation_changed = pyqtSignal(str)
 
-    # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, total_frames, size_x, size_y, delta_t, steps_per_frame, wall_height, x_limit, y_limit, grid_step)
+    # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, total_frames,
+    #         size_x, size_y, delta_t, steps_per_frame, wall_height,
+    #         x_limit, y_limit, grid_step, prebuilt_solver)
+    # The prebuilt solver was already constructed for the stability check, so
+    # forwarding it lets the main window skip a second expensive build.
     setup_saved = pyqtSignal(
         np.ndarray,
         np.ndarray,
@@ -79,6 +83,7 @@ class SetupDrawer(QDialog):
         float,
         float,
         float,
+        object,
     )
 
     current_frames: int
@@ -803,7 +808,8 @@ class SetupDrawer(QDialog):
             self.save_btn.setEnabled(True)
             return
 
-        # Emit all parameters to the main window
+        # Emit all parameters to the main window, including the solver we
+        # just built for the stability check so it does not need rebuilding.
         self.setup_saved.emit(
             potential,
             r0,
@@ -819,6 +825,7 @@ class SetupDrawer(QDialog):
             new_x_limit,
             new_y_limit,
             grid_step,
+            simulation,
         )
         self.accept()
 
