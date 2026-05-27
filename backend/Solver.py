@@ -215,11 +215,6 @@ class CrankNicolson(_Solver):
             / denom
         )
 
-
-class Constant(_Solver):
-    pass
-
-
 class _BaseSSFM(_Solver):
     """Base class for Split-Step Fourier Methods."""
 
