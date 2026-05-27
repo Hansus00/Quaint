@@ -10,8 +10,8 @@ from backend.StationaryWaveFunc import GaussianPacket
 from .warning_handler import WarningCaptureHandler
 
 # Single place controlling frontend wave-frame precision.
-waveFrameType = np.complex64
-WaveFrameArray: TypeAlias = NDArray[np.complexfloating[Any, Any]]
+waveFrameType: TypeAlias = np.complex64
+WaveFrameArray: TypeAlias = NDArray[waveFrameType]
 
 
 def cast_wave_frame(frame: np.ndarray) -> WaveFrameArray:
