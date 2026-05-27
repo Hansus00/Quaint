@@ -23,7 +23,7 @@ from backend.Potential import (
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
 from backend.Params import Params, WellType, SolverType
-from backend.Analytic import GaussianPacketSolver, InfiniteWellBasisSolver
+from backend.Analytic import FreeGaussianSolver, InfiniteWellBasisSolver
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
