@@ -107,6 +107,10 @@ class _Solver:
         """Returns number of evolved steps"""
         return self._steps_evolved
 
+    def get_time_evolved(self) -> float:
+        """Returns time evolved inside simulation at a given moment"""
+        return self._steps_evolved * self.delta_t
+
     def update(self, n_step: int = 1) -> StationaryWaveFunc:
         """Returns evolved n steps of wave function after t + n * dt"""
         for i in range(0, n_step):
