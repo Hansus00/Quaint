@@ -6,12 +6,17 @@ from numpy.typing import NDArray
 import numpy as np
 
 
-class WellType(str, Enum):
+class PotentialType(str, Enum):
+    """
+    Use premade potential or custom
+    """
+
+    INFINITE_WELL = "infiniteWell"  # default, every potential is inside it
     W_SHAPED = "w-shaped"
-    INFINITE_WELL = "infiniteWell"
     MATRYOSHKA = "matryoshka"
     SLAB = "slab"
     DOUBLE_SLIT = "double_slit"
+    CUSTOM = "custom"
 
 
 class SolverType(str, Enum):
@@ -23,35 +28,35 @@ class SolverType(str, Enum):
 
 @dataclass
 class Params:
+    """
+    length_i = N_i * grid_step, where N_i is grid size
+    """
 
-    x_limit: float = 52.0
-    y_limit: float = 52.0
+    length_x: float = 64.0
+    length_y: float = 64.0
     grid_step: float = 0.8125
 
-    size_x: int = 64
-    size_y: int = 64
-
-    well_type: WellType = WellType.INFINITE_WELL
-    well_height: float = 1e6
-    inside_wall_height: float = 1e6  # height of whatever is inside
-
-    potential_matrix: Optional[NDArray[np.float64]] = None
-
     solver: SolverType = SolverType.SSFM
-    r0: tuple[int, int] = field(default_factory=lambda: (32, 32))
+
+    r0: tuple[float, float] = field(default_factory=lambda: (32.0, 32.0))
     k0: NDArray[np.float64] = field(default_factory=lambda: np.array([0.1, 0]))
     sigma0: NDArray[np.float64] = field(
         default_factory=lambda: np.array([[16, 0], [0, 16]])
     )
     mass: float = 1e-3
-    delta_n: int = 32  # steps per update
-    delta_t: float = 1e-4  # time step per update
-    updates_max: int = 8  # how many updates, each one changes by delta_n
+    delta_t: float = 1e-4
+    T_tot: float = 5
+
+    potential_type: PotentialType = PotentialType.INFINITE_WELL
+    well_height: float = 1e6
+    potential_matrix: Optional[NDArray[np.float64]] = (
+        None  # should be the last parameter, as it it the biggest
+    )
 
     @classmethod
     def _from_dict(cls, data: dict):
-        if "well_type" in data:
-            data["well_type"] = WellType(data["well_type"])
+        if "potential_type" in data:
+            data["potential_type"] = PotentialType(data["potential_type"])
         if "solver" in data:
             data["solver"] = SolverType(data["solver"])
 
@@ -75,6 +80,7 @@ class Params:
 
     def write(self, filepath: str) -> None:
         """Write simulation parameters into file located at filepath"""
+        self.potential_type = PotentialType.CUSTOM  # as it has been changed by user
         p_dict = asdict(self, dict_factory=_enum_dict_factory)
         with open(filepath, "w") as f:
             json.dump(p_dict, f, indent=4)
