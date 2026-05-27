@@ -1,5 +1,8 @@
 from numpy.typing import NDArray
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class StationaryWaveFunc:
@@ -13,11 +16,12 @@ class StationaryWaveFunc:
     ):
         self.matrix = matrix
         self.mass = mass
+
     def total_probability(self) -> float:
         """Returns total probability.
-           Calculated as integral of |Psi|^2.
-           Should be 1 for normalized wfs."""
-        return np.sum(np.abs(self.matrix)**2)
+        Calculated as integral of |Psi|^2.
+        Should be 1 for normalized wfs."""
+        return np.sum(np.abs(self.matrix) ** 2)
 
 
 class GaussianPacket(StationaryWaveFunc):
@@ -39,6 +43,24 @@ class GaussianPacket(StationaryWaveFunc):
         dy = y - r0[1]
 
         dr = np.stack([dx, dy])
+
+        eigvals = np.linalg.eigvalsh(sigma0)
+        signature = (
+            np.sum(eigvals > 0),
+            np.sum(eigvals < 0),
+            np.sum(np.isclose(eigvals, 0)),
+        )
+        if np.linalg.det(sigma0) == 0:
+            logger.critical(
+                "sigma0 matrix is a singular matrix, cannot create Gaussian packet"
+            )
+            return
+
+        if signature != (2, 0, 0):
+            logger.critical(
+                "sigma0 matrix is not a positive definit, cannot create Gaussian packet"
+            )
+            return
 
         matrix = np.exp(
             1j * np.einsum("i,ijk->jk", k0, dr)
