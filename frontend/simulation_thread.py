@@ -65,7 +65,9 @@ class SimulationThread(QThread):
             for _ in range(self.steps_per_frame):
                 self.simulation.step()
 
-            wave_frames.append(cast_wave_frame(self.simulation.get_wave_function().matrix))
+            wave_frames.append(
+                cast_wave_frame(self.simulation.get_wave_function().matrix)
+            )
 
         if self._cancel_requested:
             self.calculation_cancelled.emit()
