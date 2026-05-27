@@ -21,7 +21,7 @@ class _AnalyticSolver(_Solver):
         self,
         potential: Potential,
         wave_func: Callable,
-        grid_size: float,
+        grid_size: int,
         mass: float,
         delta_t: float = 0.001,
         grid_step: float = 1,
@@ -31,11 +31,8 @@ class _AnalyticSolver(_Solver):
         self._wave_lambda = wave_func
         self._potential = potential
 
-        self._pos_1d = np.linspace(0, grid_size, grid_size // grid_step)
+        self._pos_1d = np.linspace(0, (grid_size * grid_step), (grid_size))
         self._grid = np.meshgrid(self._pos_1d, self._pos_1d, indexing="ij")
-
-    def _stability_conditions(self):
-        pass  # assumes correct solution
 
     def update(self, n_step=1):
         self._steps_evolved += n_step
@@ -188,7 +185,7 @@ class GaussianInWellSolver(_AnalyticSolver):
         norm = np.sqrt(np.sum(np.abs(wave_func(0)) ** 2))
 
         wave_func = lambda t: np.outer(psi_1d(0, t), psi_1d(1, t)) / norm
-        
+
         super().__init__(
             InfiniteWellPotential, wave_func, grid_size, mass, delta_t, grid_step
         )

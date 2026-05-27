@@ -15,7 +15,6 @@ warnings.filterwarnings(
     message="Unable to import Axes3D.*",
 )
 from backend.Potential import (
-    Potential,
     InfiniteWellPotential,
     Slab,
     WShaped,
@@ -24,7 +23,11 @@ from backend.Potential import (
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
 from backend.Params import Params, WellType, SolverType
-from backend.Analytic import GaussianPacketSolver
+from backend.Analytic import (
+    GaussianInWellSolver,
+    GaussianPacketSolver,
+    InfiniteWellSolver,
+)
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -236,10 +239,18 @@ elif params.solver == SolverType.SSFM:
     solver = SSFM(well, gauss, params.delta_t, params.grid_step)
 elif params.solver == SolverType.SYM_SSFM:
     solver = SSFMSymmetric(well, gauss, params.delta_t, params.grid_step)
-elif (
-    params.solver == SolverType.ANALYTIC_GAUSSIAN
-):  # TODO: check this branch for error and inconsistencies
+elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
     solver = GaussianPacketSolver(
+        params.k0,
+        params.r0,
+        params.sigma0,
+        params.size_x,
+        params.mass,
+        params.delta_t,
+        params.grid_step,
+    )
+elif params.solver == SolverType.ANAL_INF_WELL_GAUSS:
+    solver = GaussianInWellSolver(
         params.k0,
         params.r0,
         params.sigma0,
