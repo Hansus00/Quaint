@@ -8,7 +8,7 @@ from typing import Any, Optional
 import numpy as np
 from backend.Params import Params, SolverType
 from backend.Potential import InfiniteWellPotential, Potential
-from backend.Solver import SSFM, SSFMSymmetric, Constant, CrankNicolson
+from backend.Solver import SSFM, SSFMSymmetric, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QMessageBox
@@ -242,7 +242,7 @@ class MainWindow(QMainWindow):
         potential = self._coarse_potential_from_drawer(
             pending.potential_array, pending.wall_height
         )
-        
+
         # Convert AnimationSetup names to match SolverType if needed
         method_map = {
             "Crank-Nicolson": SolverType.CN,
