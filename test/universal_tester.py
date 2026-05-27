@@ -114,8 +114,12 @@ if args.do_not_animate:
 
 # create directory for simulation data
 now = str(datetime.now()).replace(":", "-").replace(" ", "_")
-base_dir = Path("pic") if args.out is None else Path(args.out)
-directory = base_dir / str(now)
+directory = ""
+if args.out is None:
+    base_dir = Path("pic")
+    directory = base_dir / str(now)
+else:
+    directory = Path(args.out)
 assert not directory.exists(), "Cannot override directory!"
 directory.mkdir(parents=True, exist_ok=False)
 
@@ -246,9 +250,7 @@ elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
         params.grid_step,
     )
 elif params.solver == SolverType.ANAL_INF_WELL_GAUSS:
-    solver = InfiniteWellBasisSolver(
-        gauss, params.size_x, params.size_y, params.delta_t, params.grid_step
-    )
+    solver = InfiniteWellBasisSolver(gauss, 100, 100, params.delta_t, params.grid_step)
 else:
     assert False, "Solver must be specified!"
 
