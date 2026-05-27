@@ -8,7 +8,7 @@ from typing import Any, Optional
 import numpy as np
 from backend.Params import Params, SolverType
 from backend.Potential import InfiniteWellPotential, Potential
-from backend.Solver import SSFM, SSFMSymmetric, Constant, CrankNicolson
+from backend.Solver import SSFM, SSFMSymmetric, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QMessageBox
@@ -220,9 +220,7 @@ class MainWindow(QMainWindow):
         solver_logger = logging.getLogger("backend.Solver")
         solver_logger.addHandler(capture_handler)
 
-        if params.solver == SolverType.CONSTANT:
-            simulation = Constant(potential, wavefunc, params)
-        elif params.solver == SolverType.CN:
+        if params.solver == SolverType.CN:
             simulation = CrankNicolson(potential, wavefunc, params)
         elif params.solver == SolverType.SSFM:
             simulation = SSFM(potential, wavefunc, params)
@@ -242,13 +240,12 @@ class MainWindow(QMainWindow):
         potential = self._coarse_potential_from_drawer(
             pending.potential_array, pending.wall_height
         )
-        
+
         # Convert AnimationSetup names to match SolverType if needed
         method_map = {
             "Crank-Nicolson": SolverType.CN,
             "SSFM": SolverType.SSFM,
             "Symmetric SSFM": SolverType.SYM_SSFM,
-            "Constant": SolverType.CONSTANT,
         }
         solver_type = method_map.get(pending.method, SolverType.SSFM)
 
@@ -637,7 +634,6 @@ class MainWindow(QMainWindow):
             "Crank-Nicolson": SolverType.CN,
             "SSFM": SolverType.SSFM,
             "Symmetric SSFM": SolverType.SYM_SSFM,
-            "Constant": SolverType.CONSTANT,
         }
         solver_type = method_map.get(method_name, SolverType.SSFM)
 
