@@ -288,7 +288,7 @@ class SetupDrawer(QDialog):
         sim_form = QFormLayout()
 
         self.simulation_menu = QComboBox()
-        self.simulation_menu.addItems(["Crank-Nicolson", "SSFM", "Constant"])
+        self.simulation_menu.addItems(["Crank-Nicolson", "SSFM", "Symmetric SSFM"])
         self.simulation_menu.setCurrentText(self.initial_method)
         self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
 
@@ -928,8 +928,10 @@ class SetupDrawer(QDialog):
         solver_text = self.simulation_menu.currentText()
         if solver_text == "Crank-Nicolson":
             p.solver = SolverType.CN
-        elif solver_text == "SSFM" or solver_text == "Constant":
+        elif solver_text == "SSFM":
             p.solver = SolverType.SSFM
+        elif solver_text == "Symmetric SSFM":
+            p.solver = SolverType.SYM_SSFM
 
         preset_text = self.preset_menu.currentText()
         if preset_text == "W-shape":

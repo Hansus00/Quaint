@@ -4,6 +4,7 @@
 
 from typing import Any
 from PyQt6.QtCore import QThread, pyqtSignal
+from backend.Solver import _Solver
 
 from .simulation_builders import WaveFrameArray, cast_wave_frame
 
@@ -26,13 +27,13 @@ class SimulationThread(QThread):
     _cancel_requested: bool
 
     def __init__(
-        self, simulation_instance: Any, total_frames: int, steps_per_frame: int = 30
+        self, simulation_instance: _Solver, total_frames: int, steps_per_frame: int = 30
     ) -> None:
         """
         Initializes the calculation worker thread.
 
         Args:
-            simulation_instance (Any): The initialized backend solver (e.g., CrankNicolson, Constant).
+            simulation_instance (_Solver): The initialized backend solver (e.g. CrankNicolson).
             total_frames (int): The total number of simulation steps to pre-calculate.
             steps_per_frame (int): Physics sub-steps to calculate per single animation frame.
         """

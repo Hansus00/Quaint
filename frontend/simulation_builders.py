@@ -4,7 +4,7 @@ from typing import Any, TypeAlias
 import numpy as np
 from numpy.typing import NDArray
 from backend.Potential import Potential
-from backend.Solver import SSFM, Constant, CrankNicolson
+from backend.Solver import SSFM, CrankNicolson, SSFMSymmetric
 from backend.StationaryWaveFunc import GaussianPacket
 
 from .warning_handler import WarningCaptureHandler
@@ -48,14 +48,16 @@ def instantiate_solver_with_warnings(
     solver_logger = logging.getLogger("backend.Solver")
     solver_logger.addHandler(capture_handler)
     try:
-        if method_name == "Constant":
-            simulation = Constant(potential, wavefunc, delta_t, grid_step=grid_step)
-        elif method_name == "Crank-Nicolson":
+        if method_name == "Crank-Nicolson":
             simulation = CrankNicolson(
                 potential, wavefunc, delta_t, grid_step=grid_step
             )
         elif method_name == "SSFM":
             simulation = SSFM(potential, wavefunc, delta_t, grid_step=grid_step)
+        elif method_name == "Symmetric SSFM":
+            simulation = SSFMSymmetric(
+                potential, wavefunc, delta_t, grid_step=grid_step
+            )
         else:
             raise ValueError(f"Unknown simulation method: {method_name}")
     finally:
