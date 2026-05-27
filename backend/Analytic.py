@@ -241,7 +241,7 @@ class InfiniteWellBasisSolver(_Solver):
 
         self._energyspace = np.add.outer(energy1dx, energy1dy)
 
-        self._wave_func = lambda t: np.einsum(
+        self._wave_lambda = lambda t: np.einsum(
             "ij,ijkl->kl",
             self._coeffs * np.exp(-1j * self._energyspace * t),
             self._basis,
