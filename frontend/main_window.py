@@ -424,6 +424,7 @@ class MainWindow(QMainWindow):
 
         # Updating the simulation
         self.animation_widget.update_potential(self.initial_potential.matrix)
+        self.animation_widget.reset_camera()
         self.update_simulation(self.controls.slider.value())
 
     def _raise_auxiliary_window(self, window: QWidget) -> None:
