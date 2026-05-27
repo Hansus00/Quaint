@@ -34,7 +34,7 @@ from PyQt6.QtWidgets import (
     QScrollArea,
 )
 
-from backend.Params import Params, SolverType, WellType
+from backend.Params import Params, SolverType, PotentialType
 from .canvas_widget import CanvasWidget, AspectRatioContainer
 
 # Conversion factor between an arrow's grid-cell displacement and the physical
@@ -838,15 +838,15 @@ class SetupDrawer(QDialog):
         elif p.solver == SolverType.SSFM:
             self.simulation_menu.setCurrentText("SSFM")
 
-        # Map WellType back to dropdown presets
+        # Map PotentialType back to dropdown presets
         if p.potential_matrix is not None:
             # Custom matrix loading
             self.preset_menu.setCurrentText("Custom / Clear")
             self._restore_canvas(p.potential_matrix)
-        elif p.well_type == WellType.W_SHAPED:
+        elif p.well_type == PotentialType.W_SHAPED:
             self.preset_menu.setCurrentText("W-shape")
             self.load_preset_potential("W-shape")
-        elif p.well_type == WellType.MATRYOSHKA:
+        elif p.well_type == PotentialType.MATRYOSHKA:
             self.preset_menu.setCurrentText("Matryoshka")
             self.load_preset_potential("Matryoshka")
         else:
@@ -907,11 +907,11 @@ class SetupDrawer(QDialog):
 
         preset_text = self.preset_menu.currentText()
         if preset_text == "W-shape":
-            p.well_type = WellType.W_SHAPED
+            p.well_type = PotentialType.W_SHAPED
         elif preset_text == "Matryoshka":
-            p.well_type = WellType.MATRYOSHKA
+            p.well_type = PotentialType.MATRYOSHKA
         else:
-            p.well_type = WellType.INFINITE_WELL
+            p.well_type = PotentialType.INFINITE_WELL
 
         if self.canvas.r0_grid is not None and self.canvas.k0_tip_grid is not None:
             # Match the wavepacket to the requested grid resolution if it changed.

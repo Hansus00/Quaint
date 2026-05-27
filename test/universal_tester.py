@@ -218,24 +218,22 @@ ax.set_ylabel("y")
 
 # set and draw psi(0)
 gauss = GaussianPacket(
-    params.r0,
-    params.k0,
-    params.sigma0,
-    params.mass,
+    params.r0_grid,
+    params.k0_grid,
+    params.sigma0_grid,
     *well.matrix.shape,
 )  # TODO: Test Airy wave train #33
-
 
 # %%
 # run test
 # %matplotlib widget
 solver: _Solver
 if params.solver == SolverType.CN:
-    solver = CrankNicolson(well, gauss, params.delta_t, params.grid_step)
+    solver = CrankNicolson(well, gauss, params)
 elif params.solver == SolverType.SSFM:
-    solver = SSFM(well, gauss, params.delta_t, params.grid_step)
+    solver = SSFM(well, gauss, params)
 elif params.solver == SolverType.SYM_SSFM:
-    solver = SSFMSymmetric(well, gauss, params.delta_t, args.grid_step)
+    solver = SSFMSymmetric(well, gauss, params)
 elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
     well = InfiniteWellPotential(params.size_x, params.size_y)
     raise NotImplementedError

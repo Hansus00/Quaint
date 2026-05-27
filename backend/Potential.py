@@ -36,7 +36,7 @@ class GaussianBumpPotential(Potential):
         self,
         size_x: int,
         size_y: int,
-        r0: tuple[int, int],
+        r0: Tuple[int, int],
         V0: float,
         sigma0: NDArray[np.float64],
     ):
@@ -59,7 +59,7 @@ class GaussianBumpPotential(Potential):
 
 
 class HarmonicPotential(Potential):
-    def __init__(self, size_x: int, size_y: int, k: float, r0: tuple[int, int]):
+    def __init__(self, size_x: int, size_y: int, k: float, r0: Tuple[int, int]):
         """Quadratic potential with minimum at r0 and strength constant k."""
         _x = np.arange(size_x)
         _y = np.arange(size_y)

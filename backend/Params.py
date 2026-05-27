@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 from enum import Enum
 from dataclasses import dataclass, asdict, field
 import json
@@ -24,6 +24,7 @@ class SolverType(str, Enum):
     SSFM = "ssfm"
     SYM_SSFM = "sym_ssfm"
     ANALYTIC_GAUSSIAN = "analytic_gaussian"
+    CONSTANT = "constant"
 
 
 @dataclass
@@ -38,7 +39,7 @@ class Params:
 
     solver: SolverType = SolverType.SSFM
 
-    r0: tuple[float, float] = field(default_factory=lambda: (32.0, 32.0))
+    r0: Tuple[float, float] = field(default_factory=lambda: (32.0, 32.0))
     k0: NDArray[np.float64] = field(default_factory=lambda: np.array([0.1, 0]))
     sigma0: NDArray[np.float64] = field(
         default_factory=lambda: np.array([[16, 0], [0, 16]])
@@ -52,6 +53,39 @@ class Params:
     potential_matrix: Optional[NDArray[np.float64]] = (
         None  # should be the last parameter, as it it the biggest
     )
+
+
+    @property
+    def grid_size_x(self) -> int:
+        return int(self.length_x / self.grid_step)
+
+    @property
+    def grid_size_y(self) -> int:
+        return int(self.length_y / self.grid_step)
+
+    @property
+    def dx(self) -> float:
+        return self.grid_step
+
+    @property
+    def dy(self) -> float:
+        return self.grid_step
+
+    @property
+    def r0_grid(self) -> Tuple[int, int]:
+        return (int(self.r0[0] / self.grid_step), int(self.r0[1] / self.grid_step))
+
+    @property
+    def sigma0_grid(self) -> NDArray[np.float64]:
+        return self.sigma0 / (self.grid_step**2)
+
+    @property
+    def k0_grid(self) -> NDArray[np.float64]:
+        return self.k0 * self.grid_step
+
+    @property
+    def n_steps(self) -> int:
+        return int(self.T_tot / self.delta_t)
 
     @classmethod
     def _from_dict(cls, data: dict):

@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
+from backend.Params import Params, SolverType
 from backend.Potential import InfiniteWellPotential, Potential
-from backend.Solver import SSFM, Constant, CrankNicolson
+from backend.Solver import SSFM, SSFMSymmetric, Constant, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QMessageBox
@@ -135,7 +136,6 @@ class MainWindow(QMainWindow):
             r0=(self.size_coarse_x // 2, self.size_coarse_y // 2),
             k0=np.array([0.0, 0.0]),
             sigma0=np.array([[4.0, 0.0], [0.0, 4.0]]),
-            mass=1.0,
             size_x=self.size_coarse_x,
             size_y=self.size_coarse_y,
         )
@@ -211,27 +211,25 @@ class MainWindow(QMainWindow):
 
     def _instantiate_solver(
         self,
-        method_name: str,
         potential: Potential,
         wavefunc: GaussianPacket,
-        delta_t: float,
-        grid_step: float,
+        params: Params,
     ) -> Any:
 
         capture_handler = WarningCaptureHandler()
         solver_logger = logging.getLogger("backend.Solver")
         solver_logger.addHandler(capture_handler)
 
-        if method_name == "Constant":
-            simulation = Constant(potential, wavefunc, delta_t, grid_step=grid_step)
-        elif method_name == "Crank-Nicolson":
-            simulation = CrankNicolson(
-                potential, wavefunc, delta_t, grid_step=grid_step
-            )
-        elif method_name == "SSFM":
-            simulation = SSFM(potential, wavefunc, delta_t, grid_step=grid_step)
+        if params.solver == SolverType.CONSTANT:
+            simulation = Constant(potential, wavefunc, params)
+        elif params.solver == SolverType.CN:
+            simulation = CrankNicolson(potential, wavefunc, params)
+        elif params.solver == SolverType.SSFM:
+            simulation = SSFM(potential, wavefunc, params)
+        elif params.solver == SolverType.SYM_SSFM:
+            simulation = SSFMSymmetric(potential, wavefunc, params)
         else:
-            raise ValueError(f"Unknown simulation method: {method_name}")
+            raise ValueError(f"Unknown simulation method: {params.solver}")
 
         # TODO: fix typing (_Solver has no field stability_warnings)
         simulation.stability_warnings = capture_handler.captured_warnings
@@ -244,20 +242,40 @@ class MainWindow(QMainWindow):
         potential = self._coarse_potential_from_drawer(
             pending.potential_array, pending.wall_height
         )
+        
+        # Convert AnimationSetup names to match SolverType if needed
+        method_map = {
+            "Crank-Nicolson": SolverType.CN,
+            "SSFM": SolverType.SSFM,
+            "Symmetric SSFM": SolverType.SYM_SSFM,
+            "Constant": SolverType.CONSTANT,
+        }
+        solver_type = method_map.get(pending.method, SolverType.SSFM)
+
+        params = Params(
+            length_x=pending.x_limit,
+            length_y=pending.y_limit,
+            grid_step=pending.grid_step,
+            solver=solver_type,
+            r0=tuple(np.array(pending.r0) * pending.grid_step),
+            k0=pending.k0,
+            sigma0=pending.sigma_matrix * (pending.grid_step**2),
+            mass=pending.mass,
+            delta_t=pending.delta_t,
+            well_height=pending.wall_height
+        )
+
         wavefunc = GaussianPacket(
             pending.r0,
             pending.k0,
             pending.sigma_matrix,
-            pending.mass,
             pending.size_x,
             pending.size_y,
         )
         return self._instantiate_solver(
-            pending.method,
             potential,
             wavefunc,
-            pending.delta_t,
-            grid_step=pending.grid_step,
+            params,
         )
 
     def _commit_pending_setup(self) -> None:
@@ -299,7 +317,6 @@ class MainWindow(QMainWindow):
             pending.r0,
             self.current_k0,
             self.current_sigma,
-            self.current_mass,
             self.size_coarse_x,
             self.size_coarse_y,
         )
@@ -615,10 +632,30 @@ class MainWindow(QMainWindow):
         Switches the backend solver instance used for calculating the wave evolution.
         """
         self.current_method = method_name
+
+        method_map = {
+            "Crank-Nicolson": SolverType.CN,
+            "SSFM": SolverType.SSFM,
+            "Symmetric SSFM": SolverType.SYM_SSFM,
+            "Constant": SolverType.CONSTANT,
+        }
+        solver_type = method_map.get(method_name, SolverType.SSFM)
+
+        params = Params(
+            length_x=self.x_limit,
+            length_y=self.y_limit,
+            grid_step=self.current_grid_step,
+            solver=solver_type,
+            r0=tuple(self.current_r0),
+            k0=self.current_k0,
+            sigma0=self.current_sigma,
+            mass=self.current_mass,
+            delta_t=self.current_delta_t,
+            well_height=self.current_wall_height
+        )
+
         self.simulation = self._instantiate_solver(
-            method_name,
             self.initial_potential,
             self.initial_wavefunc,
-            self.current_delta_t,
-            self.current_grid_step,
+            params,
         )

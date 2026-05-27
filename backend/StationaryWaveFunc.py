@@ -4,15 +4,12 @@ import numpy as np
 
 class StationaryWaveFunc:
     matrix: NDArray[np.complex128]
-    mass: float = 1
 
     def __init__(
         self,
         matrix: NDArray[np.complex128],
-        mass: float = 1,
     ):
         self.matrix = matrix
-        self.mass = mass
     def total_probability(self) -> float:
         """Returns total probability.
            Calculated as integral of |Psi|^2.
@@ -23,10 +20,9 @@ class StationaryWaveFunc:
 class GaussianPacket(StationaryWaveFunc):
     def __init__(
         self,
-        r0: tuple[int, int],
+        r0: tuple[float, float],
         k0: NDArray[np.float64],
         sigma0: NDArray[np.float64],
-        mass: float,
         size_x: int,
         size_y: int,
     ):
@@ -46,4 +42,4 @@ class GaussianPacket(StationaryWaveFunc):
         )
 
         matrix /= np.sqrt(np.sum(np.abs(matrix) ** 2))
-        super().__init__(matrix, mass)
+        super().__init__(matrix)
