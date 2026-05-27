@@ -31,8 +31,8 @@ class _AnalyticSolver(_Solver):
         self._wave_lambda = wave_func
         self._potential = potential
 
-        pos_1d = np.linspace(0, grid_size, grid_size // grid_step)
-        self._grid = np.meshgrid(pos_1d, pos_1d, indexing="ij")
+        self._pos_1d = np.linspace(0, grid_size, grid_size // grid_step)
+        self._grid = np.meshgrid(self._pos_1d, self._pos_1d, indexing="ij")
 
     def _stability_conditions(self):
         pass  # assumes correct solution
@@ -127,16 +127,20 @@ class GaussianInWellSolver(_AnalyticSolver):
         self,
         k0: NDArray[np.float64],
         r0: NDArray[np.float64],
-        sigma0: float,
+        sigma0: NDArray[np.float64],
         grid_size: float,
         mass: float,
         delta_t: float = 0.001,
         grid_step=1,
     ):
-        '''Warning: this is a clunker suggested solution and 
-        partially checked clanker code.'''
+        """Warning: this is a clunker suggested solution and
+        partially checked clanker code.
+        sigma0 takes ndarray but only sigma0[0][0] is used as
+        a standard deviation ** 2"""
+        sigma0 = sigma0[0][0]
+
         self._jtheta_numpied = np.frompyfunc(
-            lambda z, q: np.complex128(complex(jtheta(3, z, q)), 2, 1)
+            lambda z, q: np.complex128(complex(jtheta(3, z, q))), 2, 1
         )
 
         gamma = lambda t: 1 / (4 * sigma0**2 * (1 + 1j * t) / (2 * mass * sigma0**2))
@@ -147,34 +151,47 @@ class GaussianInWellSolver(_AnalyticSolver):
             lambda i, t: -2j
             * gamma(t)
             * grid_size
-            * (self._grid[i] - r0[i] - k0[i] * t / mass)
+            * (self._pos_1d - r0[i] - k0[i] * t / mass)
             - k0[i] * grid_size
         )
         z_minus = (
             lambda i, t: -2j
             * gamma(t)
             * grid_size
-            * (self._grid[i] + r0[i] + k0[i] * t / mass)
+            * (self._pos_1d + r0[i] + k0[i] * t / mass)
             + k0[i] * grid_size
         )
 
         env_plus = lambda i, t: np.exp(
-            -gamma(t) * (self._grid[i] - r0[i] - k0[i] * t / mass) ** 2
-            + 1j * k0[i] * (self._grid[i] - k0[i] * t / (2 * mass))
+            -gamma(t) * (self._pos_1d - r0[i] - k0[i] * t / mass) ** 2
+            + 1j * k0[i] * (self._pos_1d - k0[i] * t / (2 * mass))
         )
 
         env_minus = lambda i, t: np.exp(
-            -gamma(t) * (self._grid[i] + r0[i] + k0[i] * t / mass) ** 2
-            + 1j * k0[i] * (self._grid[i] + k0[i] * t / (2 * mass))
+            -gamma(t) * (self._pos_1d + r0[i] + k0[i] * t / mass) ** 2
+            + 1j * k0[i] * (self._pos_1d + k0[i] * t / (2 * mass))
         )
 
-        theta_plus = lambda i,t: self._jtheta_numpied(z_plus(i,t),q(t))
-        theta_minus = lambda i,t: self._jtheta_numpied(z_minus(i,t),q(t))
+        theta_plus = lambda i, t: self._jtheta_numpied(z_plus(i, t), q(t))
+        theta_minus = lambda i, t: self._jtheta_numpied(z_minus(i, t), q(t))
 
-        psi_1d = lambda i,t: env_plus(i,t) * theta_plus(i,t) - env_minus(i,t) * theta_minus(i,t)
+        psi_1d = lambda i, t: (
+            env_plus(i, t) * theta_plus(i, t) - env_minus(i, t) * theta_minus(i, t)
+        )
 
-        wave_func = lambda t: psi_1d(0,t) * psi_1d(1,t)
+        wave_func = lambda t: np.outer(psi_1d(0, t), psi_1d(1, t))
 
         super().__init__(
             InfiniteWellPotential, wave_func, grid_size, mass, delta_t, grid_step
         )
+
+        norm = np.sqrt(np.sum(np.abs(wave_func(0)) ** 2))
+
+        wave_func = lambda t: np.outer(psi_1d(0, t), psi_1d(1, t)) / norm
+        
+        super().__init__(
+            InfiniteWellPotential, wave_func, grid_size, mass, delta_t, grid_step
+        )
+
+    def ev_energy(self) -> float:
+        return 1  # for testing purposes
