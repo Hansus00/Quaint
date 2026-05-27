@@ -781,7 +781,7 @@ class SetupDrawer(QDialog):
         # adjust parameters without losing the in-progress setup.
         potential_obj = coarse_potential_from_drawer(potential, wall_height)
         r0_int: tuple[int, int] = (int(r0[0]), int(r0[1]))
-        simulation = instantiate_solver_with_warnings(
+        simulation, stability_warnings = instantiate_solver_with_warnings(
             method_name=method_name,
             potential=potential_obj,
             wavefunc=GaussianPacket(
@@ -796,8 +796,8 @@ class SetupDrawer(QDialog):
             grid_step=grid_step,
         )
 
-        if hasattr(simulation, "stability_warnings") and simulation.stability_warnings:
-            warning_text = "\n\n".join(simulation.stability_warnings)
+        if stability_warnings:
+            warning_text = "\n\n".join(stability_warnings)
             QMessageBox.warning(
                 self,
                 "Simulation Stability Warning",

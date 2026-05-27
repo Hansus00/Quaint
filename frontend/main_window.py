@@ -60,6 +60,7 @@ class MainWindow(QMainWindow):
     z_potential_offset: float
     z_scale: float
     fine_grid_scale: int
+    zoom_order: int
     z_potential_scale: float
     brightness_multiplier: float
     potential_alpha: float
@@ -117,6 +118,7 @@ class MainWindow(QMainWindow):
         self.z_potential_offset = z_potential_offset
         self.z_scale = 150.0
         self.fine_grid_scale = 3
+        self.zoom_order = 2
         self.z_potential_scale = 0.07
         self.brightness_multiplier = 25.0
         self.potential_alpha = 0.4  # Default opacity level
@@ -189,6 +191,7 @@ class MainWindow(QMainWindow):
             self.z_potential_scale,
             self.brightness_multiplier,
             self.potential_alpha,
+            self.zoom_order,
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
@@ -223,13 +226,14 @@ class MainWindow(QMainWindow):
             pending.size_y,
         )
 
-        return instantiate_solver_with_warnings(
+        solver, _warnings = instantiate_solver_with_warnings(
             method_name=pending.method,
             potential=potential,
             wavefunc=wavefunc,
             delta_t=pending.delta_t,
             grid_step=pending.grid_step,
         )
+        return solver
 
     def _commit_pending_setup(self) -> None:
         """Apply a successful calculation's pending setup to the live simulation."""
@@ -290,6 +294,7 @@ class MainWindow(QMainWindow):
             self.z_potential_scale,
             self.brightness_multiplier,
             self.potential_alpha,
+            self.zoom_order,
         )
         self._pending_setup = None
 
@@ -421,6 +426,7 @@ class MainWindow(QMainWindow):
             self.z_potential_scale,
             self.brightness_multiplier,
             self.potential_alpha,
+            self.zoom_order,
             self,
         )
         settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
@@ -441,6 +447,7 @@ class MainWindow(QMainWindow):
         z_pot_scale: float,
         brightness: float,
         potential_alpha: float,
+        zoom_order: int,
     ) -> None:
         """
         Applies visual settings instantly without recalculating the physics backend.
@@ -452,6 +459,7 @@ class MainWindow(QMainWindow):
             z_pot_scale (float): Upward multiplier for the drawn potential structure.
             brightness (float): Scalar applied prior to value clip to expose wave tails.
             potential_alpha (float): Transparency multiplier for the potential 3D mesh.
+            zoom_order (int): B-spline order (1-5) for the coarse -> fine wave upscale.
         """
         self.z_scale = z_scale
         self.fps = fps
@@ -460,6 +468,7 @@ class MainWindow(QMainWindow):
         self.z_potential_scale = z_pot_scale
         self.brightness_multiplier = brightness
         self.potential_alpha = potential_alpha
+        self.zoom_order = zoom_order
 
         self.controls.update_settings(self.fps, self.total_frames)
 
@@ -474,6 +483,7 @@ class MainWindow(QMainWindow):
             self.z_potential_scale,
             self.brightness_multiplier,
             self.potential_alpha,
+            self.zoom_order,
         )
 
         self.animation_widget.update_potential(self.initial_potential.matrix)
@@ -589,7 +599,7 @@ class MainWindow(QMainWindow):
         Switches the backend solver instance used for calculating the wave evolution.
         """
         self.current_method = method_name
-        self.simulation = instantiate_solver_with_warnings(
+        self.simulation, _warnings = instantiate_solver_with_warnings(
             method_name=method_name,
             potential=self.initial_potential,
             wavefunc=self.initial_wavefunc,

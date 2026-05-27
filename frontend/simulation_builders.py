@@ -37,8 +37,13 @@ def instantiate_solver_with_warnings(
     wavefunc: GaussianPacket,
     delta_t: float,
     grid_step: float,
-) -> Any:
-    """Instantiate selected solver and attach captured stability warnings."""
+) -> tuple[Any, list[str]]:
+    """Instantiate the selected solver and return it alongside captured stability warnings.
+
+    Returns a ``(solver, warnings)`` tuple. The warnings are kept separate from
+    the solver object so we don't need to attach a non-standard attribute to
+    the backend `_Solver` type just for this transport.
+    """
     capture_handler = WarningCaptureHandler()
     solver_logger = logging.getLogger("backend.Solver")
     solver_logger.addHandler(capture_handler)
@@ -56,6 +61,4 @@ def instantiate_solver_with_warnings(
     finally:
         solver_logger.removeHandler(capture_handler)
 
-    # TODO: fix typing (_Solver has no field stability_warnings)
-    setattr(simulation, "stability_warnings", capture_handler.captured_warnings)
-    return simulation
+    return simulation, capture_handler.captured_warnings
