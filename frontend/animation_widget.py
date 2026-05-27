@@ -6,11 +6,12 @@ from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pyqtgraph.opengl as gl
-from backend.StationaryWaveFunc import StationaryWaveFunc
 from PyQt6.QtGui import QVector3D
 from PyQt6.QtWidgets import QVBoxLayout, QWidget
 from scipy.interpolate import RectBivariateSpline
 from scipy.ndimage import zoom
+
+from .simulation_builders import WaveFrameArray
 
 
 class AnimationWidget(QWidget):
@@ -334,9 +335,9 @@ class AnimationWidget(QWidget):
         """Clears the rendered frames cache to prevent memory address collisions."""
         self._wave_cache.clear()
 
-    def update_wave(self, psi_coarse: StationaryWaveFunc) -> None:
+    def update_wave(self, wave_matrix: WaveFrameArray) -> None:
         """Updates the 3D wave function mesh. Utilizes instant cache lookup if frame is known."""
-        cache_key = id(psi_coarse)
+        cache_key = id(wave_matrix)
 
         # Instant execution if this frame instance was drawn before
         if cache_key in self._wave_cache:
@@ -346,7 +347,6 @@ class AnimationWidget(QWidget):
             return
 
         # Cache miss: Run calculations ONCE for this frame instance
-        wave_matrix = psi_coarse.matrix
         zoom_factor_x = self.size_fine_x / wave_matrix.shape[0]
         zoom_factor_y = self.size_fine_y / wave_matrix.shape[1]
 

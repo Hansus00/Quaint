@@ -5,6 +5,8 @@
 from typing import Any
 from PyQt6.QtCore import QThread, pyqtSignal
 
+from .simulation_builders import WaveFrameArray, cast_wave_frame
+
 
 class SimulationThread(QThread):
     """
@@ -49,10 +51,10 @@ class SimulationThread(QThread):
         Performs the simulation calculations in a separate thread and emits
         the aggregated results (list of frames) to the main UI once completed.
         """
-        wave_frames = []
+        wave_frames: list[WaveFrameArray] = []
 
         # Append the initial state (t = 0)
-        wave_frames.append(self.simulation.get_wave_function())
+        wave_frames.append(cast_wave_frame(self.simulation.get_wave_function().matrix))
 
         # Iteratively calculate the subsequent time steps
         for _ in range(1, self.total_frames):
@@ -63,7 +65,7 @@ class SimulationThread(QThread):
             for _ in range(self.steps_per_frame):
                 self.simulation.step()
 
-            wave_frames.append(self.simulation.get_wave_function())
+            wave_frames.append(cast_wave_frame(self.simulation.get_wave_function().matrix))
 
         if self._cancel_requested:
             self.calculation_cancelled.emit()

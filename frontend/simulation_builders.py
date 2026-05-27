@@ -1,12 +1,22 @@
 import logging
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
+from numpy.typing import NDArray
 from backend.Potential import Potential
 from backend.Solver import SSFM, Constant, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
 
 from .warning_handler import WarningCaptureHandler
+
+# Single place controlling frontend wave-frame precision.
+waveFrameType = np.complex64
+WaveFrameArray: TypeAlias = NDArray[np.complexfloating[Any, Any]]
+
+
+def cast_wave_frame(frame: np.ndarray) -> WaveFrameArray:
+    """Cast and compact a wave frame to the configured frontend complex dtype."""
+    return np.asarray(frame, dtype=waveFrameType, order="C")
 
 
 def coarse_potential_from_drawer(

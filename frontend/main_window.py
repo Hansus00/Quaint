@@ -15,6 +15,7 @@ from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
 from .settings import Settings
 from .simulation_builders import (
+    WaveFrameArray,
     coarse_potential_from_drawer,
     instantiate_solver_with_warnings,
 )
@@ -65,7 +66,7 @@ class MainWindow(QMainWindow):
     aspect_ratio: float
     x_limit: float
     y_limit: float
-    wave_frames: list
+    wave_frames: list[WaveFrameArray]
     # TODO: rename to just "potential" as it doesn't change over time
     initial_potential: Potential
     initial_wavefunc: GaussianPacket
@@ -129,7 +130,7 @@ class MainWindow(QMainWindow):
         self.x_limit = 10.0
         self.y_limit = 10.0 * self.aspect_ratio
 
-        self.wave_frames = []
+        self.wave_frames: list[WaveFrameArray] = []
         self.initial_potential = InfiniteWellPotential(
             self.size_coarse_x, self.size_coarse_y
         )
@@ -331,7 +332,7 @@ class MainWindow(QMainWindow):
     def on_calculation_cancelled(self) -> None:
         self._calculation_cancelled = False
 
-    def on_calculation_finished(self, generated_frames: list) -> None:
+    def on_calculation_finished(self, generated_frames: list[WaveFrameArray]) -> None:
         """
         Receives the calculated frames from the worker thread.
         Dynamically sizes the animation cache based on remaining system RAM.
@@ -565,8 +566,8 @@ class MainWindow(QMainWindow):
         if not self.wave_frames or frame_idx >= len(self.wave_frames):
             return
 
-        psi_coarse = self.wave_frames[frame_idx]
-        self.animation_widget.update_wave(psi_coarse)
+        wave_matrix = self.wave_frames[frame_idx]
+        self.animation_widget.update_wave(wave_matrix)
 
     def switch_simulation_method(self, method_name: str) -> None:
         """
