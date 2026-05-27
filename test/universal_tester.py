@@ -236,7 +236,7 @@ elif params.solver == SolverType.SSFM:
 elif params.solver == SolverType.SYM_SSFM:
     solver = SSFMSymmetric(well, gauss, params.delta_t, params.grid_step)
 elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
-    solver = GaussianPacketSolver(
+    solver = FreeGaussianSolver(
         params.k0,
         params.r0,
         params.sigma0,
