@@ -320,9 +320,7 @@ class AnimationWidget(QWidget):
         Uses the closed-form identity:
             f(n) = clip(2 - |((H*6 + n) mod 6) - 2|, 0, 1)
             channel = V - V * f(n)        with n = 5 (R), 3 (G), 1 (B)
-        This replaces the previous 6-sextant boolean-mask loop, which paid for
-        six full-grid mask builds plus six fancy-indexed scatter assignments.
-        Now everything streams through `out=` ufuncs on a single scratch buffer.
+        Every step streams through `out=` ufuncs on a single scratch buffer.
 
         Mutates `hue_flat` (scales it by 6 in place).
         """
@@ -360,12 +358,10 @@ class AnimationWidget(QWidget):
         zoom_factor_y = self.size_fine_y / wave_matrix.shape[1]
 
         # Quadratic B-spline upscale of the real and imaginary parts.
-        # `order=2` is the sweet spot for this hot path: visually
-        # indistinguishable from cubic (max abs deviation < 1e-4 on a
-        # normalized wavefunction) but ~2x faster than `order=3`, and it
-        # has far less of the over/under-shoot that the previous cubic
-        # produced near sharp probability peaks. Linear (`order=1`) is
-        # faster still but produces visible faceting on the upscaled mesh.
+        # `order=2` is the sweet spot here: visually indistinguishable from
+        # cubic (max abs deviation < 1e-4 on a normalized wavefunction),
+        # ~2x faster than `order=3`, and with much less spline overshoot
+        # near sharp probability peaks.
         psi_real_fine = zoom(
             wave_matrix.real, (zoom_factor_x, zoom_factor_y), order=2
         )
@@ -384,16 +380,14 @@ class AnimationWidget(QWidget):
         psi_real_flat = psi_real_fine.ravel()
         psi_imag_flat = psi_imag_fine.ravel()
 
-        # Phase -> hue first, while real & imag are still untouched.
+        # Phase -> hue. Compute before squaring real & imag in place below.
         # hue = (atan2(imag, real) + pi) / (2*pi) = atan2/(2*pi) + 0.5
         hue = np.arctan2(psi_imag_flat, psi_real_flat)
         hue *= np.float32(1.0 / (2.0 * np.pi))
         hue += np.float32(0.5)
 
-        # prob = real^2 + imag^2 -- computed directly from the float32 arrays.
-        # The old `np.abs(psi_fine)**2` first allocated a full complex64 grid
-        # and then did sqrt(...)**2, which is doubly wasteful. Here we destroy
-        # `psi_real_flat`/`psi_imag_flat` in place since they aren't needed again.
+        # prob = real^2 + imag^2, squaring real & imag in place since they
+        # are not needed past this point.
         np.multiply(psi_real_flat, psi_real_flat, out=psi_real_flat)
         np.multiply(psi_imag_flat, psi_imag_flat, out=psi_imag_flat)
         prob_flat = psi_real_flat
@@ -408,7 +402,6 @@ class AnimationWidget(QWidget):
         amp *= self.brightness_multiplier
         np.clip(amp, 0.01, 1.0, out=amp)
 
-        # Streaming HSV->RGB write into rgba[:, :3] (mutates `hue` in place).
         self._fill_hsv_rgb_into(hue, amp, rgba)
 
         # Enforce cache size limit to prevent unbounded memory growth.
