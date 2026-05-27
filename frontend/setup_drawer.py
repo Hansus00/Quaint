@@ -105,7 +105,6 @@ class SetupDrawer(QDialog):
     steps_per_frame_input: QSpinBox
     wall_height_input: QDoubleSpinBox
 
-    update_grid_btn: QPushButton
     radio_brush: QRadioButton
     radio_eraser: QRadioButton
     radio_wave: QRadioButton
@@ -326,14 +325,14 @@ class SetupDrawer(QDialog):
         self.grid_step_input.setRange(0.01, 10.0)
         self.grid_step_input.setValue(self.initial_grid_step)
         self.grid_step_input.setSingleStep(0.05)
+        self.x_limit_input.valueChanged.connect(self.update_canvas_size)
+        self.y_limit_input.valueChanged.connect(self.update_canvas_size)
+        self.grid_step_input.valueChanged.connect(self.update_canvas_size)
 
         self.wall_height_input = QDoubleSpinBox()
         self.wall_height_input.setRange(1.0, 1000000.0)
         self.wall_height_input.setSingleStep(10.0)
         self.wall_height_input.setValue(self.initial_wall_height)
-
-        self.update_grid_btn = QPushButton("Apply Grid Settings")
-        self.update_grid_btn.clicked.connect(self.update_canvas_size)
 
         grid_form.addRow("Width (w) [a<sub>0</sub>]:", self.x_limit_input)
         grid_form.addRow("Height (h) [a<sub>0</sub>]:", self.y_limit_input)
@@ -341,11 +340,7 @@ class SetupDrawer(QDialog):
             "Grid Step (\u03b4) [a<sub>0</sub>\u207b\u00b9]:", self.grid_step_input
         )
         grid_form.addRow("Wall Height (V<sub>0</sub>):", self.wall_height_input)
-
-        grid_layout = QVBoxLayout()
-        grid_layout.addLayout(grid_form)
-        grid_layout.addWidget(self.update_grid_btn)
-        grid_group.setLayout(grid_layout)
+        grid_group.setLayout(grid_form)
         right_panel_layout.addWidget(grid_group)
 
         # --- GROUP 3: Wavepacket Parameters ---
@@ -506,7 +501,7 @@ class SetupDrawer(QDialog):
 
         self.check_memory_limit()
 
-    def update_canvas_size(self) -> None:
+    def update_canvas_size(self, _value: Optional[float] = None) -> None:
         """
         Dynamically resizes the drawing canvas to a new grid resolution. The
         underlying QImage is rescaled once here (a deliberate, user-initiated
