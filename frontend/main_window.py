@@ -113,7 +113,7 @@ class MainWindow(QMainWindow):
         self.aspect_ratio = self.y_limit / self.x_limit
         self.z_potential_offset = z_potential_offset
         self.z_scale = 150.0
-        self.fine_grid_scale = 4
+        self.fine_grid_scale = 3
         self.z_potential_scale = 0.07
         self.brightness_multiplier = 25.0
         self.potential_alpha = 0.4  # Default opacity level
