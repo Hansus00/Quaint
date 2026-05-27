@@ -220,9 +220,7 @@ class MainWindow(QMainWindow):
         solver_logger = logging.getLogger("backend.Solver")
         solver_logger.addHandler(capture_handler)
 
-        if params.solver == SolverType.CONSTANT:
-            simulation = Constant(potential, wavefunc, params)
-        elif params.solver == SolverType.CN:
+        if params.solver == SolverType.CN:
             simulation = CrankNicolson(potential, wavefunc, params)
         elif params.solver == SolverType.SSFM:
             simulation = SSFM(potential, wavefunc, params)
@@ -248,7 +246,6 @@ class MainWindow(QMainWindow):
             "Crank-Nicolson": SolverType.CN,
             "SSFM": SolverType.SSFM,
             "Symmetric SSFM": SolverType.SYM_SSFM,
-            "Constant": SolverType.CONSTANT,
         }
         solver_type = method_map.get(pending.method, SolverType.SSFM)
 
@@ -637,7 +634,6 @@ class MainWindow(QMainWindow):
             "Crank-Nicolson": SolverType.CN,
             "SSFM": SolverType.SSFM,
             "Symmetric SSFM": SolverType.SYM_SSFM,
-            "Constant": SolverType.CONSTANT,
         }
         solver_type = method_map.get(method_name, SolverType.SSFM)
 
