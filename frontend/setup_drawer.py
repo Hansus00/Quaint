@@ -12,6 +12,7 @@ from backend.Potential import (
     Potential,
     WShaped,
 )
+from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import QPointF, Qt, pyqtSignal
 from PyQt6.QtGui import QImage
 from PyQt6.QtWidgets import (
@@ -36,6 +37,10 @@ from PyQt6.QtWidgets import (
 
 from backend.Params import Params, SolverType, WellType
 from .canvas_widget import CanvasWidget, AspectRatioContainer
+from .simulation_builders import (
+    coarse_potential_from_drawer,
+    instantiate_solver_with_warnings,
+)
 
 # Conversion factor between an arrow's grid-cell displacement and the physical
 # wavevector magnitude. With 1.0 a drag of N grid cells encodes |k| = N, which
@@ -782,6 +787,38 @@ class SetupDrawer(QDialog):
 
         delta_t = self.delta_t_input.value()
         steps_per_frame = self.steps_per_frame_input.value()
+        method_name = self.simulation_menu.currentText()
+
+        # Pre-check solver warnings before closing the drawer so the user can
+        # adjust parameters without losing the in-progress setup.
+        potential_obj = coarse_potential_from_drawer(potential, wall_height)
+        r0_int: tuple[int, int] = (int(r0[0]), int(r0[1]))
+        simulation = instantiate_solver_with_warnings(
+            method_name=method_name,
+            potential=potential_obj,
+            wavefunc=GaussianPacket(
+                r0_int,
+                k0.copy(),
+                sigma_matrix.copy(),
+                mass,
+                new_size_x,
+                new_size_y,
+            ),
+            delta_t=delta_t,
+            grid_step=grid_step,
+        )
+
+        if hasattr(simulation, "stability_warnings") and simulation.stability_warnings:
+            warning_text = "\n\n".join(simulation.stability_warnings)
+            QMessageBox.warning(
+                self,
+                "Simulation Stability Warning",
+                "The physical parameters might cause the simulation to become unstable "
+                f"or mathematically inaccurate:\n\n{warning_text}",
+            )
+            self.save_btn.setText("Save && Update Simulation")
+            self.save_btn.setEnabled(True)
+            return
 
         # Emit all parameters to the main window
         self.setup_saved.emit(

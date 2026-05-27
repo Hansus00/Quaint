@@ -7,17 +7,19 @@ from typing import Any, Optional
 
 import numpy as np
 from backend.Potential import InfiniteWellPotential, Potential
-from backend.Solver import SSFM, Constant, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QMessageBox
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
 from .settings import Settings
+from .simulation_builders import (
+    coarse_potential_from_drawer,
+    instantiate_solver_with_warnings,
+)
 from .setup_drawer import SetupDrawer
 from .simulation_thread import SimulationThread
-from .warning_handler import WarningCaptureHandler
 import logging
 
 logger = logging.getLogger(__name__)
@@ -201,49 +203,14 @@ class MainWindow(QMainWindow):
     def _coarse_potential_from_drawer(
         self, potential_array: np.ndarray, wall_height: float
     ) -> Potential:
-        """Convert drawer potential (UI orientation) to backend coarse matrix."""
-        potential_coarse = potential_array[:, ::-1].copy()
-        potential_coarse[0, :] = wall_height
-        potential_coarse[-1, :] = wall_height
-        potential_coarse[:, 0] = wall_height
-        potential_coarse[:, -1] = wall_height
-        return Potential(potential_coarse)
-
-    def _instantiate_solver(
-        self,
-        method_name: str,
-        potential: Potential,
-        wavefunc: GaussianPacket,
-        delta_t: float,
-        grid_step: float,
-    ) -> Any:
-
-        capture_handler = WarningCaptureHandler()
-        solver_logger = logging.getLogger("backend.Solver")
-        solver_logger.addHandler(capture_handler)
-
-        if method_name == "Constant":
-            simulation = Constant(potential, wavefunc, delta_t, grid_step=grid_step)
-        elif method_name == "Crank-Nicolson":
-            simulation = CrankNicolson(
-                potential, wavefunc, delta_t, grid_step=grid_step
-            )
-        elif method_name == "SSFM":
-            simulation = SSFM(potential, wavefunc, delta_t, grid_step=grid_step)
-        else:
-            raise ValueError(f"Unknown simulation method: {method_name}")
-
-        # TODO: fix typing (_Solver has no field stability_warnings)
-        simulation.stability_warnings = capture_handler.captured_warnings
-
-        solver_logger.removeHandler(capture_handler)
-        return simulation
+        return coarse_potential_from_drawer(potential_array, wall_height)
 
     def _simulation_from_pending(self, pending: AnimationSetup) -> Any:
         """Build a solver for a pending setup without mutating committed state."""
         potential = self._coarse_potential_from_drawer(
             pending.potential_array, pending.wall_height
         )
+
         wavefunc = GaussianPacket(
             pending.r0,
             pending.k0,
@@ -252,11 +219,12 @@ class MainWindow(QMainWindow):
             pending.size_x,
             pending.size_y,
         )
-        return self._instantiate_solver(
-            pending.method,
-            potential,
-            wavefunc,
-            pending.delta_t,
+
+        return instantiate_solver_with_warnings(
+            method_name=pending.method,
+            potential=potential,
+            wavefunc=wavefunc,
+            delta_t=pending.delta_t,
             grid_step=pending.grid_step,
         )
 
@@ -340,16 +308,6 @@ class MainWindow(QMainWindow):
             sim = self.simulation
             total_frames = self.total_frames
             steps_per_frame = self.current_steps_per_frame
-
-        if hasattr(sim, "stability_warnings") and sim.stability_warnings:
-            warning_text = "\n\n".join(sim.stability_warnings)
-            QMessageBox.warning(
-                self,
-                "Simulation Stability Warning",
-                f"The physical parameters might cause the simulation to become unstable "
-                f"or mathematically inaccurate:\n\n{warning_text}",
-            )
-            return
 
         self.controls.enter_calculating_mode()
         self.controls.time_label.setText("Calculating...")
@@ -615,10 +573,10 @@ class MainWindow(QMainWindow):
         Switches the backend solver instance used for calculating the wave evolution.
         """
         self.current_method = method_name
-        self.simulation = self._instantiate_solver(
-            method_name,
-            self.initial_potential,
-            self.initial_wavefunc,
-            self.current_delta_t,
-            self.current_grid_step,
+        self.simulation = instantiate_solver_with_warnings(
+            method_name=method_name,
+            potential=self.initial_potential,
+            wavefunc=self.initial_wavefunc,
+            delta_t=self.current_delta_t,
+            grid_step=self.current_grid_step,
         )
