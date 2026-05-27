@@ -114,6 +114,7 @@ class CanvasWidget(QWidget):
     k0_tip_grid: Optional[QPointF]
     brush_strength: int
     brush_width: int
+    show_grid: bool
 
     def __init__(
         self,
@@ -154,9 +155,46 @@ class CanvasWidget(QWidget):
         # Brush diameter measured in grid cells (matches underlying image scale).
         self.brush_width = 3
 
+        self.show_grid = True
+
         # Enable mouse tracking to paint the brush preview
         self.setMouseTracking(True)
         self.current_hover_grid = None
+
+    def _draw_grid_overlay(self, painter: QPainter) -> None:
+        if not self.show_grid:
+            return
+
+        if self.grid_size_x <= 0 or self.grid_size_y <= 0:
+            return
+
+        w = self.width()
+        h = self.height()
+        if w <= 0 or h <= 0:
+            return
+
+        # Draw internal division lines between cells.
+        #
+        # If there are `grid_size_x` cells across X, the canvas is split into
+        # `grid_size_x` regions by internal boundaries at i=1..grid_size_x-1
+        # (outer borders excluded). For `grid_size_x=2`, that means exactly
+        # one internal divider.
+        sx = float(self.grid_size_x) if self.grid_size_x > 0 else 1.0
+        sy = float(self.grid_size_y) if self.grid_size_y > 0 else 1.0
+
+        pen = QPen(QColor(180, 180, 180, 50), 1, Qt.PenStyle.SolidLine)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+
+        # Vertical internal grid lines.
+        for gx in range(1, self.grid_size_x):
+            x = gx * w / sx
+            painter.drawLine(QPointF(x, 0.0), QPointF(x, float(h)))
+
+        # Horizontal internal grid lines.
+        for gy in range(1, self.grid_size_y):
+            y = gy * h / sy
+            painter.drawLine(QPointF(0.0, y), QPointF(float(w), y))
 
     def _widget_to_grid(self, p: QPoint) -> QPointF:
         """Convert a widget pixel coordinate to fractional grid coordinates."""
@@ -247,6 +285,7 @@ class CanvasWidget(QWidget):
             Qt.TransformationMode.SmoothTransformation,  # FIXME: it runs at every mouse movement
         )
         painter.drawImage(0, 0, scaled)
+        self._draw_grid_overlay(painter)
 
         # Brush / eraser preview rendering
         if self.mode in ("brush", "eraser") and self.current_hover_grid is not None:
