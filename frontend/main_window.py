@@ -33,7 +33,6 @@ class AnimationSetup:
     k0: np.ndarray
     sigma_matrix: np.ndarray
     mass: float
-    fps: int
     total_frames: int
     size_x: int
     size_y: int
@@ -235,7 +234,6 @@ class MainWindow(QMainWindow):
         if pending is None:
             return
 
-        self.fps = pending.fps
         self.total_frames = pending.total_frames
         self.controls.update_settings(self.fps, self.total_frames)
 
@@ -406,6 +404,7 @@ class MainWindow(QMainWindow):
             return
 
         settings_dialog = Settings(
+            self.fps,
             self.z_scale,
             self.z_potential_offset,
             self.fine_grid_scale,
@@ -425,6 +424,7 @@ class MainWindow(QMainWindow):
 
     def apply_settings(
         self,
+        fps: int,
         z_scale: float,
         z_offset: float,
         fine_grid_scale: int,
@@ -444,11 +444,14 @@ class MainWindow(QMainWindow):
             potential_alpha (float): Transparency multiplier for the potential 3D mesh.
         """
         self.z_scale = z_scale
+        self.fps = fps
         self.z_potential_offset = z_offset
         self.fine_grid_scale = fine_grid_scale
         self.z_potential_scale = z_pot_scale
         self.brightness_multiplier = brightness
         self.potential_alpha = potential_alpha
+
+        self.controls.update_settings(self.fps, self.total_frames)
 
         self.animation_widget.update_config(
             self.size_coarse_x,
@@ -478,7 +481,6 @@ class MainWindow(QMainWindow):
             return
 
         drawer = SetupDrawer(
-            current_fps=self.fps,
             current_frames=self.total_frames,
             grid_size_x=self.size_coarse_x,
             grid_size_y=self.size_coarse_y,
@@ -513,7 +515,6 @@ class MainWindow(QMainWindow):
         k0: np.ndarray,
         sigma_matrix: np.ndarray,
         mass: float,
-        fps: int,
         total_frames: int,
         size_x: int,
         size_y: int,
@@ -544,7 +545,6 @@ class MainWindow(QMainWindow):
             k0=k0.copy(),
             sigma_matrix=sigma_matrix.copy(),
             mass=mass,
-            fps=fps,
             total_frames=total_frames,
             size_x=size_x,
             size_y=size_y,

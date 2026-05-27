@@ -63,14 +63,13 @@ class SetupDrawer(QDialog):
     # Emits: (method_name)
     simulation_changed = pyqtSignal(str)
 
-    # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, fps, total_frames, size_x, size_y, delta_t, steps_per_frame, wall_height, x_limit, y_limit, grid_step)
+    # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, total_frames, size_x, size_y, delta_t, steps_per_frame, wall_height, x_limit, y_limit, grid_step)
     setup_saved = pyqtSignal(
         np.ndarray,
         np.ndarray,
         np.ndarray,
         np.ndarray,
         float,
-        int,
         int,
         int,
         int,
@@ -82,7 +81,6 @@ class SetupDrawer(QDialog):
         float,
     )
 
-    current_fps: int
     current_frames: int
     grid_size_x: int
     grid_size_y: int
@@ -99,7 +97,6 @@ class SetupDrawer(QDialog):
     canvas_container: AspectRatioContainer
     simulation_menu: QComboBox
     preset_menu: QComboBox
-    fps_input: QSpinBox
     frames_input: QSpinBox
     size_x_input: QSpinBox
     size_y_input: QSpinBox
@@ -126,7 +123,6 @@ class SetupDrawer(QDialog):
 
     def __init__(
         self,
-        current_fps: int = 30,
         current_frames: int = 150,
         grid_size_x: int = 25,
         grid_size_y: int = 35,
@@ -148,7 +144,6 @@ class SetupDrawer(QDialog):
         Initializes the drawing canvas and internal state.
 
         Args:
-            current_fps (int): Currently active FPS configuration limit.
             current_frames (int): Currently active frame buffer duration limit.
             grid_size_x (int): Horizontal resolution of the simulation grid.
             grid_size_y (int): Vertical resolution of the simulation grid.
@@ -184,7 +179,6 @@ class SetupDrawer(QDialog):
         )
 
         # Capture initial physics environment properties
-        self.current_fps = current_fps
         self.current_frames = current_frames
         self.grid_size_x = grid_size_x
         self.grid_size_y = grid_size_y
@@ -294,10 +288,6 @@ class SetupDrawer(QDialog):
         self.simulation_menu.setCurrentText(self.initial_method)
         self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
 
-        self.fps_input = QSpinBox()
-        self.fps_input.setRange(1, 120)
-        self.fps_input.setValue(self.current_fps)
-
         self.frames_input = QSpinBox()
         self.frames_input.setRange(10, 10000)
         self.frames_input.setValue(self.current_frames)
@@ -313,7 +303,6 @@ class SetupDrawer(QDialog):
         self.steps_per_frame_input.setValue(self.initial_steps_per_frame)
 
         sim_form.addRow("Simulation Method:", self.simulation_menu)
-        sim_form.addRow("UI FPS:", self.fps_input)
         sim_form.addRow("Total Frames (n<sub>tot</sub>):", self.frames_input)
         sim_form.addRow("\u0394t (Time Step):", self.delta_t_input)
         sim_form.addRow("Steps per Frame (\u0394n):", self.steps_per_frame_input)
@@ -782,7 +771,6 @@ class SetupDrawer(QDialog):
         sigma_matrix = np.array([[sig_xx, sig_xy], [sig_xy, sig_yy]])
 
         mass = self.mass_input.value()
-        fps = self.fps_input.value()
         frames = self.frames_input.value()
 
         delta_t = self.delta_t_input.value()
@@ -827,7 +815,6 @@ class SetupDrawer(QDialog):
             k0,
             sigma_matrix,
             mass,
-            fps,
             frames,
             new_size_x,
             new_size_y,

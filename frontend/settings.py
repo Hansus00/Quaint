@@ -22,9 +22,10 @@ class Settings(QDialog):
     """
 
     # --- Class Fields ---
-    # Emits: (z_scale, z_offset, fine_scale, z_pot_scale, brightness, potential_alpha)
-    settings_saved = pyqtSignal(float, float, int, float, float, float)
+    # Emits: (fps, z_scale, z_offset, fine_scale, z_pot_scale, brightness, potential_alpha)
+    settings_saved = pyqtSignal(int, float, float, int, float, float, float)
 
+    fps_spin: QSpinBox
     fine_scale_spin: QSpinBox
     z_scale_spin: QDoubleSpinBox
     z_pot_scale_spin: QDoubleSpinBox
@@ -34,6 +35,7 @@ class Settings(QDialog):
 
     def __init__(
         self,
+        current_fps: int,
         current_z_scale: float,
         current_z_offset: float,
         current_fine_scale: int,
@@ -46,6 +48,7 @@ class Settings(QDialog):
         Initializes the configuration dialog with current default values.
 
         Args:
+            current_fps (int): Current playback FPS used by the animation timer.
             current_z_scale (float): Current vertical amplitude multiplier for the wave.
             current_z_offset (float): Current vertical offset for the potential landscape.
             current_fine_scale (int): Current interpolation multiplier for visual smoothness.
@@ -63,6 +66,11 @@ class Settings(QDialog):
         self.setWindowTitle("Visual Settings")
 
         layout = QFormLayout(self)
+
+        self.fps_spin = QSpinBox()
+        self.fps_spin.setRange(1, 120)
+        self.fps_spin.setValue(current_fps)
+        layout.addRow("Playback FPS:", self.fps_spin)
 
         # Set maximum "coarse to fine" grid scale for interpolation
         self.fine_scale_spin = QSpinBox()
@@ -120,6 +128,7 @@ class Settings(QDialog):
     def _emit_current_values(self) -> None:
         """Push the current spin-box values to the main window."""
         self.settings_saved.emit(
+            self.fps_spin.value(),
             self.z_scale_spin.value(),
             self.z_offset_spin.value(),
             self.fine_scale_spin.value(),
