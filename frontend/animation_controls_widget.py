@@ -104,14 +104,18 @@ class AnimationControlsWidget(QWidget):
 
         # Keyboard shortcuts for play/pause and fast-forwarding
         self.shortcut_space = QShortcut(QKeySequence(Qt.Key.Key_Space), self)
-        self.shortcut_space.activated.connect(self.play_pause_btn.click) 
+        self.shortcut_space.activated.connect(self.play_pause_btn.click)
 
         self.shortcut_right = QShortcut(QKeySequence(Qt.Key.Key_Right), self)
-        self.shortcut_right.activated.connect(lambda: self.move_to_frame(self.slider.value() + 10))
+        self.shortcut_right.activated.connect(
+            lambda: self.move_to_frame(self.slider.value() + 10)
+        )
 
         self.shortcut_left = QShortcut(QKeySequence(Qt.Key.Key_Left), self)
-        self.shortcut_left.activated.connect(lambda: self.move_to_frame(self.slider.value() - 10))
-        
+        self.shortcut_left.activated.connect(
+            lambda: self.move_to_frame(self.slider.value() - 10)
+        )
+
         # Ensure highest priority for the shortcuts to avoid conflicts with other widgets
         self.shortcut_space.setContext(Qt.ShortcutContext.WindowShortcut)
         self.shortcut_right.setContext(Qt.ShortcutContext.WindowShortcut)
@@ -164,7 +168,7 @@ class AnimationControlsWidget(QWidget):
             self.slider.setValue(current_frame + 1)
         else:
             self.pause()
-    
+
     def move_to_frame(self, frame: int) -> None:
         """Moves the playback slider to a specific frame index."""
         self.slider.setValue(min(max(frame, 0), self.total_frames - 1))
