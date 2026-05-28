@@ -14,7 +14,7 @@ if __name__ == "__main__":
         LoggerTools.INFO
     )  # TODO: change it with flags as --dbg --info --quiet --verbose etc.
     # Ensure full numpy print outputs for debugging purposes if needed
-    np.set_printoptions(threshold=int(np.inf))
+    np.set_printoptions(threshold=np.inf)
 
     app = QApplication(sys.argv)
     window = MainWindow()
