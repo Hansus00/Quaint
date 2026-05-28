@@ -126,8 +126,8 @@ class InfiniteWellBasisSolver(_Solver):
         nyspace = np.einsum("i,j->ij", nyarray, pos1dy)
 
         self._basis = (
-            (2 / np.sqrt(Lx))
-            * (2 / np.sqrt(Ly))
+            np.sqrt(2 / Lx)
+            * np.sqrt(2 / Ly)
             * np.einsum(
                 "ij,kl->ikjl",
                 np.sin(np.pi / Lx * nxspace),
@@ -135,7 +135,10 @@ class InfiniteWellBasisSolver(_Solver):
             )
         )
 
-        self._coeffs = np.einsum("ijkl,kl->ij", np.conj(self._basis), wave_func.matrix)
+        self._coeffs = (
+            np.einsum("ijkl,kl->ij", np.conj(self._basis), wave_func.matrix)
+            * grid_step**2
+        )
 
         energy1dx = np.pi**2 * nxarray**2 / (2 * wave_func.mass * Lx**2)
         energy1dy = np.pi**2 * nyarray**2 / (2 * wave_func.mass * Ly**2)
