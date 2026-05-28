@@ -84,9 +84,9 @@ class Settings(QDialog):
         self.fine_scale_spin.setRange(1, 10)
         self.fine_scale_spin.setValue(current_fine_scale)
         self.fine_scale_spin_label.setToolTip(
-            "Set the interpolation scale factor." 
-            "<br>The value represents how many fine (purely visual)" 
-            "<br>grid cells correspond to one coarse (simulation) grid cell. " 
+            "Set the interpolation scale factor."
+            "<br>The value represents how many fine (purely visual)"
+            "<br>grid cells correspond to one coarse (simulation) grid cell. "
             "<br>Set to 1 for no interpolation."
         )
         layout.addRow(self.fine_scale_spin_label, self.fine_scale_spin)
@@ -135,9 +135,7 @@ class Settings(QDialog):
         self.z_offset_spin = QDoubleSpinBox()
         self.z_offset_spin.setRange(-50.0, 50.0)
         self.z_offset_spin.setValue(current_z_offset)
-        self.z_offset_spin_label.setToolTip(
-            "Vertical offset of the potential graph."
-        )
+        self.z_offset_spin_label.setToolTip("Vertical offset of the potential graph.")
         self.z_offset_spin.setSingleStep(0.5)
         layout.addRow(self.z_offset_spin_label, self.z_offset_spin)
 

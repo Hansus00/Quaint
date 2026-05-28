@@ -42,7 +42,7 @@ from .simulation_builders import (
     coarse_potential_from_drawer,
     instantiate_solver_with_warnings,
 )
-from.warning_handler import WarningCaptureHandler
+from .warning_handler import WarningCaptureHandler
 
 # Conversion factor between an arrow's grid-cell displacement and the physical
 # wavevector magnitude. With 1.0 a drag of N grid cells encodes |k| = N, which
@@ -67,7 +67,7 @@ class SetupDrawer(QDialog):
 
     # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, total_frames,
     #         size_x, size_y, delta_t, steps_per_frame, wall_height,
-    #         x_limit, y_limit, grid_step, prebuilt_solver)
+    #         x_limit, y_limit, grid_step, method_name, prebuilt_solver)
     # The prebuilt solver was already constructed for the stability check, so
     # forwarding it lets the main window skip a second expensive build.
     setup_saved = pyqtSignal(
@@ -85,6 +85,7 @@ class SetupDrawer(QDialog):
         float,
         float,
         float,
+        str,
         object,
     )
 
@@ -313,7 +314,9 @@ class SetupDrawer(QDialog):
         self.delta_t_input.setSingleStep(0.001)
         self.delta_t_input.setValue(self.initial_delta_t)
 
-        self.steps_per_frame_input_desc = "The number of simulation steps calculated in each frame."
+        self.steps_per_frame_input_desc = (
+            "The number of simulation steps calculated in each frame."
+        )
         self.steps_per_frame_input_label = QLabel("Steps per Frame (n<sub>step</sub>):")
         self.steps_per_frame_input_label.setToolTip(self.steps_per_frame_input_desc)
         self.steps_per_frame_input = QSpinBox()
@@ -354,7 +357,9 @@ class SetupDrawer(QDialog):
             between grid points in the simulation. <br>
             Smaller steps provide higher spatial <br>
             resolution but increase computation time."""
-        self.grid_step_input_label = QLabel("Grid Step (\u03b4) [a<sub>0</sub>\u207b\u00b9]:")
+        self.grid_step_input_label = QLabel(
+            "Grid Step (\u03b4) [a<sub>0</sub>\u207b\u00b9]:"
+        )
         self.grid_step_input_label.setToolTip(self.grid_step_input_desc)
         self.grid_step_input = QDoubleSpinBox()
         self.grid_step_input.setDecimals(3)
@@ -406,7 +411,9 @@ class SetupDrawer(QDialog):
             expressed in units of the Bohr radii [a<sub>0</sub>]: <br>
             1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m.
             """
-        self.sig_xx_input_label = QLabel("&sigma;<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:")
+        self.sig_xx_input_label = QLabel(
+            "&sigma;<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:"
+        )
         self.sig_xx_input_label.setToolTip(self.sig_xx_input_desc)
         self.sig_xx_input = QDoubleSpinBox()
         self.sig_xx_input.setRange(0.1, 50.0)
@@ -419,7 +426,9 @@ class SetupDrawer(QDialog):
             expressed in units of the Bohr radii [a<sub>0</sub>]: <br>
             1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m.
             """
-        self.sig_xy_input_label = QLabel("&sigma;<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:")
+        self.sig_xy_input_label = QLabel(
+            "&sigma;<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:"
+        )
         self.sig_xy_input_label.setToolTip(self.sig_xy_input_desc)
         self.sig_xy_input = QDoubleSpinBox()
         self.sig_xy_input.setRange(-100.0, 100.0)
@@ -432,7 +441,9 @@ class SetupDrawer(QDialog):
             expressed in units of the Bohr radii [a<sub>0</sub>]: <br>
             1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m.
             """
-        self.sig_yy_input_label = QLabel("&sigma;<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:")
+        self.sig_yy_input_label = QLabel(
+            "&sigma;<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:"
+        )
         self.sig_yy_input_label.setToolTip(self.sig_yy_input_desc)
         self.sig_yy_input = QDoubleSpinBox()
         self.sig_yy_input.setRange(0.1, 50.0)
@@ -460,7 +471,7 @@ class SetupDrawer(QDialog):
             "Select the Brush tool to add potential <br>features to the canvas. <br>"
             "Click and drag on the canvas <br>to paint potential barriers based on <br>"
             "the current brush strength and width settings."
-            )
+        )
         self.radio_brush.setChecked(True)
         self.radio_eraser = QRadioButton("Erase")
         self.radio_eraser.setToolTip(
@@ -580,13 +591,15 @@ class SetupDrawer(QDialog):
         self.load_params_btn = QPushButton("Load from JSON")
         self.load_params_btn.setToolTip(
             "Load simulation parameters and potential from a JSON file. <br>"
-        "This will overwrite the current canvas and settings, <br>"
-        "so use with caution if you have unsaved custom configurations."
+            "This will overwrite the current canvas and settings, <br>"
+            "so use with caution if you have unsaved custom configurations."
         )
         self.load_params_btn.clicked.connect(self.load_params_from_file)
 
         self.save_params_btn = QPushButton("Save to JSON")
-        self.save_params_btn.setToolTip("Save simulation parameters and potential to a JSON file.")
+        self.save_params_btn.setToolTip(
+            "Save simulation parameters and potential to a JSON file."
+        )
         self.save_params_btn.clicked.connect(self.save_params_to_file)
 
         clear_btn = QPushButton("Clear Potential")
@@ -921,14 +934,7 @@ class SetupDrawer(QDialog):
         simulation, stability_warnings = instantiate_solver_with_warnings(
             method_name=method_name,
             potential=potential_obj,
-            wavefunc=GaussianPacket(
-                r0_int,
-                k0.copy(),
-                sigma_matrix.copy(),
-                mass,
-                new_size_x,
-                new_size_y,
-            ),
+            wavefunc=wavefunc,
             delta_t=delta_t,
             grid_step=grid_step,
         )
@@ -962,6 +968,7 @@ class SetupDrawer(QDialog):
             new_x_limit,
             new_y_limit,
             grid_step,
+            method_name,
             simulation,
         )
         self.accept()
