@@ -4,6 +4,7 @@
 
 from typing import Optional
 
+import logging
 import numpy as np
 from backend.Potential import (
     EmbeddedPotential,
@@ -41,6 +42,7 @@ from .simulation_builders import (
     coarse_potential_from_drawer,
     instantiate_solver_with_warnings,
 )
+from.warning_handler import WarningCaptureHandler
 
 # Conversion factor between an arrow's grid-cell displacement and the physical
 # wavevector magnitude. With 1.0 a drag of N grid cells encodes |k| = N, which
@@ -781,6 +783,34 @@ class SetupDrawer(QDialog):
         # adjust parameters without losing the in-progress setup.
         potential_obj = coarse_potential_from_drawer(potential, wall_height)
         r0_int: tuple[int, int] = (int(r0[0]), int(r0[1]))
+
+        packet_capture = WarningCaptureHandler()
+        packet_logger = logging.getLogger("backend.StationaryWaveFunc")
+        packet_logger.addHandler(packet_capture)
+
+        try:
+            wavefunc = GaussianPacket(
+                r0_int,
+                k0.copy(),
+                sigma_matrix.copy(),
+                mass,
+                new_size_x,
+                new_size_y,
+            )
+        finally:
+            packet_logger.removeHandler(packet_capture)
+
+        if packet_capture.captured_warnings:
+            warning_text = "\n\n".join(packet_capture.captured_warnings)
+            QMessageBox.warning(
+                self,
+                "Wavepacket Initialization Error",
+                f"Cannot create Gaussian packet with current parameters:\n\n{warning_text}",
+            )
+            self.save_btn.setText("Save && Update Simulation")
+            self.save_btn.setEnabled(True)
+            return
+
         simulation, stability_warnings = instantiate_solver_with_warnings(
             method_name=method_name,
             potential=potential_obj,
