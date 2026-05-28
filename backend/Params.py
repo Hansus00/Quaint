@@ -35,25 +35,24 @@ class Params:
 
     length_x: float = 64.0
     length_y: float = 64.0
-    grid_step: float = 0.8125
+    grid_step: float = 0.4
 
     solver: SolverType = SolverType.SSFM
 
     r0: Tuple[float, float] = field(default_factory=lambda: (32.0, 32.0))
-    k0: NDArray[np.float64] = field(default_factory=lambda: np.array([0.1, 0]))
+    k0: NDArray[np.float64] = field(default_factory=lambda: np.array([1.5, 0]))
     sigma0: NDArray[np.float64] = field(
         default_factory=lambda: np.array([[16, 0], [0, 16]])
     )
     mass: float = 1e-3
     delta_t: float = 1e-4
-    T_tot: float = 5
+    T_tot: float = 0.05  # total time of simulation
 
     potential_type: PotentialType = PotentialType.INFINITE_WELL
     well_height: float = 1e6
     potential_matrix: Optional[NDArray[np.float64]] = (
         None  # should be the last parameter, as it it the biggest
     )
-
 
     @property
     def grid_size_x(self) -> int:
@@ -114,7 +113,8 @@ class Params:
 
     def write(self, filepath: str) -> None:
         """Write simulation parameters into file located at filepath"""
-        self.potential_type = PotentialType.CUSTOM  # as it has been changed by user
+        if self.potential_matrix is not None:
+            self.potential_type = PotentialType.CUSTOM  # as it has been changed by user
         p_dict = asdict(self, dict_factory=_enum_dict_factory)
         with open(filepath, "w") as f:
             json.dump(p_dict, f, indent=4)
