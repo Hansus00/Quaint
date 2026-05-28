@@ -153,7 +153,7 @@ class Settings(QDialog):
         layout.addRow(self.brightness_spin_label, self.brightness_spin)
 
         # Transparency level for the drawn potential fields
-        self.alpha_spin_label = QLabel("Potential Transparency:")
+        self.alpha_spin_label = QLabel("Potential Opacity:")
         self.alpha_spin = QDoubleSpinBox()
         self.alpha_spin.setRange(0.0, 1.0)
         self.alpha_spin.setValue(current_potential_alpha)
