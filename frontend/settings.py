@@ -22,10 +22,13 @@ class Settings(QDialog):
     """
 
     # --- Class Fields ---
-    # Emits: (z_scale, z_offset, fine_scale, z_pot_scale, brightness, potential_alpha)
-    settings_saved = pyqtSignal(float, float, int, float, float, float)
+    # Emits: (fps, z_scale, z_offset, fine_scale, z_pot_scale, brightness,
+    #        potential_alpha, zoom_order)
+    settings_saved = pyqtSignal(int, float, float, int, float, float, float, int)
 
+    fps_spin: QSpinBox
     fine_scale_spin: QSpinBox
+    zoom_order_spin: QSpinBox
     z_scale_spin: QDoubleSpinBox
     z_pot_scale_spin: QDoubleSpinBox
     z_offset_spin: QDoubleSpinBox
@@ -34,24 +37,28 @@ class Settings(QDialog):
 
     def __init__(
         self,
+        current_fps: int,
         current_z_scale: float,
         current_z_offset: float,
         current_fine_scale: int,
         current_z_pot_scale: float,
         current_brightness: float,
         current_potential_alpha: float,
+        current_zoom_order: int,
         parent: Optional[QWidget] = None,
     ) -> None:
         """
         Initializes the configuration dialog with current default values.
 
         Args:
+            current_fps (int): Current playback FPS used by the animation timer.
             current_z_scale (float): Current vertical amplitude multiplier for the wave.
             current_z_offset (float): Current vertical offset for the potential landscape.
             current_fine_scale (int): Current interpolation multiplier for visual smoothness.
             current_z_pot_scale (float): Current vertical amplitude multiplier for the potential mesh.
             current_brightness (float): Current exposure multiplier for the wave packet colors.
             current_potential_alpha (float): Current transparency level for the potential mesh (0.0 to 1.0).
+            current_zoom_order (int): Current spline order (1-5) used when upscaling the wave to the fine mesh.
             parent (Optional[QWidget]): Unused; transient parent is set by MainWindow
                 after the window is shown.
         """
@@ -64,11 +71,30 @@ class Settings(QDialog):
 
         layout = QFormLayout(self)
 
+        self.fps_spin = QSpinBox()
+        self.fps_spin.setRange(1, 120)
+        self.fps_spin.setValue(current_fps)
+        layout.addRow("Playback FPS:", self.fps_spin)
+
         # Set maximum "coarse to fine" grid scale for interpolation
         self.fine_scale_spin = QSpinBox()
         self.fine_scale_spin.setRange(1, 10)
         self.fine_scale_spin.setValue(current_fine_scale)
         layout.addRow("Interpolation Scale (Coarse -> Fine):", self.fine_scale_spin)
+
+        # B-spline order for the coarse -> fine upscale. 1 is fastest but
+        # faceted, 2 is the recommended sweet spot, 3+ is smoother but slower
+        # and may overshoot near sharp probability peaks.
+        self.zoom_order_spin = QSpinBox()
+        self.zoom_order_spin.setRange(1, 5)
+        self.zoom_order_spin.setValue(current_zoom_order)
+        self.zoom_order_spin.setToolTip(
+            "B-spline order for the wave upscale.\n"
+            "1 = linear (fastest, faceted)\n"
+            "2 = quadratic (recommended)\n"
+            "3+ = cubic+ (smoother, slower, can overshoot)"
+        )
+        layout.addRow("Interpolation Order:", self.zoom_order_spin)
 
         # Set maximum z scale for the probability wave
         self.z_scale_spin = QDoubleSpinBox()
@@ -120,12 +146,14 @@ class Settings(QDialog):
     def _emit_current_values(self) -> None:
         """Push the current spin-box values to the main window."""
         self.settings_saved.emit(
+            self.fps_spin.value(),
             self.z_scale_spin.value(),
             self.z_offset_spin.value(),
             self.fine_scale_spin.value(),
             self.z_pot_scale_spin.value(),
             self.brightness_spin.value(),
             self.alpha_spin.value(),
+            self.zoom_order_spin.value(),
         )
 
     def apply_settings(self) -> None:
