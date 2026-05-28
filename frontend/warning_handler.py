@@ -7,6 +7,7 @@ import logging
 
 class WarningCaptureHandler(logging.Handler):
     """Captures warning messages emitted by the backend solvers to display them in the GUI."""
+
     def __init__(self):
         super().__init__()
         self.captured_warnings = []

@@ -8,17 +8,21 @@ from typing import Any, Optional
 import numpy as np
 from backend.Params import Params, SolverType
 from backend.Potential import InfiniteWellPotential, Potential
-from backend.Solver import SSFM, SSFMSymmetric, CrankNicolson
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QMessageBox
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
 
 from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
 from .settings import Settings
+from .simulation_builders import (
+    WaveFrameArray,
+    build_params,
+    coarse_potential_from_drawer,
+    instantiate_solver_with_warnings,
+)
 from .setup_drawer import SetupDrawer
 from .simulation_thread import SimulationThread
-from .warning_handler import WarningCaptureHandler
 import logging
 
 logger = logging.getLogger(__name__)
@@ -31,7 +35,6 @@ class AnimationSetup:
     k0: np.ndarray
     sigma_matrix: np.ndarray
     mass: float
-    fps: int
     total_frames: int
     size_x: int
     size_y: int
@@ -42,6 +45,9 @@ class AnimationSetup:
     x_limit: float
     y_limit: float
     grid_step: float
+    # Solver instance built by SetupDrawer for the stability check; if not
+    # None the main window reuses it instead of rebuilding from scratch.
+    prebuilt_solver: Optional[Any] = None
 
 
 class MainWindow(QMainWindow):
@@ -56,6 +62,7 @@ class MainWindow(QMainWindow):
     z_potential_offset: float
     z_scale: float
     fine_grid_scale: int
+    zoom_order: int
     z_potential_scale: float
     brightness_multiplier: float
     potential_alpha: float
@@ -64,7 +71,7 @@ class MainWindow(QMainWindow):
     aspect_ratio: float
     x_limit: float
     y_limit: float
-    wave_frames: list
+    wave_frames: list[WaveFrameArray]
     # TODO: rename to just "potential" as it doesn't change over time
     initial_potential: Potential
     initial_wavefunc: GaussianPacket
@@ -112,7 +119,8 @@ class MainWindow(QMainWindow):
         self.aspect_ratio = self.y_limit / self.x_limit
         self.z_potential_offset = z_potential_offset
         self.z_scale = 150.0
-        self.fine_grid_scale = 4
+        self.fine_grid_scale = 3
+        self.zoom_order = 2
         self.z_potential_scale = 0.07
         self.brightness_multiplier = 25.0
         self.potential_alpha = 0.4  # Default opacity level
@@ -128,7 +136,7 @@ class MainWindow(QMainWindow):
         self.x_limit = 10.0
         self.y_limit = 10.0 * self.aspect_ratio
 
-        self.wave_frames = []
+        self.wave_frames: list[WaveFrameArray] = []
         self.initial_potential = InfiniteWellPotential(
             self.size_coarse_x, self.size_coarse_y
         )
@@ -184,6 +192,7 @@ class MainWindow(QMainWindow):
             self.z_potential_scale,
             self.brightness_multiplier,
             self.potential_alpha,
+            self.zoom_order,
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
@@ -201,39 +210,7 @@ class MainWindow(QMainWindow):
     def _coarse_potential_from_drawer(
         self, potential_array: np.ndarray, wall_height: float
     ) -> Potential:
-        """Convert drawer potential (UI orientation) to backend coarse matrix."""
-        potential_coarse = potential_array[:, ::-1].copy()
-        potential_coarse[0, :] = wall_height
-        potential_coarse[-1, :] = wall_height
-        potential_coarse[:, 0] = wall_height
-        potential_coarse[:, -1] = wall_height
-        return Potential(potential_coarse)
-
-    def _instantiate_solver(
-        self,
-        potential: Potential,
-        wavefunc: GaussianPacket,
-        params: Params,
-    ) -> Any:
-
-        capture_handler = WarningCaptureHandler()
-        solver_logger = logging.getLogger("backend.Solver")
-        solver_logger.addHandler(capture_handler)
-
-        if params.solver == SolverType.CN:
-            simulation = CrankNicolson(potential, wavefunc, params)
-        elif params.solver == SolverType.SSFM:
-            simulation = SSFM(potential, wavefunc, params)
-        elif params.solver == SolverType.SYM_SSFM:
-            simulation = SSFMSymmetric(potential, wavefunc, params)
-        else:
-            raise ValueError(f"Unknown simulation method: {params.solver}")
-
-        # TODO: fix typing (_Solver has no field stability_warnings)
-        simulation.stability_warnings = capture_handler.captured_warnings
-
-        solver_logger.removeHandler(capture_handler)
-        return simulation
+        return coarse_potential_from_drawer(potential_array, wall_height)
 
     def _simulation_from_pending(self, pending: AnimationSetup) -> Any:
         """Build a solver for a pending setup without mutating committed state."""
@@ -241,25 +218,17 @@ class MainWindow(QMainWindow):
             pending.potential_array, pending.wall_height
         )
 
-        # Convert AnimationSetup names to match SolverType if needed
-        method_map = {
-            "Crank-Nicolson": SolverType.CN,
-            "SSFM": SolverType.SSFM,
-            "Symmetric SSFM": SolverType.SYM_SSFM,
-        }
-        solver_type = method_map.get(pending.method, SolverType.SSFM)
-
-        params = Params(
-            length_x=pending.x_limit,
-            length_y=pending.y_limit,
-            grid_step=pending.grid_step,
-            solver=solver_type,
-            r0=tuple(np.array(pending.r0) * pending.grid_step),
-            k0=pending.k0,
-            sigma0=pending.sigma_matrix * (pending.grid_step**2),
-            mass=pending.mass,
-            delta_t=pending.delta_t,
-            well_height=pending.wall_height
+        params = build_params(
+            pending.method,
+            pending.x_limit,
+            pending.y_limit,
+            pending.grid_step,
+            pending.r0,
+            pending.k0,
+            pending.sigma_matrix,
+            pending.mass,
+            pending.delta_t,
+            pending.wall_height,
         )
 
         wavefunc = GaussianPacket(
@@ -269,11 +238,12 @@ class MainWindow(QMainWindow):
             pending.size_x,
             pending.size_y,
         )
-        return self._instantiate_solver(
-            potential,
-            wavefunc,
-            params,
+        solver, _warnings = instantiate_solver_with_warnings(
+            potential=potential,
+            wavefunc=wavefunc,
+            params=params,
         )
+        return solver
 
     def _commit_pending_setup(self) -> None:
         """Apply a successful calculation's pending setup to the live simulation."""
@@ -281,7 +251,6 @@ class MainWindow(QMainWindow):
         if pending is None:
             return
 
-        self.fps = pending.fps
         self.total_frames = pending.total_frames
         self.controls.update_settings(self.fps, self.total_frames)
 
@@ -334,6 +303,7 @@ class MainWindow(QMainWindow):
             self.z_potential_scale,
             self.brightness_multiplier,
             self.potential_alpha,
+            self.zoom_order,
         )
         self._pending_setup = None
 
@@ -345,7 +315,14 @@ class MainWindow(QMainWindow):
         self._calculation_cancelled = False
 
         if self._pending_setup is not None:
-            sim = self._simulation_from_pending(self._pending_setup)
+            # SetupDrawer already constructed and stability-checked the solver
+            # for us, so reuse it directly. For Crank-Nicolson on big grids
+            # this saves a second sparse LU factorization (>seconds of hang
+            # between dialog close and worker start).
+            if self._pending_setup.prebuilt_solver is not None:
+                sim = self._pending_setup.prebuilt_solver
+            else:
+                sim = self._simulation_from_pending(self._pending_setup)
             total_frames = self._pending_setup.total_frames
             steps_per_frame = self._pending_setup.steps_per_frame
         else:
@@ -354,16 +331,6 @@ class MainWindow(QMainWindow):
             sim = self.simulation
             total_frames = self.total_frames
             steps_per_frame = self.current_steps_per_frame
-
-        if hasattr(sim, "stability_warnings") and sim.stability_warnings:
-            warning_text = "\n\n".join(sim.stability_warnings)
-            QMessageBox.warning(
-                self,
-                "Simulation Stability Warning",
-                f"The physical parameters might cause the simulation to become unstable "
-                f"or mathematically inaccurate:\n\n{warning_text}",
-            )
-            return
 
         self.controls.enter_calculating_mode()
         self.controls.time_label.setText("Calculating...")
@@ -387,7 +354,7 @@ class MainWindow(QMainWindow):
     def on_calculation_cancelled(self) -> None:
         self._calculation_cancelled = False
 
-    def on_calculation_finished(self, generated_frames: list) -> None:
+    def on_calculation_finished(self, generated_frames: list[WaveFrameArray]) -> None:
         """
         Receives the calculated frames from the worker thread.
         Dynamically sizes the animation cache based on remaining system RAM.
@@ -461,12 +428,14 @@ class MainWindow(QMainWindow):
             return
 
         settings_dialog = Settings(
+            self.fps,
             self.z_scale,
             self.z_potential_offset,
             self.fine_grid_scale,
             self.z_potential_scale,
             self.brightness_multiplier,
             self.potential_alpha,
+            self.zoom_order,
             self,
         )
         settings_dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
@@ -480,12 +449,14 @@ class MainWindow(QMainWindow):
 
     def apply_settings(
         self,
+        fps: int,
         z_scale: float,
         z_offset: float,
         fine_grid_scale: int,
         z_pot_scale: float,
         brightness: float,
         potential_alpha: float,
+        zoom_order: int,
     ) -> None:
         """
         Applies visual settings instantly without recalculating the physics backend.
@@ -497,13 +468,18 @@ class MainWindow(QMainWindow):
             z_pot_scale (float): Upward multiplier for the drawn potential structure.
             brightness (float): Scalar applied prior to value clip to expose wave tails.
             potential_alpha (float): Transparency multiplier for the potential 3D mesh.
+            zoom_order (int): B-spline order (1-5) for the coarse -> fine wave upscale.
         """
         self.z_scale = z_scale
+        self.fps = fps
         self.z_potential_offset = z_offset
         self.fine_grid_scale = fine_grid_scale
         self.z_potential_scale = z_pot_scale
         self.brightness_multiplier = brightness
         self.potential_alpha = potential_alpha
+        self.zoom_order = zoom_order
+
+        self.controls.update_settings(self.fps, self.total_frames)
 
         self.animation_widget.update_config(
             self.size_coarse_x,
@@ -516,6 +492,7 @@ class MainWindow(QMainWindow):
             self.z_potential_scale,
             self.brightness_multiplier,
             self.potential_alpha,
+            self.zoom_order,
         )
 
         self.animation_widget.update_potential(self.initial_potential.matrix)
@@ -533,7 +510,6 @@ class MainWindow(QMainWindow):
             return
 
         drawer = SetupDrawer(
-            current_fps=self.fps,
             current_frames=self.total_frames,
             grid_size_x=self.size_coarse_x,
             grid_size_y=self.size_coarse_y,
@@ -568,7 +544,6 @@ class MainWindow(QMainWindow):
         k0: np.ndarray,
         sigma_matrix: np.ndarray,
         mass: float,
-        fps: int,
         total_frames: int,
         size_x: int,
         size_y: int,
@@ -578,11 +553,15 @@ class MainWindow(QMainWindow):
         x_limit: float,
         y_limit: float,
         grid_step: float,
+        prebuilt_solver: Optional[Any] = None,
     ) -> None:
         """
         Applies physics configuration, rebuilds the internal arrays if resolution changes,
         and triggers a complete simulation recalculation.
         Committed state is updated only after the calculation finishes successfully.
+
+        ``prebuilt_solver`` is the solver already constructed by ``SetupDrawer``
+        for its stability check; reusing it avoids a second expensive build on large grids.
         """
         logger.info("Received setup:")
         logger.info(f"k0: {k0}")
@@ -594,12 +573,11 @@ class MainWindow(QMainWindow):
         r0_int: tuple[int, int] = (int(r0[0]), int(r0[1]))
 
         self._pending_setup = AnimationSetup(
-            potential_array=potential_array.copy(),
+            potential_array=potential_array,
             r0=r0_int,
-            k0=k0.copy(),
-            sigma_matrix=sigma_matrix.copy(),
+            k0=k0,
+            sigma_matrix=sigma_matrix,
             mass=mass,
-            fps=fps,
             total_frames=total_frames,
             size_x=size_x,
             size_y=size_y,
@@ -610,6 +588,7 @@ class MainWindow(QMainWindow):
             x_limit=x_limit,
             y_limit=y_limit,
             grid_step=grid_step,
+            prebuilt_solver=prebuilt_solver,
         )
 
         self.calculate_all_frames()
@@ -621,37 +600,29 @@ class MainWindow(QMainWindow):
         if not self.wave_frames or frame_idx >= len(self.wave_frames):
             return
 
-        psi_coarse = self.wave_frames[frame_idx]
-        self.animation_widget.update_wave(psi_coarse)
+        wave_matrix = self.wave_frames[frame_idx]
+        self.animation_widget.update_wave(wave_matrix)
 
     def switch_simulation_method(self, method_name: str) -> None:
         """
         Switches the backend solver instance used for calculating the wave evolution.
         """
         self.current_method = method_name
-
-        method_map = {
-            "Crank-Nicolson": SolverType.CN,
-            "SSFM": SolverType.SSFM,
-            "Symmetric SSFM": SolverType.SYM_SSFM,
-        }
-        solver_type = method_map.get(method_name, SolverType.SSFM)
-
-        params = Params(
-            length_x=self.x_limit,
-            length_y=self.y_limit,
-            grid_step=self.current_grid_step,
-            solver=solver_type,
-            r0=tuple(self.current_r0),
-            k0=self.current_k0,
-            sigma0=self.current_sigma,
-            mass=self.current_mass,
-            delta_t=self.current_delta_t,
-            well_height=self.current_wall_height
+        params = build_params(
+            method_name,
+            self.x_limit,
+            self.y_limit,
+            self.current_grid_step,
+            self.current_r0,
+            self.current_k0,
+            self.current_sigma,
+            self.current_mass,
+            self.current_delta_t,
+            self.current_wall_height,
         )
 
-        self.simulation = self._instantiate_solver(
-            self.initial_potential,
-            self.initial_wavefunc,
-            params,
+        self.simulation, _warnings = instantiate_solver_with_warnings(
+            potential=self.initial_potential,
+            wavefunc=self.initial_wavefunc,
+            params=params,
         )
