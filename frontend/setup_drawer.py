@@ -635,8 +635,6 @@ class SetupDrawer(QDialog):
         for spinbox in self.findChildren((QSpinBox, QDoubleSpinBox)):
             spinbox.setMinimumWidth(80)
 
-        self.check_memory_limit()
-
     def update_canvas_size(self, _value: Optional[float] = None) -> None:
         """
         Dynamically resizes the drawing canvas to a new grid resolution. The
@@ -662,56 +660,6 @@ class SetupDrawer(QDialog):
         aspect_ratio = new_y / new_x
         self.canvas_container.set_aspect_ratio(aspect_ratio)
         self.canvas.set_grid_size(new_x, new_y)
-
-    def check_memory_limit(self) -> None:
-        """
-        Calculates the maximum number of frames based on the grid size and available RAM.
-        Lowers the frames input if it exceeds the calculated limit and notifies the user.
-        """
-        try:
-            import psutil
-
-            mem_available = psutil.virtual_memory().available
-        except ImportError:
-            # Fallback if psutil is not available, assume 16GB free memory
-            mem_available = 16 * 1024 * 1024 * 1024
-
-        # Reserve 2GB buffer for OS, cache
-        safe_mem = max(0, mem_available - 2000 * 1024 * 1024)
-
-        nx = int(self.x_limit_input.value() / self.grid_step_input.value())
-        ny = int(self.y_limit_input.value() / self.grid_step_input.value())
-
-        # Conservative estimation:
-        # np.complex128 takes up 16 bytes
-        bytes_per_frame = nx * ny * 16
-
-        if bytes_per_frame == 0:
-            return
-
-        max_frames = int(safe_mem / bytes_per_frame)
-
-        # Clamp to reasonable UI boundaries
-        max_frames = min(max_frames, 10000)
-        max_frames = max(max_frames, 10)
-
-        current_T_tot = self.T_tot_input.value()
-        max_T_tot = (
-            max_frames * self.delta_t_input.value() * self.steps_per_frame_input.value()
-        )
-
-        # Update the maximum limit of the spinbox
-        self.T_tot_input.setMaximum(max_T_tot)
-
-        # Apply the reduction and notify if the current frames exceed the new limit
-        if current_T_tot > max_T_tot:
-            self.T_tot_input.setValue(max_T_tot)
-            QMessageBox.warning(
-                self,
-                "Memory Limit Reached",
-                f"The grid size is too large for the current number of frames.\n\n"
-                f"Based on available RAM, the maximum number of frames has been safely lowered to {max_frames}.",
-            )
 
     def load_preset_potential(self, text: str) -> None:
         """
