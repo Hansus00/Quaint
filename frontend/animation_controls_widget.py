@@ -5,6 +5,7 @@
 from typing import Optional
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -40,7 +41,11 @@ class AnimationControlsWidget(QWidget):
     stop_calc_btn: QPushButton
 
     def __init__(
-        self, total_frames: int, fps: int, parent: Optional[QWidget] = None
+        self,
+        total_frames: int,
+        fps: int,
+        time_per_frame: float,
+        parent: Optional[QWidget] = None,
     ) -> None:
         """
         Initializes the playback controls widget.
@@ -51,8 +56,9 @@ class AnimationControlsWidget(QWidget):
             parent (Optional[QWidget]): Parent widget.
         """
         super().__init__(parent)
-        self.total_frames: int = total_frames
-        self.fps: int = fps
+        self.total_frames = total_frames
+        self.fps = fps
+        self.time_per_frame = time_per_frame
 
         self.timer: QTimer = QTimer(self)
         self.timer.timeout.connect(self.advance_frame)
@@ -72,7 +78,7 @@ class AnimationControlsWidget(QWidget):
         self.play_pause_btn.clicked.connect(self.toggle_play_pause)
         layout.addWidget(self.play_pause_btn)
 
-        self.time_label = QLabel("Time: 0")
+        self.time_label = QLabel("Time: 0.000 a. u.  Frame: 0")
         layout.addWidget(self.time_label)
 
         self.slider = QSlider(Qt.Orientation.Horizontal)
@@ -100,6 +106,26 @@ class AnimationControlsWidget(QWidget):
         self.stop_calc_btn.clicked.connect(self.stop_calculation_requested.emit)
         self.stop_calc_btn.setVisible(False)
         layout.addWidget(self.stop_calc_btn)
+
+        # Keyboard shortcuts for play/pause and fast-forwarding
+        self.shortcut_space = QShortcut(QKeySequence(Qt.Key.Key_Space), self)
+        self.shortcut_space.activated.connect(self.play_pause_btn.click)
+
+        SKIP_FRAMES_AMOUNT = 30
+        self.shortcut_right = QShortcut(QKeySequence(Qt.Key.Key_Right), self)
+        self.shortcut_right.activated.connect(
+            lambda: self.move_to_frame(self.slider.value() + SKIP_FRAMES_AMOUNT)
+        )
+
+        self.shortcut_left = QShortcut(QKeySequence(Qt.Key.Key_Left), self)
+        self.shortcut_left.activated.connect(
+            lambda: self.move_to_frame(self.slider.value() - SKIP_FRAMES_AMOUNT)
+        )
+
+        # Ensure highest priority for the shortcuts to avoid conflicts with other widgets
+        self.shortcut_space.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.shortcut_right.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.shortcut_left.setContext(Qt.ShortcutContext.WindowShortcut)
 
     def enter_calculating_mode(self) -> None:
         """Disable playback controls and show the stop-calculation button."""
@@ -149,10 +175,35 @@ class AnimationControlsWidget(QWidget):
         else:
             self.pause()
 
+    def move_to_frame(self, frame: int) -> None:
+        """Moves the playback slider to a specific frame index."""
+        self.slider.setValue(min(max(frame, 0), self.total_frames - 1))
+
+    def update_time_label(self) -> None:
+        """Updates the text of the time label based on current frame and physical time step."""
+        current_frame = self.slider.value()
+        physical_time = current_frame * self.time_per_frame
+        self.time_label.setText(f"Time: {physical_time:.3f} a. u.  Frame: {current_frame}")
+
     def on_slider_changed(self, value: int) -> None:
         """Handles slider position changes, updates UI label text, and emits current frame index."""
-        self.time_label.setText(f"Time: {value}")
+        self.update_time_label()  # <-- Używa nowej funkcji
         self.frame_changed.emit(value)
+
+    def update_settings(
+        self, fps: int, total_frames: int, time_per_frame: Optional[float] = None
+    ) -> None:
+        """Updates internal playback settings and smoothly adjusts the active timer interval."""
+        self.fps = fps
+        self.total_frames = total_frames
+        if time_per_frame is not None:
+            self.time_per_frame = time_per_frame  # <-- DODANE
+
+        self.slider.setRange(0, self.total_frames - 1)
+        self.update_time_label()  # <-- Odświeżenie etykiety po zmianie ustawień
+
+        if self.timer.isActive():
+            self.timer.setInterval(1000 // self.fps)
 
     def toggle_potential(self) -> None:
         """Toggles the visibility state of the potential and updates the button text."""
@@ -164,13 +215,3 @@ class AnimationControlsWidget(QWidget):
             self.toggle_pot_btn.setText("Show Potential")
 
         self.toggle_potential_requested.emit(self.potential_visible)
-
-    def update_settings(self, fps: int, total_frames: int) -> None:
-        """Updates internal playback settings and smoothly adjusts the active timer interval."""
-        self.fps = fps
-        self.total_frames = total_frames
-        self.slider.setRange(0, self.total_frames - 1)
-
-        if self.timer.isActive():
-            # Delay in between frames in milliseconds
-            self.timer.setInterval(1000 // self.fps)

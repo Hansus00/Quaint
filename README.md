@@ -25,7 +25,7 @@ This project uses [uv](https://docs.astral.sh/uv/).
 
 **1. Clone the repository**
 ```
-git clone [https://github.com/Hansus00/Quaint.git](https://github.com/Hansus00/Quaint.git)
+git clone https://github.com/Hansus00/Quaint
 cd Quaint
 ```
 
