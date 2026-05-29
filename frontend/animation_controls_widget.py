@@ -106,14 +106,15 @@ class AnimationControlsWidget(QWidget):
         self.shortcut_space = QShortcut(QKeySequence(Qt.Key.Key_Space), self)
         self.shortcut_space.activated.connect(self.play_pause_btn.click)
 
+        SKIP_FRAMES_AMOUNT = 30
         self.shortcut_right = QShortcut(QKeySequence(Qt.Key.Key_Right), self)
         self.shortcut_right.activated.connect(
-            lambda: self.move_to_frame(self.slider.value() + 10)
+            lambda: self.move_to_frame(self.slider.value() + SKIP_FRAMES_AMOUNT)
         )
 
         self.shortcut_left = QShortcut(QKeySequence(Qt.Key.Key_Left), self)
         self.shortcut_left.activated.connect(
-            lambda: self.move_to_frame(self.slider.value() - 10)
+            lambda: self.move_to_frame(self.slider.value() - SKIP_FRAMES_AMOUNT)
         )
 
         # Ensure highest priority for the shortcuts to avoid conflicts with other widgets
