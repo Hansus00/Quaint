@@ -93,6 +93,13 @@ p.add_argument(
     help="Set size of grid step",
 )
 p.add_argument(
+    "--updates-max",
+    type=int,
+    required=False,
+    default=1,
+    help="How many steps per frame",
+)
+p.add_argument(
     "--params",
     action="store_true",
     required=False,
@@ -259,7 +266,7 @@ def update(frame):
     elif frame == FRAMES_FOR_POTENTIAL:
         cbar.ax.set_visible(False)
     else:
-        solver.update()
+        solver.update(args.updates_max)
         Energies.append(solver.ev_energy())  # type: ignore
         Probabilities.append(solver.get_wave_function().total_probability())
 
