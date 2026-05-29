@@ -93,7 +93,7 @@ p.add_argument(
     help="Set size of grid step",
 )
 p.add_argument(
-    "--updates-per-frame",
+    "--steps-per-frame",
     type=int,
     required=False,
     default=1,
