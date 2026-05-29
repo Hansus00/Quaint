@@ -5,6 +5,7 @@
 from typing import Optional
 
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -101,6 +102,26 @@ class AnimationControlsWidget(QWidget):
         self.stop_calc_btn.setVisible(False)
         layout.addWidget(self.stop_calc_btn)
 
+        # Keyboard shortcuts for play/pause and fast-forwarding
+        self.shortcut_space = QShortcut(QKeySequence(Qt.Key.Key_Space), self)
+        self.shortcut_space.activated.connect(self.play_pause_btn.click)
+
+        SKIP_FRAMES_AMOUNT = 30
+        self.shortcut_right = QShortcut(QKeySequence(Qt.Key.Key_Right), self)
+        self.shortcut_right.activated.connect(
+            lambda: self.move_to_frame(self.slider.value() + SKIP_FRAMES_AMOUNT)
+        )
+
+        self.shortcut_left = QShortcut(QKeySequence(Qt.Key.Key_Left), self)
+        self.shortcut_left.activated.connect(
+            lambda: self.move_to_frame(self.slider.value() - SKIP_FRAMES_AMOUNT)
+        )
+
+        # Ensure highest priority for the shortcuts to avoid conflicts with other widgets
+        self.shortcut_space.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.shortcut_right.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.shortcut_left.setContext(Qt.ShortcutContext.WindowShortcut)
+
     def enter_calculating_mode(self) -> None:
         """Disable playback controls and show the stop-calculation button."""
         self.pause()
@@ -148,6 +169,10 @@ class AnimationControlsWidget(QWidget):
             self.slider.setValue(current_frame + 1)
         else:
             self.pause()
+
+    def move_to_frame(self, frame: int) -> None:
+        """Moves the playback slider to a specific frame index."""
+        self.slider.setValue(min(max(frame, 0), self.total_frames - 1))
 
     def on_slider_changed(self, value: int) -> None:
         """Handles slider position changes, updates UI label text, and emits current frame index."""

@@ -42,7 +42,7 @@ from .simulation_builders import (
     coarse_potential_from_drawer,
     instantiate_solver_with_warnings,
 )
-from.warning_handler import WarningCaptureHandler
+from .warning_handler import WarningCaptureHandler
 
 # Conversion factor between an arrow's grid-cell displacement and the physical
 # wavevector magnitude. With 1.0 a drag of N grid cells encodes |k| = N, which
@@ -67,7 +67,7 @@ class SetupDrawer(QDialog):
 
     # Emits: (potential_matrix, r0, k0, sigma_matrix, mass, total_frames,
     #         size_x, size_y, delta_t, steps_per_frame, wall_height,
-    #         x_limit, y_limit, grid_step, prebuilt_solver)
+    #         x_limit, y_limit, grid_step, method_name, prebuilt_solver)
     # The prebuilt solver was already constructed for the stability check, so
     # forwarding it lets the main window skip a second expensive build.
     setup_saved = pyqtSignal(
@@ -85,6 +85,7 @@ class SetupDrawer(QDialog):
         float,
         float,
         float,
+        str,
         object,
     )
 
@@ -313,7 +314,9 @@ class SetupDrawer(QDialog):
         self.delta_t_input.setSingleStep(0.001)
         self.delta_t_input.setValue(self.initial_delta_t)
 
-        self.steps_per_frame_input_desc = "The number of simulation steps calculated in each frame."
+        self.steps_per_frame_input_desc = (
+            "The number of simulation steps calculated in each frame."
+        )
         self.steps_per_frame_input_label = QLabel("Steps per Frame (n<sub>step</sub>):")
         self.steps_per_frame_input_label.setToolTip(self.steps_per_frame_input_desc)
         self.steps_per_frame_input = QSpinBox()
@@ -338,15 +341,25 @@ class SetupDrawer(QDialog):
         self.x_limit_input.setRange(1.0, 1000.0)
         self.x_limit_input.setValue(self.x_limit)
 
-        self.y_limit_input_desc = "The height of the simulation <br>domain. Measured in units <br>of Bohr radii [a<sub>0</sub>], where: <br>1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m."
+        self.y_limit_input_desc = """
+            The height of the simulation <br>
+            domain. Measured in units <br>
+            of Bohr radii [a<sub>0</sub>], where: <br>
+            1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m."""
         self.y_limit_input_label = QLabel("Height (h) [a<sub>0</sub>]:")
         self.y_limit_input_label.setToolTip(self.y_limit_input_desc)
         self.y_limit_input = QDoubleSpinBox()
         self.y_limit_input.setRange(1.0, 1000.0)
         self.y_limit_input.setValue(self.y_limit)
 
-        self.grid_step_input_desc = "The grid step determines the spacing <br>between grid points in the simulation. <br>Smaller steps provide higher spatial <br>resolution but increase computation time."
-        self.grid_step_input_label = QLabel("Grid Step (\u03b4) [a<sub>0</sub>\u207b\u00b9]:")
+        self.grid_step_input_desc = """
+            The grid step determines the spacing <br>
+            between grid points in the simulation. <br>
+            Smaller steps provide higher spatial <br>
+            resolution but increase computation time."""
+        self.grid_step_input_label = QLabel(
+            "Grid Step (\u03b4) [a<sub>0</sub>\u207b\u00b9]:"
+        )
         self.grid_step_input_label.setToolTip(self.grid_step_input_desc)
         self.grid_step_input = QDoubleSpinBox()
         self.grid_step_input.setDecimals(3)
@@ -357,8 +370,12 @@ class SetupDrawer(QDialog):
         self.y_limit_input.valueChanged.connect(self.update_canvas_size)
         self.grid_step_input.valueChanged.connect(self.update_canvas_size)
 
-        self.wall_height_input_desc = "The wall height parameter sets <br>the maximum potential value in the simulation. <br>Measured in electron volts [eV]: <br>1 eV \u2248 4.3597447222060(48) \u00d7 10<sup>-18</sup> J."
-        self.wall_height_input_label = QLabel("Wall Height (V<sub>0</sub>) [eV]:")
+        self.wall_height_input_desc = """
+            The wall height parameter sets <br>
+            the maximum potential value in the simulation. <br>
+            Measured in Hartrees [Ha]: <br>
+            1 Ha \u2248 27.2113860243679(50) eV."""
+        self.wall_height_input_label = QLabel("Wall Height (V<sub>0</sub>) [Ha]:")
         self.wall_height_input_label.setToolTip(self.wall_height_input_desc)
         self.wall_height_input = QDoubleSpinBox()
         self.wall_height_input.setRange(1.0, 1000000.0)
@@ -376,7 +393,11 @@ class SetupDrawer(QDialog):
         wave_group = QGroupBox("Wavepacket Parameters")
         wave_form = QFormLayout()
 
-        self.mass_input_desc = "The mass of the simulated particle, <br>expressed in units of the electron mass [m<sub>e</sub>]: <br>1 m<sub>e</sub> = 9.1093837139(28) \u00d7 10<sup>-31</sup> kg."
+        self.mass_input_desc = """
+            The mass of the simulated particle, <br>
+            expressed in units of the electron mass [m<sub>e</sub>]: <br>
+            1 m<sub>e</sub> = 9.1093837139(28) \u00d7 10<sup>-31</sup> kg.
+            """
         self.mass_input_label = QLabel("Mass (m) [m<sub>e</sub>]:")
         self.mass_input_label.setToolTip(self.mass_input_desc)
         self.mass_input = QDoubleSpinBox()
@@ -384,24 +405,45 @@ class SetupDrawer(QDialog):
         self.mass_input.setValue(self.initial_mass)
         self.mass_input.setSingleStep(0.1)
 
-        self.sig_xx_input_desc = "The uncertainty in the x-direction <br>of the initial wavepacket, <br>expressed in units of the Bohr radii [a<sub>0</sub>]: <br>1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m."
-        self.sig_xx_input_label = QLabel("&sigma;<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:")
+        self.sig_xx_input_desc = """
+            The uncertainty in the x-direction <br>
+            of the initial wavepacket, <br>
+            expressed in units of the Bohr radii [a<sub>0</sub>]: <br>
+            1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m.
+            """
+        self.sig_xx_input_label = QLabel(
+            "&sigma;<sub>xx</sub> [a<sub>0</sub><sup>2</sup>]:"
+        )
         self.sig_xx_input_label.setToolTip(self.sig_xx_input_desc)
         self.sig_xx_input = QDoubleSpinBox()
         self.sig_xx_input.setRange(0.1, 50.0)
         self.sig_xx_input.setValue(4.0)
         self.sig_xx_input.setSingleStep(0.1)
 
-        self.sig_xy_input_desc = "The correlation between uncertainties <br>in the x and y directions, <br>expressed in units of the Bohr radii [a<sub>0</sub>]: <br>1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m."
-        self.sig_xy_input_label = QLabel("&sigma;<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:")
+        self.sig_xy_input_desc = """
+            The correlation between uncertainties <br>
+            in the x and y directions, <br>
+            expressed in units of the Bohr radii [a<sub>0</sub>]: <br>
+            1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m.
+            """
+        self.sig_xy_input_label = QLabel(
+            "&sigma;<sub>xy</sub> [a<sub>0</sub><sup>2</sup>]:"
+        )
         self.sig_xy_input_label.setToolTip(self.sig_xy_input_desc)
         self.sig_xy_input = QDoubleSpinBox()
         self.sig_xy_input.setRange(-100.0, 100.0)
         self.sig_xy_input.setValue(0.0)
         self.sig_xy_input.setSingleStep(0.1)
 
-        self.sig_yy_input_desc = "The uncertainty in the y-direction <br>of the initial wavepacket, <br>expressed in units of the Bohr radii [a<sub>0</sub>]: <br>1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m."
-        self.sig_yy_input_label = QLabel("&sigma;<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:")
+        self.sig_yy_input_desc = """
+            The uncertainty in the y-direction <br>
+            of the initial wavepacket, <br>
+            expressed in units of the Bohr radii [a<sub>0</sub>]: <br>
+            1 a<sub>0</sub> \u2248 5.29177210544(82) \u00d7 10<sup>-11</sup> m.
+            """
+        self.sig_yy_input_label = QLabel(
+            "&sigma;<sub>yy</sub> [a<sub>0</sub><sup>2</sup>]:"
+        )
         self.sig_yy_input_label.setToolTip(self.sig_yy_input_desc)
         self.sig_yy_input = QDoubleSpinBox()
         self.sig_yy_input.setRange(0.1, 50.0)
@@ -425,12 +467,28 @@ class SetupDrawer(QDialog):
         mode_layout = QHBoxLayout()
 
         self.radio_brush = QRadioButton("Brush")
-        self.radio_brush.setToolTip("Select the Brush tool to add potential <br>features to the canvas. <br>Click and drag on the canvas <br>to paint potential barriers based on <br>the current brush strength and width settings.")
+        self.radio_brush.setToolTip(
+            "Select the Brush tool to add potential <br>features to the canvas. <br>"
+            "Click and drag on the canvas <br>to paint potential barriers based on <br>"
+            "the current brush strength and width settings."
+        )
         self.radio_brush.setChecked(True)
         self.radio_eraser = QRadioButton("Erase")
-        self.radio_eraser.setToolTip("Select the Erase tool to remove potential <br>features from the canvas. <br>Click and drag on the canvas <br>to erase previously drawn potential barriers, <br>effectively resetting those areas to zero potential.")
+        self.radio_eraser.setToolTip(
+            "Select the Erase tool to remove potential <br>"
+            "features from the canvas. <br>"
+            "Click and drag on the canvas <br>"
+            "to erase previously drawn potential barriers, <br>"
+            "effectively resetting those areas to zero potential."
+        )
         self.radio_wave = QRadioButton("Wavepacket r\u2080 && k\u2080")
-        self.radio_wave.setToolTip("Select the Wavepacket tool to set <br>the initial position (r\u2080) and momentum (k\u2080) <br>of the wavepacket. <br>Click on the canvas to place the initial position, <br>and drag to define the initial momentum vector.")
+        self.radio_wave.setToolTip(
+            "Select the Wavepacket tool to set <br>"
+            "the initial position (r\u2080) and momentum (k\u2080) <br>"
+            "of the wavepacket. <br>"
+            "Click on the canvas to place the initial position, <br>"
+            "and drag to define the initial momentum vector."
+        )
 
         self.radio_brush.toggled.connect(self.update_mode)
         self.radio_eraser.toggled.connect(self.update_mode)
@@ -448,7 +506,13 @@ class SetupDrawer(QDialog):
         tools_layout = QVBoxLayout()
 
         preset_form = QFormLayout()
-        self.preset_menu_desc = "Load predefined potential landscapes <br>to quickly set up common scenarios. <br>Selecting a preset will overwrite the current canvas, <br>so use with caution if you have custom <br>drawings you wish to keep."
+        self.preset_menu_desc = """
+        Load predefined potential landscapes <br>
+        to quickly set up common scenarios. <br>
+        Selecting a preset will overwrite the current canvas, <br>
+        so use with caution if you have custom <br>
+        drawings you wish to keep.
+        """
         self.preset_menu_label = QLabel("Load Preset Potential:")
         self.preset_menu_label.setToolTip(self.preset_menu_desc)
         self.preset_menu = QComboBox()
@@ -468,14 +532,23 @@ class SetupDrawer(QDialog):
         # Sliders changed to horizontal (to better fit the side panel)
         slider_form = QFormLayout()
 
-        self.brush_strength_desc = "Adjust the strength of the brush tool. <br>The value 100 corresponds to the maximum <br>potential height defined by the wall height setting, <br>while 0 corresponds to no potential."
+        self.brush_strength_desc = """
+        Adjust the strength of the brush tool. <br>
+        The value 100 corresponds to the maximum <br>
+        potential height defined by the wall height setting, <br>
+        while 0 corresponds to no potential.
+        """
         self.brush_strength_label = QLabel("Strength: 15")
         self.brush_strength_label.setToolTip(self.brush_strength_desc)
         self.brush_strength_slider = QSlider(Qt.Orientation.Horizontal)
         self.brush_strength_slider.setRange(1, 100)
         self.brush_strength_slider.setValue(15)
 
-        self.brush_width_desc = "Adjust the width of the brush tool. <br>The value corresponds to the diameter of <br>the circular brush in grid cells."
+        self.brush_width_desc = """
+        Adjust the width of the brush tool. <br>
+        The value corresponds to the diameter of <br>
+        the circular brush in grid cells.
+        """
         self.brush_width_label = QLabel("Width: 3")
         self.brush_width_label.setToolTip(self.brush_width_desc)
         self.brush_width_slider = QSlider(Qt.Orientation.Horizontal)
@@ -516,11 +589,17 @@ class SetupDrawer(QDialog):
         controls = QHBoxLayout()
 
         self.load_params_btn = QPushButton("Load from JSON")
-        self.load_params_btn.setToolTip("Load simulation parameters and potential from a JSON file. <br>This will overwrite the current canvas and settings, <br>so use with caution if you have unsaved custom configurations.")
+        self.load_params_btn.setToolTip(
+            "Load simulation parameters and potential from a JSON file. <br>"
+            "This will overwrite the current canvas and settings, <br>"
+            "so use with caution if you have unsaved custom configurations."
+        )
         self.load_params_btn.clicked.connect(self.load_params_from_file)
 
         self.save_params_btn = QPushButton("Save to JSON")
-        self.save_params_btn.setToolTip("Save simulation parameters and potential to a JSON file.")
+        self.save_params_btn.setToolTip(
+            "Save simulation parameters and potential to a JSON file."
+        )
         self.save_params_btn.clicked.connect(self.save_params_to_file)
 
         clear_btn = QPushButton("Clear Potential")
@@ -855,14 +934,7 @@ class SetupDrawer(QDialog):
         simulation, stability_warnings = instantiate_solver_with_warnings(
             method_name=method_name,
             potential=potential_obj,
-            wavefunc=GaussianPacket(
-                r0_int,
-                k0.copy(),
-                sigma_matrix.copy(),
-                mass,
-                new_size_x,
-                new_size_y,
-            ),
+            wavefunc=wavefunc,
             delta_t=delta_t,
             grid_step=grid_step,
         )
@@ -896,6 +968,7 @@ class SetupDrawer(QDialog):
             new_x_limit,
             new_y_limit,
             grid_step,
+            method_name,
             simulation,
         )
         self.accept()

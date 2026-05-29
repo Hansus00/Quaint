@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QSpinBox,
     QWidget,
+    QLabel,
 )
 
 
@@ -71,67 +72,98 @@ class Settings(QDialog):
 
         layout = QFormLayout(self)
 
+        self.fps_spin_label = QLabel("Playback FPS:")
         self.fps_spin = QSpinBox()
         self.fps_spin.setRange(1, 120)
         self.fps_spin.setValue(current_fps)
-        layout.addRow("Playback FPS:", self.fps_spin)
+        layout.addRow(self.fps_spin_label, self.fps_spin)
 
         # Set maximum "coarse to fine" grid scale for interpolation
+        self.fine_scale_spin_label = QLabel("Interpolation Scale (Coarse -> Fine):")
         self.fine_scale_spin = QSpinBox()
         self.fine_scale_spin.setRange(1, 10)
         self.fine_scale_spin.setValue(current_fine_scale)
-        layout.addRow("Interpolation Scale (Coarse -> Fine):", self.fine_scale_spin)
+        self.fine_scale_spin_label.setToolTip(
+            "Set the interpolation scale factor."
+            "<br>The value represents how many fine (purely visual)"
+            "<br>grid cells correspond to one coarse (simulation) grid cell. "
+            "<br>Set to 1 for no interpolation."
+        )
+        layout.addRow(self.fine_scale_spin_label, self.fine_scale_spin)
 
         # B-spline order for the coarse -> fine upscale. 1 is fastest but
         # faceted, 2 is the recommended sweet spot, 3+ is smoother but slower
         # and may overshoot near sharp probability peaks.
+        self.zoom_order_spin_label = QLabel("Interpolation Order:")
         self.zoom_order_spin = QSpinBox()
         self.zoom_order_spin.setRange(1, 5)
         self.zoom_order_spin.setValue(current_zoom_order)
-        self.zoom_order_spin.setToolTip(
+        self.zoom_order_spin_label.setToolTip(
             "B-spline order for the wave upscale.\n"
             "1 = linear (fastest, faceted)\n"
             "2 = quadratic (recommended)\n"
             "3+ = cubic+ (smoother, slower, can overshoot)"
         )
-        layout.addRow("Interpolation Order:", self.zoom_order_spin)
+        layout.addRow(self.zoom_order_spin_label, self.zoom_order_spin)
 
         # Set maximum z scale for the probability wave
+        self.z_scale_spin_label = QLabel("Wave Amplitude (Z Scale):")
         self.z_scale_spin = QDoubleSpinBox()
         self.z_scale_spin.setRange(1, 1000.0)
         self.z_scale_spin.setValue(current_z_scale)
+        self.z_scale_spin_label.setToolTip(
+            "Vertical scale of the wave function graph."
+            "<br>Adjust to make the wave peaks more/less visible relative to the potential barriers."
+        )
         self.z_scale_spin.setSingleStep(1.0)
-        layout.addRow("Wave Amplitude (Z Scale):", self.z_scale_spin)
+        layout.addRow(self.z_scale_spin_label, self.z_scale_spin)
 
         # Set maximum z scale for the potential energy barrier
+        self.z_pot_scale_spin_label = QLabel("Potential Amplitude (Z Scale):")
         self.z_pot_scale_spin = QDoubleSpinBox()
         self.z_pot_scale_spin.setRange(0.01, 50.0)
         self.z_pot_scale_spin.setValue(current_z_pot_scale)
+        self.z_pot_scale_spin_label.setToolTip(
+            "Vertical scale of the potential graph."
+            "<br>Adjust to make the potential barriers more/less visible relative to the wave amplitude."
+        )
         self.z_pot_scale_spin.setSingleStep(0.01)
-        layout.addRow("Potential Amplitude (Z Scale):", self.z_pot_scale_spin)
+        layout.addRow(self.z_pot_scale_spin_label, self.z_pot_scale_spin)
 
         # Set maximum vertical offset to physically move the potential down/up
+        self.z_offset_spin_label = QLabel("Potential Depth Offset:")
         self.z_offset_spin = QDoubleSpinBox()
         self.z_offset_spin.setRange(-50.0, 50.0)
         self.z_offset_spin.setValue(current_z_offset)
+        self.z_offset_spin_label.setToolTip("Vertical offset of the potential graph.")
         self.z_offset_spin.setSingleStep(0.5)
-        layout.addRow("Potential Depth Offset:", self.z_offset_spin)
+        layout.addRow(self.z_offset_spin_label, self.z_offset_spin)
 
         # Multiplier to increase the brightness/visibility of the probability tails
+        self.brightness_spin_label = QLabel("Wave Brightness Multiplier:")
         self.brightness_spin = QDoubleSpinBox()
         # Strictly enforce minimum value so that the wave function doesn't disappear
         self.brightness_spin.setMinimum(0.1)
         self.brightness_spin.setRange(0.1, 1000.0)
         self.brightness_spin.setValue(current_brightness)
+        self.brightness_spin_label.setToolTip(
+            "Brightness multiplier for the wave function graph."
+        )
         self.brightness_spin.setSingleStep(5.0)
-        layout.addRow("Brightness Multiplier:", self.brightness_spin)
+        layout.addRow(self.brightness_spin_label, self.brightness_spin)
 
         # Transparency level for the drawn potential fields
+        self.alpha_spin_label = QLabel("Potential Opacity:")
         self.alpha_spin = QDoubleSpinBox()
         self.alpha_spin.setRange(0.0, 1.0)
         self.alpha_spin.setValue(current_potential_alpha)
+        self.alpha_spin_label.setToolTip(
+            "Transparency level for the potential graph.\n"
+            "0.0 = fully transparent (invisible)\n"
+            "1.0 = fully opaque\n"
+        )
         self.alpha_spin.setSingleStep(0.05)
-        layout.addRow("Potential Alpha (Transparency):", self.alpha_spin)
+        layout.addRow(self.alpha_spin_label, self.alpha_spin)
 
         btn_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
