@@ -44,8 +44,8 @@ class AnimationControlsWidget(QWidget):
         self,
         total_frames: int,
         fps: int,
-        time_per_frame: float,  # <-- To musi być trzeci argument!
-        parent: Optional[QWidget] = None,  # <-- A to czwarty.
+        time_per_frame: float,
+        parent: Optional[QWidget] = None,
     ) -> None:
         """
         Initializes the playback controls widget.

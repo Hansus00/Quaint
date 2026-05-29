@@ -911,8 +911,6 @@ class SetupDrawer(QDialog):
         T_tot = self.T_tot_input.value()
         frames = max(1, int(T_tot / (delta_t * steps_per_frame)))
 
-        delta_t = self.delta_t_input.value()
-        steps_per_frame = self.steps_per_frame_input.value()
         method_name = self.simulation_menu.currentText()
 
         # Pre-check solver warnings before closing the drawer so the user can
