@@ -529,7 +529,6 @@ class MainWindow(QMainWindow):
         )
         drawer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose, True)
         drawer.setup_saved.connect(self.apply_setup)
-        drawer.simulation_changed.connect(self.switch_simulation_method)
         drawer.destroyed.connect(self._on_setup_drawer_destroyed)
         self._setup_drawer = drawer
         self._raise_auxiliary_window(drawer)
@@ -553,6 +552,7 @@ class MainWindow(QMainWindow):
         x_limit: float,
         y_limit: float,
         grid_step: float,
+        method_name: str,
         prebuilt_solver: Optional[Any] = None,
     ) -> None:
         """
@@ -584,7 +584,7 @@ class MainWindow(QMainWindow):
             delta_t=delta_t,
             steps_per_frame=steps_per_frame,
             wall_height=wall_height,
-            method=self.current_method,
+            method=method_name,
             x_limit=x_limit,
             y_limit=y_limit,
             grid_step=grid_step,
