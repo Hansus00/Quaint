@@ -69,7 +69,7 @@ p.add_argument(
 p.add_argument(
     "--fps",
     type=float,
-    default=5,
+    default=15,
     required=False,
     help="Set FPS rate for animation",
     metavar="FPS",
@@ -93,7 +93,7 @@ p.add_argument(
     help="Set size of grid step",
 )
 p.add_argument(
-    "--updates-max",
+    "--updates-per-frame",
     type=int,
     required=False,
     default=1,
@@ -266,7 +266,7 @@ def update(frame):
     elif frame == FRAMES_FOR_POTENTIAL:
         cbar.ax.set_visible(False)
     else:
-        solver.update(args.updates_max)
+        solver.update(args.updates_per_frame)
         Energies.append(solver.ev_energy())  # type: ignore
         Probabilities.append(solver.get_wave_function().total_probability())
 
