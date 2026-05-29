@@ -40,7 +40,7 @@ class _AnalyticSolver(_Solver):
 
     def get_wave_function(self) -> StationaryWaveFunc:
         return StationaryWaveFunc(
-            self._wave_lambda(self._steps_evolved * self.delta_t), self._mass
+            self._wave_lambda(self._steps_evolved * self.delta_t)
         )  # simple evaluation at current time
 
 
@@ -94,6 +94,7 @@ class InfiniteWellBasisSolver(_Solver):
     def __init__(
         self,
         wave_func: StationaryWaveFunc,
+        mass: float,
         Nx: int = 30,
         Ny: int = 30,
         delta_t: float = 0.001,
@@ -140,8 +141,8 @@ class InfiniteWellBasisSolver(_Solver):
             * grid_step**2
         )
 
-        energy1dx = np.pi**2 * nxarray**2 / (2 * wave_func.mass * Lx**2)
-        energy1dy = np.pi**2 * nyarray**2 / (2 * wave_func.mass * Ly**2)
+        energy1dx = np.pi**2 * nxarray**2 / (2 * mass * Lx**2)
+        energy1dy = np.pi**2 * nyarray**2 / (2 * mass * Ly**2)
 
         self._energyspace = np.add.outer(energy1dx, energy1dy)
 
@@ -152,7 +153,7 @@ class InfiniteWellBasisSolver(_Solver):
         )
 
         self.delta_t = delta_t
-        self._mass = wave_func.mass
+        self.mass = mass
 
     def update(self, n_step=1):
         self._steps_evolved += n_step
@@ -160,14 +161,14 @@ class InfiniteWellBasisSolver(_Solver):
 
     def get_wave_function(self) -> StationaryWaveFunc:
         return StationaryWaveFunc(
-            self._wave_lambda(self._steps_evolved * self.delta_t), self._mass
+            self._wave_lambda(self._steps_evolved * self.delta_t)
         )  # simple evaluation at current time
 
     def ev_energy(self):
         return np.einsum("ij,ij", np.abs(self._coeffs) ** 2, self._energyspace)
 
 
-class __RetiredInfiniteWellSolver(_AnalyticSolver):
+class InfiniteWellSolver(_AnalyticSolver):
     def __init__(
         self,
         Nx: int,
@@ -183,8 +184,18 @@ class __RetiredInfiniteWellSolver(_AnalyticSolver):
         region. The solution has the (Nx, Ny) index (it is the Nx'th mode in the x direction
         and the Ny'th mode in the y direction). The potential field of this class
         does not correspond to the actual potential this soulution obeys."""
+
+        super().__init__(
+            InfiniteWellPotential, None, grid_size, mass, delta_t, grid_step
+        )
+
         # wf is only inside the well
-        well_mask = (0 <= self._grid[0] <= Lx) * (0 <= self._grid[1] <= Ly)
+        well_mask = (
+            (0 <= self._grid[0])
+            * (self._grid[0] <= Lx)
+            * (0 <= self._grid[1])
+            * (self._grid[1] <= Ly)
+        )
 
         # source: https://en.wikipedia.org/wiki/Particle_in_a_box#Higher-dimensional_boxes
         energy = np.pi**2 / (2 * mass) * (Nx**2 / Lx**2 + Ny**2 / Ly**2)
