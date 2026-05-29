@@ -196,7 +196,10 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
-        self.controls = AnimationControlsWidget(self.total_frames, self.fps)
+        time_per_frame = self.current_delta_t * self.current_steps_per_frame
+        self.controls = AnimationControlsWidget(
+            total_frames=self.total_frames, fps=self.fps, time_per_frame=time_per_frame
+        )
         self.controls.frame_changed.connect(self.update_simulation)
         self.controls.open_setup_requested.connect(self.open_setup_drawer)
         self.controls.open_settings_requested.connect(self.open_settings_window)
@@ -252,7 +255,8 @@ class MainWindow(QMainWindow):
             return
 
         self.total_frames = pending.total_frames
-        self.controls.update_settings(self.fps, self.total_frames)
+        time_per_frame = pending.delta_t * pending.steps_per_frame
+        self.controls.update_settings(self.fps, self.total_frames, time_per_frame)
 
         self.current_delta_t = pending.delta_t
         self.current_steps_per_frame = pending.steps_per_frame
@@ -349,7 +353,7 @@ class MainWindow(QMainWindow):
         self._pending_setup = None
         self.worker.request_cancel()
         self.controls.exit_calculating_mode()
-        self.controls.time_label.setText(f"Time: {self.controls.slider.value()}")
+        self.controls.update_time_label()
 
     def on_calculation_cancelled(self) -> None:
         self._calculation_cancelled = False
@@ -401,7 +405,7 @@ class MainWindow(QMainWindow):
         )
 
         self.controls.exit_calculating_mode()
-        self.controls.time_label.setText(f"Time: {self.controls.slider.value()}")
+        self.controls.update_time_label()
 
         # Updating the simulation
         self.animation_widget.update_potential(self.initial_potential.matrix)
