@@ -373,37 +373,6 @@ class MainWindow(QMainWindow):
 
         self.wave_frames = generated_frames
 
-        # --- DYNAMIC CACHE SIZING AFTER PHYSICS ALLOCATION ---
-        try:
-            import psutil
-
-            mem_available = psutil.virtual_memory().available
-        except ImportError:
-            # Fallback if psutil is not available, assume 16GB free memory
-            mem_available = 16 * 1024 * 1024 * 1024
-
-        # Dedicate up to 50% of the remaining free RAM to the OpenGL rendering cache
-        cache_memory_allowance = mem_available * 0.50
-
-        # Calculate memory footprint of a single OpenGL cached frame:
-        # verts (float32, 3 cols = 12 bytes) + rgba (float32, 4 cols = 16 bytes) = 28 bytes per fine grid point
-        nx_fine = self.animation_widget.size_fine_x
-        ny_fine = self.animation_widget.size_fine_y
-        bytes_per_cached_frame = (nx_fine * ny_fine) * 28
-
-        if bytes_per_cached_frame > 0:
-            safe_cache_limit = int(cache_memory_allowance / bytes_per_cached_frame)
-            # Cap the cache at `self.total_frames` (no need to cache more than exists)
-            # Ensure a minimum of 10 frames to avoid breaking playback
-            final_cache_limit = max(10, min(safe_cache_limit, self.total_frames))
-            self.animation_widget.max_cache_size = final_cache_limit
-        else:
-            self.animation_widget.max_cache_size = self.total_frames
-
-        logger.info(
-            f"Physics complete. Set UI cache limit to: {self.animation_widget.max_cache_size} frames."
-        )
-
         self.controls.exit_calculating_mode()
         self.controls.update_time_label()
 
