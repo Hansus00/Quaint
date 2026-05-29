@@ -6,6 +6,7 @@ import scipy.sparse as sp
 from scipy.sparse.linalg import factorized
 from scipy.fft import dstn, idstn
 
+from .Params import Params
 from .Potential import Potential
 from .StationaryWaveFunc import StationaryWaveFunc
 
@@ -37,32 +38,30 @@ def _nyquist_k_max(grid_step: float) -> float:
 
 class _Solver:
     potential: Potential
-    delta_t: float
     _wave_func: StationaryWaveFunc
     _steps_evolved: int = 0
-    _dx: float = 1
-    _dy: float = 1
+    params: Params
 
     def __init__(
         self,
         potential: Potential,
         wave_func: StationaryWaveFunc,
-        delta_t: float = 1e-3,
-        grid_step: float = 1,
+        params: Params,
     ):
         assert potential.matrix.shape == wave_func.matrix.shape
 
         self.potential = potential
         self._wave_func = wave_func
-        self.delta_t = delta_t
-        self._dx, self._dy = grid_step, grid_step
+        self.params = params
+        self.delta_t = params.delta_t
+        self._dx, self._dy = params.dx, params.dy
         logger.info("\n\n\n---------------New simulation---------------")
         logger.info(
             "Physical size of the simulation (L_x,L_y): %s, %s",
             self.potential.matrix.shape[0] * self._dx,
             self.potential.matrix.shape[1] * self._dy,
         )
-        if grid_step > 1:
+        if params.dx > 1 or params.dy > 1:
             logger.warning("Grid step might be too big")
 
         self.setup()
@@ -80,7 +79,7 @@ class _Solver:
         ev_energy = self.ev_energy()
 
         logger.info("<E> = %s", ev_energy)
-        k = np.sqrt(2 * self._wave_func.mass * np.abs(ev_energy))
+        k = np.sqrt(2 * self.params.mass * np.abs(ev_energy))
         k_max = _nyquist_k_max(np.max([self._dx, self._dy]))
 
         logger.info(r"k_{max} = %s", k_max)
@@ -90,7 +89,7 @@ class _Solver:
                 "Nyquist condition (|k| << k_{max}) is not satisfied, "
                 "decrease grid_step",
             )
-        courant_number = k / self._wave_func.mass * self.delta_t / self._dx
+        courant_number = k / self.params.mass * self.delta_t / self._dx
         logger.info(r"C = %s", courant_number)
         if courant_number > SAFETY_FACTOR:
             logger.warning(
@@ -106,6 +105,10 @@ class _Solver:
     def get_steps_evolved(self) -> int:
         """Returns number of evolved steps"""
         return self._steps_evolved
+
+    def get_time_evolved(self) -> float:
+        """Returns time evolved inside simulation at a given moment"""
+        return self._steps_evolved * self.delta_t
 
     def update(self, n_step: int = 1) -> StationaryWaveFunc:
         """Returns evolved n steps of wave function after t + n * dt"""
@@ -135,16 +138,15 @@ class CrankNicolson(_Solver):
         self,
         potential: Potential,
         wave_func: StationaryWaveFunc,
-        delta_t: float = 1e-3,
-        grid_step: float = 1,
+        params: Params,
     ):
-        super().__init__(potential, wave_func, delta_t, grid_step)
+        super().__init__(potential, wave_func, params)
 
     def setup(self):
         Nx, Ny = self.potential.matrix.shape
 
         self.L_2D = self._create_laplace_operator(Nx, Ny)
-        self.H = self._create_hamilton_operator(self.L_2D, self._wave_func.mass)
+        self.H = self._create_hamilton_operator(self.L_2D, self.params.mass)
         self.A, self.B = self._create_cayley_matrices(Nx * Ny, self.H)
         self._factorized_A = factorized(
             sp.csc_matrix(self.A)
@@ -198,7 +200,7 @@ class CrankNicolson(_Solver):
         Nx, Ny = self.potential.matrix.shape
 
         self._wave_func = StationaryWaveFunc(
-            np.array(self._wave_state_1D.reshape((Nx, Ny))), self._wave_func.mass
+            np.array(self._wave_state_1D.reshape((Nx, Ny)))
         )
 
         return self._wave_func
@@ -225,16 +227,15 @@ class _BaseSSFM(_Solver):
         self,
         potential: Potential,
         wave_func: StationaryWaveFunc,
-        delta_t: float = 1e-3,
-        grid_step: float = 1,
+        params: Params,
     ):
-        super().__init__(potential, wave_func, delta_t, grid_step)
+        super().__init__(potential, wave_func, params)
 
     def setup(self):
         Nx, Ny = self.potential.matrix.shape
 
         self._U_V = self._create_real_space_propagator()
-        self._U_T = self._create_momentum_propagator(Nx, Ny, self._wave_func.mass)
+        self._U_T = self._create_momentum_propagator(Nx, Ny, self.params.mass)
 
     def _create_real_space_propagator(self) -> NDArray[np.complex128]:
         raise NotImplementedError
@@ -261,7 +262,7 @@ class _BaseSSFM(_Solver):
         kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
 
         # kinetic energy operator in k-space
-        T = (kx2 + ky2) / (2 * self._wave_func.mass)
+        T = (kx2 + ky2) / (2 * self.params.mass)
 
         # expected value of kinetic energy calculated in sine-basis
         ev_T = np.sum(np.conjugate(psi_k) * T * psi_k) / np.sum(
@@ -293,7 +294,7 @@ class SSFM(_BaseSSFM):
         psi = cast(NDArray[np.complex128], idstn(psi_k, type=1))
 
         prob = np.sqrt(np.sum(np.abs(psi) ** 2))
-        self._wave_func = StationaryWaveFunc(psi / prob, self._wave_func.mass)
+        self._wave_func = StationaryWaveFunc(psi / prob)
 
 
 class SSFMSymmetric(_BaseSSFM):
@@ -315,4 +316,4 @@ class SSFMSymmetric(_BaseSSFM):
         psi *= self._U_V
 
         prob = np.sqrt(np.sum(np.abs(psi) ** 2))
-        self._wave_func = StationaryWaveFunc(psi / prob, self._wave_func.mass)
+        self._wave_func = StationaryWaveFunc(psi / prob)

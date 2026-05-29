@@ -3,6 +3,7 @@ from typing import Any, TypeAlias
 
 import numpy as np
 from numpy.typing import NDArray
+from backend.Params import Params, SolverType
 from backend.Potential import Potential
 from backend.Solver import SSFM, CrankNicolson, SSFMSymmetric
 from backend.StationaryWaveFunc import GaussianPacket
@@ -31,12 +32,44 @@ def coarse_potential_from_drawer(
     return Potential(potential_coarse)
 
 
-def instantiate_solver_with_warnings(
+def build_params(
     method_name: str,
+    x_limit: float,
+    y_limit: float,
+    grid_step: float,
+    r0: np.ndarray | tuple[float, float],
+    k0: np.ndarray,
+    sigma0: np.ndarray,
+    mass: float,
+    delta_t: float,
+    well_height: float,
+) -> Params:
+    """Standardized builder for backend Params from frontend UI primitives."""
+    method_map = {
+        "Crank-Nicolson": SolverType.CN,
+        "SSFM": SolverType.SSFM,
+        "Symmetric SSFM": SolverType.SYM_SSFM,
+    }
+    solver_type = method_map.get(method_name, SolverType.SSFM)
+
+    return Params(
+        length_x=x_limit,
+        length_y=y_limit,
+        grid_step=grid_step,
+        solver=solver_type,
+        r0=tuple(np.asarray(r0) * grid_step),
+        k0=k0,
+        sigma0=np.asarray(sigma0) * (grid_step**2),
+        mass=mass,
+        delta_t=delta_t,
+        well_height=well_height,
+    )
+
+
+def instantiate_solver_with_warnings(
     potential: Potential,
     wavefunc: GaussianPacket,
-    delta_t: float,
-    grid_step: float,
+    params: Params
 ) -> tuple[Any, list[str]]:
     """Instantiate the selected solver and return it alongside captured stability warnings.
 
@@ -48,18 +81,14 @@ def instantiate_solver_with_warnings(
     solver_logger = logging.getLogger("backend.Solver")
     solver_logger.addHandler(capture_handler)
     try:
-        if method_name == "Crank-Nicolson":
-            simulation = CrankNicolson(
-                potential, wavefunc, delta_t, grid_step=grid_step
-            )
-        elif method_name == "SSFM":
-            simulation = SSFM(potential, wavefunc, delta_t, grid_step=grid_step)
-        elif method_name == "Symmetric SSFM":
-            simulation = SSFMSymmetric(
-                potential, wavefunc, delta_t, grid_step=grid_step
-            )
+        if params.solver == SolverType.CN:
+            simulation = CrankNicolson(potential, wavefunc, params)
+        elif params.solver == SolverType.SSFM:
+            simulation = SSFM(potential, wavefunc, params)
+        elif params.solver == SolverType.SYM_SSFM:
+            simulation = SSFMSymmetric(potential, wavefunc, params)
         else:
-            raise ValueError(f"Unknown simulation method: {method_name}")
+            raise ValueError(f"Unknown simulation method: {params.solver}")
     finally:
         solver_logger.removeHandler(capture_handler)
 

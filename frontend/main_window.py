@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
+from backend.Params import Params, SolverType
 from backend.Potential import InfiniteWellPotential, Potential
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import Qt
@@ -16,6 +17,7 @@ from .animation_widget import AnimationWidget
 from .settings import Settings
 from .simulation_builders import (
     WaveFrameArray,
+    build_params,
     coarse_potential_from_drawer,
     instantiate_solver_with_warnings,
 )
@@ -142,7 +144,6 @@ class MainWindow(QMainWindow):
             r0=(self.size_coarse_x // 2, self.size_coarse_y // 2),
             k0=np.array([0.0, 0.0]),
             sigma0=np.array([[4.0, 0.0], [0.0, 4.0]]),
-            mass=1.0,
             size_x=self.size_coarse_x,
             size_y=self.size_coarse_y,
         )
@@ -195,7 +196,10 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
-        self.controls = AnimationControlsWidget(self.total_frames, self.fps)
+        time_per_frame = self.current_delta_t * self.current_steps_per_frame
+        self.controls = AnimationControlsWidget(
+            total_frames=self.total_frames, fps=self.fps, time_per_frame=time_per_frame
+        )
         self.controls.frame_changed.connect(self.update_simulation)
         self.controls.open_setup_requested.connect(self.open_setup_drawer)
         self.controls.open_settings_requested.connect(self.open_settings_window)
@@ -217,21 +221,30 @@ class MainWindow(QMainWindow):
             pending.potential_array, pending.wall_height
         )
 
-        wavefunc = GaussianPacket(
+        params = build_params(
+            pending.method,
+            pending.x_limit,
+            pending.y_limit,
+            pending.grid_step,
             pending.r0,
             pending.k0,
             pending.sigma_matrix,
             pending.mass,
+            pending.delta_t,
+            pending.wall_height,
+        )
+
+        wavefunc = GaussianPacket(
+            pending.r0,
+            pending.k0,
+            pending.sigma_matrix,
             pending.size_x,
             pending.size_y,
         )
-
         solver, _warnings = instantiate_solver_with_warnings(
-            method_name=pending.method,
             potential=potential,
             wavefunc=wavefunc,
-            delta_t=pending.delta_t,
-            grid_step=pending.grid_step,
+            params=params,
         )
         return solver
 
@@ -242,7 +255,8 @@ class MainWindow(QMainWindow):
             return
 
         self.total_frames = pending.total_frames
-        self.controls.update_settings(self.fps, self.total_frames)
+        time_per_frame = pending.delta_t * pending.steps_per_frame
+        self.controls.update_settings(self.fps, self.total_frames, time_per_frame)
 
         self.current_delta_t = pending.delta_t
         self.current_steps_per_frame = pending.steps_per_frame
@@ -273,7 +287,6 @@ class MainWindow(QMainWindow):
             pending.r0,
             self.current_k0,
             self.current_sigma,
-            self.current_mass,
             self.size_coarse_x,
             self.size_coarse_y,
         )
@@ -340,7 +353,7 @@ class MainWindow(QMainWindow):
         self._pending_setup = None
         self.worker.request_cancel()
         self.controls.exit_calculating_mode()
-        self.controls.time_label.setText(f"Time: {self.controls.slider.value()}")
+        self.controls.update_time_label()
 
     def on_calculation_cancelled(self) -> None:
         self._calculation_cancelled = False
@@ -392,7 +405,7 @@ class MainWindow(QMainWindow):
         )
 
         self.controls.exit_calculating_mode()
-        self.controls.time_label.setText(f"Time: {self.controls.slider.value()}")
+        self.controls.update_time_label()
 
         # Updating the simulation
         self.animation_widget.update_potential(self.initial_potential.matrix)
@@ -599,10 +612,21 @@ class MainWindow(QMainWindow):
         Switches the backend solver instance used for calculating the wave evolution.
         """
         self.current_method = method_name
+        params = build_params(
+            method_name,
+            self.x_limit,
+            self.y_limit,
+            self.current_grid_step,
+            self.current_r0,
+            self.current_k0,
+            self.current_sigma,
+            self.current_mass,
+            self.current_delta_t,
+            self.current_wall_height,
+        )
+
         self.simulation, _warnings = instantiate_solver_with_warnings(
-            method_name=method_name,
             potential=self.initial_potential,
             wavefunc=self.initial_wavefunc,
-            delta_t=self.current_delta_t,
-            grid_step=self.current_grid_step,
+            params=params,
         )

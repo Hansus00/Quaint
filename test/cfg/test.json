@@ -1,0 +1,30 @@
+{
+	"length_x": 16.0,
+	"length_y": 32.0,
+	"grid_step": 0.2,
+	"solver": "cn",
+	"r0": [
+		8,
+		8
+	],
+	"k0": [
+		1,
+		1
+	],
+	"sigma0": [
+		[
+			2.0,
+			0.0
+		],
+		[
+			0.0,
+			2.0
+		]
+	],
+	"mass": 1.0,
+	"delta_t": 0.001,
+	"T_tot": 0.15,
+	"potential_type": "infiniteWell",
+	"well_height": 50.0,
+	"potential_matrix": null
+}
