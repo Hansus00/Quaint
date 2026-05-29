@@ -106,7 +106,7 @@ class SetupDrawer(QDialog):
     canvas_container: AspectRatioContainer
     simulation_menu: QComboBox
     preset_menu: QComboBox
-    frames_input: QSpinBox
+    T_tot_input: QDoubleSpinBox
     size_x_input: QSpinBox
     size_y_input: QSpinBox
 
@@ -299,15 +299,23 @@ class SetupDrawer(QDialog):
         self.simulation_menu.setCurrentText(self.initial_method)
         self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
 
-        self.frames_input_desc = "The total number of frames calculated."
-        self.frames_input_label = QLabel("Total Frames (n<sub>tot</sub>):")
-        self.frames_input_label.setToolTip(self.frames_input_desc)
-        self.frames_input = QSpinBox()
-        self.frames_input.setRange(10, 10000)
-        self.frames_input.setValue(self.current_frames)
+        self.T_tot_input_desc = "The total physical time of the simulation."
+        self.T_tot_input_label = QLabel(
+            "Total Time (T<sub>tot</sub>) [a. u.]:"
+        )
+        self.T_tot_input_label.setToolTip(self.T_tot_input_desc)
+        self.T_tot_input = QDoubleSpinBox()
+        self.T_tot_input.setDecimals(4)
+        self.T_tot_input.setRange(0.0001, 1000.0)
+        self.T_tot_input.setSingleStep(0.01)
+        self.T_tot_input.setValue(
+            self.current_frames * self.initial_delta_t * self.initial_steps_per_frame
+        )
 
         self.delta_t_input_desc = "The time step determines <br>the size of each integration step <br>in the simulation. Measured in atomic units [a. u.]: <br>1 a. u. \u2248 2.4188843265864(26) \u00d7 10<sup>-17</sup> s"
-        self.delta_t_input_label = QLabel("Time Step (\u03b4t) [a. u.]:")
+        self.delta_t_input_label = QLabel(
+            "Time Step (\u03b4t) [a. u.]:"
+        )
         self.delta_t_input_label.setToolTip(self.delta_t_input_desc)
         self.delta_t_input = QDoubleSpinBox()
         self.delta_t_input.setDecimals(5)
@@ -325,7 +333,7 @@ class SetupDrawer(QDialog):
         self.steps_per_frame_input.setValue(self.initial_steps_per_frame)
 
         sim_form.addRow(self.simulation_menu_label, self.simulation_menu)
-        sim_form.addRow(self.frames_input_label, self.frames_input)
+        sim_form.addRow(self.T_tot_input_label, self.T_tot_input)
         sim_form.addRow(self.delta_t_input_label, self.delta_t_input)
         sim_form.addRow(self.steps_per_frame_input_label, self.steps_per_frame_input)
         sim_group.setLayout(sim_form)
@@ -374,9 +382,9 @@ class SetupDrawer(QDialog):
         self.wall_height_input_desc = """
             The wall height parameter sets <br>
             the maximum potential value in the simulation. <br>
-            Measured in Hartrees [Ha]: <br>
-            1 Ha \u2248 27.2113860243679(50) eV."""
-        self.wall_height_input_label = QLabel("Wall Height (V<sub>0</sub>) [Ha]:")
+            Measured in Hartrees [E<sub>h</sub>]: <br>
+            1 E<sub>h</sub> \u2248 27.2113860243679(50) eV."""
+        self.wall_height_input_label = QLabel("Wall Height (V<sub>0</sub>) [E<sub>h</sub>]:")
         self.wall_height_input_label.setToolTip(self.wall_height_input_desc)
         self.wall_height_input = QDoubleSpinBox()
         self.wall_height_input.setRange(1.0, 1000000.0)
@@ -687,14 +695,17 @@ class SetupDrawer(QDialog):
         max_frames = min(max_frames, 10000)
         max_frames = max(max_frames, 10)
 
-        current_frames = self.frames_input.value()
+        current_T_tot = self.T_tot_input.value()
+        max_T_tot = (
+            max_frames * self.delta_t_input.value() * self.steps_per_frame_input.value()
+        )
 
         # Update the maximum limit of the spinbox
-        self.frames_input.setMaximum(max_frames)
+        self.T_tot_input.setMaximum(max_T_tot)
 
         # Apply the reduction and notify if the current frames exceed the new limit
-        if current_frames > max_frames:
-            self.frames_input.setValue(max_frames)
+        if current_T_tot > max_T_tot:
+            self.T_tot_input.setValue(max_T_tot)
             QMessageBox.warning(
                 self,
                 "Memory Limit Reached",
@@ -894,7 +905,11 @@ class SetupDrawer(QDialog):
         sigma_matrix = np.array([[sig_xx, sig_xy], [sig_xy, sig_yy]])
 
         mass = self.mass_input.value()
-        frames = self.frames_input.value()
+
+        delta_t = self.delta_t_input.value()
+        steps_per_frame = self.steps_per_frame_input.value()
+        T_tot = self.T_tot_input.value()
+        frames = max(1, int(T_tot / (delta_t * steps_per_frame)))
 
         delta_t = self.delta_t_input.value()
         steps_per_frame = self.steps_per_frame_input.value()
@@ -1003,8 +1018,7 @@ class SetupDrawer(QDialog):
         self.grid_step_input.setValue(p.grid_step)
         self.mass_input.setValue(p.mass)
         # Restore updates count by dividing total time by step sizes
-        frames = int(p.T_tot / (p.delta_t * self.steps_per_frame_input.value()))
-        self.frames_input.setValue(frames)
+        self.T_tot_input.setValue(p.T_tot)
 
         self.delta_t_input.setValue(p.delta_t)
         self.wall_height_input.setValue(p.well_height)
@@ -1069,11 +1083,7 @@ class SetupDrawer(QDialog):
         p.length_y = self.y_limit_input.value()
         p.grid_step = self.grid_step_input.value()
         p.mass = self.mass_input.value()
-        p.T_tot = (
-            self.frames_input.value()
-            * self.delta_t_input.value()
-            * self.steps_per_frame_input.value()
-        )
+        p.T_tot = self.T_tot_input.value()
         p.delta_t = self.delta_t_input.value()
         p.well_height = self.wall_height_input.value()
 
