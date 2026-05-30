@@ -57,13 +57,13 @@ Click the **Simulation Setup** button to customize your experiment:
 * **Settings:** Click the **Settings** button to adjust playback framerate, total number of frames, grid resolution, and visual amplitude scaling of the wave and potential meshes.
 
 ## Authors
-- Jacek Winiarczyk @Jaclav
-- Szymon Borowski @Szymon-Borowski
-- Franciszek Hansdorfer @Hansus00
-- Bartosz Łakomy @paluzki
-- Adam Podkowiński @adam-podkowinski
+- Jacek Winiarczyk [@Jaclav](https://github.com/Jaclav)
+- Szymon Borowski [@Szymon-Borowski](https://github.com/Szymon-Borowski)
+- Franciszek Hansdorfer [@Hansus00](https://github.com/Hansus00)
+- Bartosz Łakomy [@paluzki](https://github.com/paluzki)
+- Adam Podkowiński [@adam-podkowinski](https://github.com/adam-podkowinski)
 
-This project was developed under the mentorship of Bartosz Kasza (@bkasza) at the Faculty of Physics, University of Warsaw.
+This project was developed under the mentorship of Bartosz Kasza ([@bkasza](https://github.com/bkasza)) at the Faculty of Physics, University of Warsaw.
 
 <a href="https://github.com/Hansus00/Quaint/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=Hansus00/Quaint" />
