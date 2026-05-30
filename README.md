@@ -55,3 +55,16 @@ Click the **Simulation Setup** button to customize your experiment:
 * **Rotate:** Left-click and drag on the 3D viewport.
 * **Zoom:** Scroll your mouse wheel in and out.
 * **Settings:** Click the **Settings** button to adjust playback framerate, total number of frames, grid resolution, and visual amplitude scaling of the wave and potential meshes.
+
+## Authors
+- Jacek Winiarczyk @Jaclav
+- Szymon Borowski @Szymon-Borowski
+- Franciszek Hansdorfer @Hansus00
+- Bartosz Łakomy @paluzki
+- Adam Podkowiński @adam-podkowinski
+
+This project was developed under the mentorship of Bartosz Kasza (@bkasza) at the Faculty of Physics, University of Warsaw.
+
+<a href="https://github.com/Hansus00/Quaint/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Hansus00/Quaint" />
+</a>
