@@ -12,6 +12,7 @@ from backend.Potential import (
     HarmonicPotential,
     Potential,
     WShaped,
+    Slab,
 )
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import QPointF, Qt, pyqtSignal
@@ -523,6 +524,7 @@ class SetupDrawer(QDialog):
                 "Harmonic Oscillator",
                 "W-shape",
                 "Matryoshka",
+                "Slab",
             ]
         )
         self.preset_menu.textActivated.connect(self.load_preset_potential)
@@ -752,6 +754,25 @@ class SetupDrawer(QDialog):
             # Arrow tip 20% of the canvas height below the anchor (positive Qt-Y =
             # negative physics-Y momentum after the save_and_close Y-flip).
             self.canvas.k0_tip_grid = QPointF(rx_grid, ry_grid + self.grid_size_y * 0.2)
+            self.sig_xx_input.setValue(4.0)
+            self.sig_yy_input.setValue(4.0)
+        
+        elif text == "Slab":
+            # A simple vertical barrier in the middle of the grid
+            slab_width = self.grid_size_x // 20
+            pot = Slab(slab_width, self.grid_size_y, wall_val)
+
+            slab_matrix = pot.matrix
+            pos_x = (self.grid_size_x - slab_width) // 2
+            zero_pot = np.zeros((self.grid_size_x, self.grid_size_y))
+            zero_pot[pos_x : pos_x + slab_width, :] = slab_matrix
+            potential_matrix = zero_pot
+
+            # Set the wavepacket on the left side of the slab, moving right towards it.
+            rx_grid = self.grid_size_x * 0.25
+            ry_grid = self.grid_size_y * 0.5
+            self.canvas.r0_grid = QPointF(rx_grid, ry_grid)
+            self.canvas.k0_tip_grid = QPointF(rx_grid + self.grid_size_x * 0.1, ry_grid)
             self.sig_xx_input.setValue(4.0)
             self.sig_yy_input.setValue(4.0)
 
