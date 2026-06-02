@@ -742,7 +742,7 @@ class SetupDrawer(QDialog):
             pos_y = (self.grid_size_y - w_size_y) // 2
 
             zero_pot = np.zeros((self.grid_size_x, self.grid_size_y))
-            zero_pot[pos_x : pos_x + w_size_x, pos_y : pos_y + w_size_y] = w_matrix
+            zero_pot[pos_x : pos_x + w_size_x, pos_y + w_size_y : pos_y : -1] = w_matrix
             potential_matrix = zero_pot
 
             # Drop the wavepacket near the top centre of the well with downward momentum.
