@@ -10,3 +10,10 @@ test/pic/*
 pic/
 venv/
 AGENTS.md
+*.log
+*.aux
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
