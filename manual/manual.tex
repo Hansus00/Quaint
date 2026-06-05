@@ -1,19 +1,69 @@
-\documentclass{article}
+\documentclass[11pt, a4paper]{article}
+
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
-\usepackage{graphicx}
 
-\title{Quaint - User Manual}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+\usepackage[most]{tcolorbox}
+\newtcolorbox{Tip}{
+    colback=blue!5!white,
+    colframe=blue!75!black,
+    fonttitle=\bfseries,
+    title=Tip,
+    arc=4pt
+}
+\newtcolorbox{Warning}{
+    colback=red!5!white,
+    colframe=red!75!black,
+    fonttitle=\bfseries,
+    title=Warning,
+    arc=4pt
+}
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=blue,
+    pdftitle={Quaint - User Manual},
+pdfpagemode=FullScreen,
+}
+\title{\Huge \textbf{Quaint - interactive wavepacket simulator}\\ \Large User Manual}
 \author{}
 \date{}
 
 \begin{document}
+
 \maketitle
+
 \newpage
+
 \tableofcontents
+
 \newpage
+
 \section{Installation}
 
-\section{Getting Started}
+\section{Animation window}
+
+\subsection{Camera controls}
+\subsection{Playback controls}
+
+\section{Setup window}
+
+\subsection{Painting the potential}
+\subsection{Simulation settings}
+\subsubsection{Satisfying the simulation conditions}
+\subsection{Saving/Loading simulation parameters}
+
+\section{Visual settings}
+
 
 \end{document}
