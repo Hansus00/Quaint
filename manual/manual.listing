@@ -1,0 +1,5 @@
+sudo apt install libxcb-cursor0 libxkbcommon-x11-0 \textbackslash
+                 libxcb-xinerama0 libxcb-icccm4 \textbackslash
+                 libxcb-image0 libxcb-keysyms1 \textbackslash
+                 libxcb-randr0 libxcb-render-util0 \textbackslash
+                 libxcb-shape0
