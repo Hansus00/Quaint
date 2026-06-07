@@ -22,10 +22,10 @@ h = Helper(params)
 
 nspace = np.arange(10, 150)
 
-h.calculate_comparisons(nspace)
+h.calculate_comparisons(nspace, memory_saving=True)
 
 s = Saver()
 
 s.from_helper(h)
 
-s.write("./test/conv_data/calcs.pickle")
+s.write("./test/conv_data/results.pickle")

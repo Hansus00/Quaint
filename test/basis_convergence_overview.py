@@ -18,14 +18,12 @@ from backend.Params import Params
 # norm functions
 
 
-def mse(
-    A: np.NDArray[np.complex128], B: np.NDArray[np.complex128], dx: float, dy: float
-) -> float:
-    return np.sum(np.abs(A - B) ** 2) * dx * dy
+def l2(A: np.NDArray[np.complex128], dx: float, dy: float) -> float:
+    return np.sum(np.abs(A) ** 2) * dx * dy
 
 
-def sup(A: np.NDArray[np.complex128], B: np.NDArray[np.complex128]) -> float:
-    return np.max(np.abs(A - B))
+def sup(A: np.NDArray[np.complex128]) -> float:
+    return np.max(np.abs(A))
 
 
 # main class
@@ -48,29 +46,48 @@ class Helper:
             size_y=params.grid_size_y,
         ).matrix
 
-    def approximator(self, nspace: np.NDArray[np.int32]):
+    def approximator(self, nspace: np.NDArray[np.int32], memory_saving: bool = False):
         starting_n = nspace[0]
 
-        current_wf = np.einsum(
-            "ij,ijkl->kl",
-            self.coeffs[:starting_n, :starting_n],
-            self.basis[:starting_n, :starting_n, :, :],
-        )
-
-        for n in nspace:
-            ny_const = self.coeffs[:n, n].flatten()
-            nx_const = self.coeffs[n, :n].flatten()
-            corner = self.coeffs[n, n]
-
-            current_wf += (
-                np.einsum("i,ikl->kl", ny_const, self.basis[:n, n, :, :])
-                + np.einsum("j,jkl->kl", nx_const, self.basis[n, :n, :, :])
-                + corner * self.basis[n, n, :, :]
+        if not memory_saving:
+            current_wf = np.einsum(
+                "ij,ijkl->kl",
+                self.coeffs[:starting_n, :starting_n],
+                self.basis[:starting_n, :starting_n, :, :],
             )
 
-            yield current_wf
+            for n in nspace:
+                ny_const = self.coeffs[:n, n].flatten()
+                nx_const = self.coeffs[n, :n].flatten()
+                corner = self.coeffs[n, n]
 
-    def calculate_comparisons(self, nspace: np.NDArray[np.int32]) -> None:
+                current_wf += (
+                    np.einsum("i,ikl->kl", ny_const, self.basis[:n, n, :, :])
+                    + np.einsum("j,jkl->kl", nx_const, self.basis[n, :n, :, :])
+                    + corner * self.basis[n, n, :, :]
+                )
+
+                yield current_wf
+        else:
+            current_wf = np.zeros(
+                (self.params.grid_size_x, self.params.grid_size_y), dtype=np.complex128
+            )
+
+            for nx, ny in product(np.arange(starting_n), np.arange(starting_n)):
+                current_wf += self.coeffs[nx, ny] * self.basis(nx, ny)
+
+            for N in nspace:
+                for nx, ny in product(np.arange(N), [N]):
+                    current_wf += self.coeffs[nx, ny] * self.basis(nx, ny)
+                for nx, ny in product([N], np.arange(N)):
+                    current_wf += self.coeffs[nx, ny] * self.basis(nx, ny)
+                current_wf += self.coeffs[N, N] * self.basis(N, N)
+
+                yield current_wf
+
+    def calculate_comparisons(
+        self, nspace: np.NDArray[np.int32], memory_saving: bool = False
+    ) -> None:
         if not np.all(np.diff(nspace) == 1) or int(nspace[0]) != nspace[0]:
             raise ValueError("nspace is not a proper range")
 
@@ -85,6 +102,7 @@ class Helper:
             Nx=Nmax,
             Ny=Nmax,
             grid_step=self.params.dx,
+            memory_saving=memory_saving,
         )
 
         self.coeffs = solver._coeffs
@@ -95,15 +113,17 @@ class Helper:
         mse_delta_array = []
         sup_delta_array = []
 
-        for approx, next_approx in pairwise(self.approximator(augnspace)):
+        for approx, next_approx in pairwise(
+            self.approximator(augnspace, memory_saving)
+        ):
             mse_array.append(
-                mse(self.reference_wf, approx, self.params.dx, self.params.dy)
+                l2(self.reference_wf - approx, self.params.dx, self.params.dy)
             )
-            sup_array.append(sup(self.reference_wf, approx))
+            sup_array.append(sup(self.reference_wf - approx))
             mse_delta_array.append(
-                mse(approx, next_approx, self.params.dx, self.params.dy)
+                l2(approx - next_approx, self.params.dx, self.params.dy)
             )
-            sup_delta_array.append(sup(approx, next_approx))
+            sup_delta_array.append(sup(approx - next_approx))
 
         self.arrays = {
             "mse": mse_array,

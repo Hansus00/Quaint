@@ -9,6 +9,6 @@ from basis_convergence_overview import *
 
 s = Saver()
 
-s.read("./test/conv_data/calcs.pickle")
+s.read("./test/conv_data/results.pickle")
 
 plotting(s)
