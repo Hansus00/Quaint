@@ -7,6 +7,8 @@
 \usepackage{helvet}
 \renewcommand{\familydefault}{\sfdefault}
 
+\usepackage{float}
+
 \usepackage{graphicx}
 \usepackage{xcolor}
 
@@ -122,19 +124,29 @@ Running your first quantum simulation is straightforward:
 \begin{enumerate}
     \item Launch Quaint. The main 3D visualization window will appear.
     \item Click the \textbf{Simulation Setup} button located at the bottom of the screen.
+        \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.7\textwidth]{images/step_2.png}
+        \end{figure}
     \item In the right-hand panel of the setup window, locate the \textbf{Load Preset Potential} dropdown. Select \textit{Harmonic Oscillator}.
+        \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.7\textwidth]{images/step_3.png}
+        \end{figure}
     \item Click \textbf{Save \& Update Simulation} at the bottom right.
-    \item Press the \textbf{Play} button (or the Spacebar) to watch the wavepacket evolve in the potential well.
+        \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.7\textwidth]{images/step_4.png}
+        \end{figure}
+    \item Once the calculation is complete, press the \textbf{Play} button (or the Spacebar) to watch the wavepacket evolve in the potential well.
+        \begin{figure}[H]
+        \centering
+        \includegraphics[width=0.7\textwidth]{images/step_5.png}
+        \end{figure}
 \end{enumerate}
 
 \section{Animation Window}
 The main window is dedicated to the real-time, 3D OpenGL visualization of the wavepacket and the underlying physical potential landscape. 
-
-% \begin{figure}[h]
-%     \centering
-%     % \includegraphics[width=0.9\textwidth]{images/animation_window.png}
-%     \caption{Main 3D animation window showing the probability wave.}
-% \end{figure}
 
 \subsection{Camera Controls}
 The simulation is rendered in full 3D space. You can navigate the view freely using your mouse:
@@ -147,25 +159,37 @@ The simulation is rendered in full 3D space. You can navigate the view freely us
 \subsection{Playback Controls}
 Located at the bottom of the screen, the playback bar allows you to traverse the calculated simulation frames.
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{images/animation_window.png}
+    \caption{Main 3D animation window.}
+\end{figure}
+
 \begin{itemize}
-    \item \textbf{Play / Pause:} Toggles the animation playback. Alternatively, you can use the \textbf{Spacebar} as a global shortcut.
-    \item \textbf{Timeline Slider:} Click and drag the slider to scrub through the animation manually.
-    \item \textbf{Time Label:} Displays the current physical time elapsed in atomic units (a.u.) and the current frame index.
-    \item \textbf{Reset Camera:} Instantly snaps the 3D camera back to its default viewing angle and distance.
-    \item \textbf{Hide / Show Potential:} Toggles the visibility of the semi-transparent 3D potential mesh. Hiding it can give you a clearer, unobstructed view of the complex wave function.
-    \item \textbf{Simulation Setup:} Opens the setup drawer, pausing the simulation and allowing you to redefine physical parameters and the environment.
-    \item \textbf{Settings:} Opens a dedicated window for visual configuration (e.g., rendering scales, brightness).
+    \item \textbf{Play / Pause (1):} Toggles the animation playback. Alternatively, you can use the \textbf{Spacebar} as a global shortcut.
+    \item \textbf{Time Label (3):} Displays the current physical time elapsed in atomic units (a.u.) and the current frame index.
+    \item \textbf{Timeline Slider (2):} Click and drag the slider to scrub through the animation manually.
+    \item \textbf{Reset Camera (4):} Instantly snaps the 3D camera back to its default viewing angle and distance.
+    \item \textbf{Hide / Show Potential (5):} Toggles the visibility of the semi-transparent 3D potential mesh. Hiding it can give you a clearer, unobstructed view of the complex wave function.
+    \item \textbf{Simulation Setup (6):} Opens the setup drawer, pausing the simulation and allowing you to redefine physical parameters and the environment.
+    \item \textbf{Settings (7):} Opens a dedicated window for visual configuration (e.g., rendering scales, brightness).
     \item \textbf{Stop Calculation:} This button only appears while the backend is computing a new simulation. Clicking it safely aborts the heavy calculation without crashing the program, allowing you to return to the setup window.
 \end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{images/calculating_mode.png}
+    \caption{Main 3D animation window in calculation mode.}
+\end{figure}
 
 \section{Simulation Setup Window}
 The Setup Drawer is the core of Quaint. It is a comprehensive physics configuration interface linking your manual drawings to the mathematical simulation parameters.
 
-% \begin{figure}[h]
-%     \centering
-%     % \includegraphics[width=0.9\textwidth]{images/setup_window.png}
-%     \caption{The Simulation Setup interface.}
-% \end{figure}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{images/setup_window.png}
+    \caption{The Simulation Setup interface.}
+\end{figure}
 
 \subsection{Painting the Potential}
 The left side of the window is an interactive canvas representing your 2D spatial grid.
@@ -174,33 +198,35 @@ The left side of the window is an interactive canvas representing your 2D spatia
 The simulation domain is strictly bounded by infinite potential walls. Any wavepacket reaching the edge of the canvas will reflect back. If you wish to simulate free space for a longer duration, you must increase the physical dimensions of the grid.
 \end{Note}
 
-You can modify the potential landscape using the \textbf{Editor Mode} tools:
+You can modify the potential landscape using the \textbf{Editor Mode (4)} tools:
 \begin{itemize}
     \item \textbf{Brush:} Click and drag to paint potential barriers.
     \item \textbf{Erase:} Click and drag to remove previously drawn potential barriers, resetting those specific grid cells to zero potential.
     \item \textbf{Wavepacket $r_0$ \& $k_0$:} Sets the initial state of the quantum particle. Click once on the canvas to anchor the initial position ($r_0$), then drag outward and release to define the initial momentum vector ($k_0$). The length and direction of the drawn arrow dictate the speed and trajectory of the packet.
 \end{itemize}
 
-To gain finer control over the drawing tools, adjust the \textbf{Potential Editor Tools}:
+To gain finer control over the drawing tools, adjust the sliders in the \textbf{Potential Editor Tools (5)} section:
 \begin{itemize}
     \item \textbf{Strength Slider:} Adjusts the height of the drawn potential. A value of $100$ corresponds to the maximum wall height defined in your grid settings, while lower values create softer barriers.
     \item \textbf{Width Slider:} Changes the diameter of the brush (and eraser) in grid cells.
 \end{itemize}
 
 \subsection{Preset Potentials}
-Instead of drawing by hand, you can automatically generate precise, mathematical potential landscapes using the \textbf{Load Preset Potential} dropdown:
+Instead of drawing by hand, you can automatically generate precise, mathematical potential landscapes using the \textbf{Load Preset Potential} dropdown from the \textbf{Potential Editor Tools (5)} section. Selecting any of the presets will immediately overwrite the canvas with the corresponding potential shape and reset the wavepacket to its default position for that scenario:
 \begin{itemize}
     \item \textbf{Custom / Clear:} Wipes the canvas clean to a flat, zero-potential state.
-    \item \textbf{Gaussian Bump:} Generates a smooth, central potential hill. Useful for observing wave scattering and tunneling effects.
-    \item \textbf{Harmonic Oscillator:} Creates a classic parabolic well originating from the center of the grid.
+    \item \textbf{Gaussian Bump:} Generates a smooth, central potential hill.
+    \item \textbf{Harmonic Oscillator:} Creates a classic parabolic well originating from the center of the grid, with the wavepacket in the center by default.
     \item \textbf{W-shape:} Forms an intricate double-well potential structure. The preset automatically drops the wavepacket near the top center with a downward momentum.
-    \item \textbf{Matryoshka:} An embedded, nested potential setup featuring a central well surrounded by distinct barriers.
+    \item \textbf{Matryoshka:} Creates a scaled down version of the current canvas state in the center, surrounded by potential walls.
+    \item \textbf{Slab:} A simple vertical barrier dividing the grid into two halves.
 \end{itemize}
 
-\subsection{Simulation Settings}
+\subsection{Setup Options}
 The right panel contains precise numerical parameters defining the physics engine behavior.
 
-\subsubsection{Evolution \& Time}
+\subsubsection{Simulation Settings}
+The \textbf{Simulation Settings (1)} section allows you to configure the core numerical parameters of the time evolution algorithm and the simulation method.
 \begin{itemize}
     \item \textbf{Simulation Method:} Choose the numerical algorithm for time evolution. \textit{Crank-Nicolson} is unconditionally stable and highly accurate, but can be slower on very large grids. \textit{SSFM} (Split-Step Fourier Method) and \textit{Symmetric SSFM} are typically faster for large domains but require periodic boundaries.
     \item \textbf{Total Time ($T_{tot}$):} The total physical duration of the simulation in atomic units.
@@ -212,9 +238,17 @@ The right panel contains precise numerical parameters defining the physics engin
 \textbf{Numerical Stability:} Quantum simulations are highly sensitive to initial conditions. If your Time Step ($\delta t$) is too large relative to the Grid Step ($\delta$), the numerical solver may diverge. 
 
 Quaint features an automatic stability checker. Instead of crashing or producing broken "exploding" artifacts, Quaint will intercept unstable parameters, display a detailed warning, and safely return you to the Setup window so you can lower the time step or adjust the grid.
+
 \end{Warning}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{images/stability_warning.png}
+    \caption{A stability warning pop-up.}
+\end{figure}
+
 \subsubsection{Grid Domain}
+The \textbf{Grid Domain (2)} parameters define the physical dimensions and resolution of your simulation space.
 \begin{itemize}
     \item \textbf{Width ($w$) \& Height ($h$):} The physical dimensions of the simulation space, measured in Bohr radii ($a_0$).
     \item \textbf{Grid Step ($\delta$):} The distance between individual calculation nodes.
@@ -227,6 +261,7 @@ Quaint features an automatic stability checker. Instead of crashing or producing
 \end{itemize}
 
 \subsubsection{Wavepacket Parameters}
+The \textbf{Wavepacket Parameters (3)} allow you to define the initial quantum state of the particle before time evolution begins. The wavepacket is mathematically represented as a 2D Gaussian function, and these parameters control its shape and spread.
 \begin{itemize}
     \item \textbf{Mass ($m$):} The mass of the simulated particle, expressed in units of electron mass ($m_e$).
     \item \textbf{$\sigma_{xx}$ \& $\sigma_{yy}$:} The spatial uncertainty (spread) of the initial wavepacket along the X and Y axes, measured in squared Bohr radii ($a_0^2$). Larger values create a wider, more diffuse initial packet.
@@ -234,15 +269,21 @@ Quaint features an automatic stability checker. Instead of crashing or producing
 \end{itemize}
 
 \subsection{Saving and Loading Configurations}
-Achieved a fascinating quantum state? You can preserve your setup.
+Achieved a fascinating quantum simulation? You can preserve your setup using the buttons in the bottom left corner \textbf{(6)}.
 \begin{itemize}
     \item \textbf{Save to JSON:} Exports your entire canvas drawing, potential height, and all physical parameters to a lightweight JSON file.
     \item \textbf{Load from JSON:} Imports a previously saved configuration, immediately overwriting the current canvas and settings.
 \end{itemize}
-Once you are satisfied with all parameters, click \textbf{Save \& Update Simulation} to build the matrices and begin the heavy calculation process.
+Once you are satisfied with all parameters, click \textbf{Save \& Update Simulation (7)} to build the matrices and begin the heavy calculation process.
 
 \section{Visual Settings}
 Clicking the \textbf{Settings} button in the main window opens a non-modal dialog dedicated strictly to rendering aesthetics. Modifying these values updates the 3D view instantly \textit{without} forcing a simulation recalculation.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{images/settings_window.png}
+    \caption{Visual settings dialog.}
+\end{figure}
 
 \begin{itemize}
     \item \textbf{Playback FPS:} Adjusts the target frames-per-second rate of the animation player.
@@ -251,7 +292,7 @@ Clicking the \textbf{Settings} button in the main window opens a non-modal dialo
     \item \textbf{Wave Amplitude (Z Scale):} A purely visual multiplier that stretches the probability peaks upwards, making them easier to distinguish from the floor.
     \item \textbf{Potential Amplitude (Z Scale):} Vertically stretches the 3D potential mesh.
     \item \textbf{Potential Depth Offset:} Physically shifts the entire potential mesh up or down along the Z-axis to prevent it from clipping through the wave function.
-    \item \textbf{Wave Brightness Multiplier:} Increases the color exposure of the wave graph. This is incredibly useful for visualizing extremely faint probability tails that have tunneled through barriers.
+    \item \textbf{Wave Brightness Multiplier:} Increases the color exposure of the wave graph. This is useful for visualizing extremely faint probability tails that have tunneled through barriers.
     \item \textbf{Potential Opacity:} Controls the transparency level (Alpha channel) of the potential landscape.
 \end{itemize}
 

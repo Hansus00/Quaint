@@ -4,7 +4,7 @@ __pycache__/
 **/__pycache__/*
 *.pyc
 *.pyo
-*.png
+/test/*.png
 *.mp4
 test/pic/*
 pic/
