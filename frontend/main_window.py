@@ -5,12 +5,17 @@
 from dataclasses import dataclass
 from typing import Any, Optional
 
+import os
 import numpy as np
 from backend.Params import Params, SolverType
 from backend.Potential import InfiniteWellPotential, Potential
 from backend.StationaryWaveFunc import GaussianPacket
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget
+from PyQt6.QtCore import Qt, QUrl, QEvent
+from PyQt6.QtGui import QDesktopServices, QAction, QKeySequence
+from PyQt6.QtWidgets import (
+    QMainWindow, QVBoxLayout, QWidget, QMessageBox, 
+    QWhatsThis, QPushButton, QStyle
+)
 
 from .animation_controls_widget import AnimationControlsWidget
 from .animation_widget import AnimationWidget
@@ -196,6 +201,37 @@ class MainWindow(QMainWindow):
         )
         layout.addWidget(self.animation_widget, stretch=1)
 
+        # Add a floating help button on top of the animation widget
+        self.help_btn = QPushButton(self.animation_widget)
+        
+        style = self.style()
+        if style is not None:
+            self.help_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion))
+        else:
+            self.help_btn.setText("?")
+            
+        # Setting the size and position of the help button
+        self.help_btn.setFixedSize(28, 28)
+        self.help_btn.move(15, 15)
+        self.help_btn.setToolTip("Otwórz instrukcję (F1)")
+        
+        # Styling the help button to be semi-transparent and circular
+        self.help_btn.setStyleSheet(
+            "QPushButton {"
+            "  background-color: rgba(0, 0, 0, 0);"
+            "  border: 1px solid rgba(0, 0, 0, 50);"
+            "  border-radius: 14px;"
+            "}"
+        )
+        self.help_btn.clicked.connect(self.open_manual)
+        
+        # Global F1 shortcut
+        from PyQt6.QtGui import QShortcut, QKeySequence
+        self.shortcut_f1 = QShortcut(QKeySequence(Qt.Key.Key_F1), self)
+        self.shortcut_f1.setContext(Qt.ShortcutContext.WindowShortcut)
+        self.shortcut_f1.activated.connect(self.open_manual)
+
+        # Animation controls widget setup
         time_per_frame = self.current_delta_t * self.current_steps_per_frame
         self.controls = AnimationControlsWidget(
             total_frames=self.total_frames, fps=self.fps, time_per_frame=time_per_frame
@@ -472,6 +508,24 @@ class MainWindow(QMainWindow):
 
         # Redraw the current frame with the updated display properties
         self.update_simulation(self.controls.slider.value())
+    
+    def open_manual(self) -> None:
+        """
+        Opens the compiled PDF manual using the OS default PDF viewer.
+        """
+
+        pdf_path = os.path.abspath("manual/manual.pdf")
+        
+        if os.path.exists(pdf_path):
+            # Requesting the OS to open the PDF file with the default application
+            QDesktopServices.openUrl(QUrl.fromLocalFile(pdf_path))
+        else:
+            QMessageBox.warning(
+                self,
+                "Manual Not Found",
+                f"Cannot locate the manual file at:\n{pdf_path}\n\n"
+                "Please ensure the PDF is compiled and placed in the correct directory."
+            )
 
     def open_setup_drawer(self) -> None:
         """
