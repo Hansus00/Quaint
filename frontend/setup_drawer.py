@@ -37,9 +37,10 @@ from PyQt6.QtWidgets import (
     QScrollArea,
 )
 
-from backend.Params import Params, SolverType, WellType
+from backend.Params import Params, SolverType, PotentialType
 from .canvas_widget import CanvasWidget, AspectRatioContainer
 from .simulation_builders import (
+    build_params,
     coarse_potential_from_drawer,
     instantiate_solver_with_warnings,
 )
@@ -106,7 +107,7 @@ class SetupDrawer(QDialog):
     canvas_container: AspectRatioContainer
     simulation_menu: QComboBox
     preset_menu: QComboBox
-    frames_input: QSpinBox
+    T_tot_input: QDoubleSpinBox
     size_x_input: QSpinBox
     size_y_input: QSpinBox
 
@@ -299,15 +300,23 @@ class SetupDrawer(QDialog):
         self.simulation_menu.setCurrentText(self.initial_method)
         self.simulation_menu.currentTextChanged.connect(self.simulation_changed.emit)
 
-        self.frames_input_desc = "The total number of frames calculated."
-        self.frames_input_label = QLabel("Total Frames (n<sub>tot</sub>):")
-        self.frames_input_label.setToolTip(self.frames_input_desc)
-        self.frames_input = QSpinBox()
-        self.frames_input.setRange(10, 10000)
-        self.frames_input.setValue(self.current_frames)
+        self.T_tot_input_desc = "The total physical time of the simulation."
+        self.T_tot_input_label = QLabel(
+            "Total Time (T<sub>tot</sub>) [a. u.]:"
+        )
+        self.T_tot_input_label.setToolTip(self.T_tot_input_desc)
+        self.T_tot_input = QDoubleSpinBox()
+        self.T_tot_input.setDecimals(4)
+        self.T_tot_input.setRange(0.0001, 1000.0)
+        self.T_tot_input.setSingleStep(0.01)
+        self.T_tot_input.setValue(
+            self.current_frames * self.initial_delta_t * self.initial_steps_per_frame
+        )
 
         self.delta_t_input_desc = "The time step determines <br>the size of each integration step <br>in the simulation. Measured in atomic units [a. u.]: <br>1 a. u. \u2248 2.4188843265864(26) \u00d7 10<sup>-17</sup> s"
-        self.delta_t_input_label = QLabel("Time Step (\u03b4t) [a. u.]:")
+        self.delta_t_input_label = QLabel(
+            "Time Step (\u03b4t) [a. u.]:"
+        )
         self.delta_t_input_label.setToolTip(self.delta_t_input_desc)
         self.delta_t_input = QDoubleSpinBox()
         self.delta_t_input.setDecimals(5)
@@ -325,7 +334,7 @@ class SetupDrawer(QDialog):
         self.steps_per_frame_input.setValue(self.initial_steps_per_frame)
 
         sim_form.addRow(self.simulation_menu_label, self.simulation_menu)
-        sim_form.addRow(self.frames_input_label, self.frames_input)
+        sim_form.addRow(self.T_tot_input_label, self.T_tot_input)
         sim_form.addRow(self.delta_t_input_label, self.delta_t_input)
         sim_form.addRow(self.steps_per_frame_input_label, self.steps_per_frame_input)
         sim_group.setLayout(sim_form)
@@ -374,9 +383,9 @@ class SetupDrawer(QDialog):
         self.wall_height_input_desc = """
             The wall height parameter sets <br>
             the maximum potential value in the simulation. <br>
-            Measured in Hartrees [Ha]: <br>
-            1 Ha \u2248 27.2113860243679(50) eV."""
-        self.wall_height_input_label = QLabel("Wall Height (V<sub>0</sub>) [Ha]:")
+            Measured in Hartrees [E<sub>h</sub>]: <br>
+            1 E<sub>h</sub> \u2248 27.2113860243679(50) eV."""
+        self.wall_height_input_label = QLabel("Wall Height (V<sub>0</sub>) [E<sub>h</sub>]:")
         self.wall_height_input_label.setToolTip(self.wall_height_input_desc)
         self.wall_height_input = QDoubleSpinBox()
         self.wall_height_input.setRange(1.0, 1000000.0)
@@ -628,8 +637,6 @@ class SetupDrawer(QDialog):
         for spinbox in self.findChildren((QSpinBox, QDoubleSpinBox)):
             spinbox.setMinimumWidth(80)
 
-        self.check_memory_limit()
-
     def update_canvas_size(self, _value: Optional[float] = None) -> None:
         """
         Dynamically resizes the drawing canvas to a new grid resolution. The
@@ -655,53 +662,6 @@ class SetupDrawer(QDialog):
         aspect_ratio = new_y / new_x
         self.canvas_container.set_aspect_ratio(aspect_ratio)
         self.canvas.set_grid_size(new_x, new_y)
-
-    def check_memory_limit(self) -> None:
-        """
-        Calculates the maximum number of frames based on the grid size and available RAM.
-        Lowers the frames input if it exceeds the calculated limit and notifies the user.
-        """
-        try:
-            import psutil
-
-            mem_available = psutil.virtual_memory().available
-        except ImportError:
-            # Fallback if psutil is not available, assume 16GB free memory
-            mem_available = 16 * 1024 * 1024 * 1024
-
-        # Reserve 2GB buffer for OS, cache
-        safe_mem = max(0, mem_available - 2000 * 1024 * 1024)
-
-        nx = int(self.x_limit_input.value() / self.grid_step_input.value())
-        ny = int(self.y_limit_input.value() / self.grid_step_input.value())
-
-        # Conservative estimation:
-        # np.complex128 takes up 16 bytes
-        bytes_per_frame = nx * ny * 16
-
-        if bytes_per_frame == 0:
-            return
-
-        max_frames = int(safe_mem / bytes_per_frame)
-
-        # Clamp to reasonable UI boundaries
-        max_frames = min(max_frames, 10000)
-        max_frames = max(max_frames, 10)
-
-        current_frames = self.frames_input.value()
-
-        # Update the maximum limit of the spinbox
-        self.frames_input.setMaximum(max_frames)
-
-        # Apply the reduction and notify if the current frames exceed the new limit
-        if current_frames > max_frames:
-            self.frames_input.setValue(max_frames)
-            QMessageBox.warning(
-                self,
-                "Memory Limit Reached",
-                f"The grid size is too large for the current number of frames.\n\n"
-                f"Based on available RAM, the maximum number of frames has been safely lowered to {max_frames}.",
-            )
 
     def load_preset_potential(self, text: str) -> None:
         """
@@ -929,10 +889,12 @@ class SetupDrawer(QDialog):
         sigma_matrix = np.array([[sig_xx, sig_xy], [sig_xy, sig_yy]])
 
         mass = self.mass_input.value()
-        frames = self.frames_input.value()
 
         delta_t = self.delta_t_input.value()
         steps_per_frame = self.steps_per_frame_input.value()
+        T_tot = self.T_tot_input.value()
+        frames = max(1, int(T_tot / (delta_t * steps_per_frame)))
+
         method_name = self.simulation_menu.currentText()
 
         # Pre-check solver warnings before closing the drawer so the user can
@@ -949,7 +911,6 @@ class SetupDrawer(QDialog):
                 r0_int,
                 k0.copy(),
                 sigma_matrix.copy(),
-                mass,
                 new_size_x,
                 new_size_y,
             )
@@ -967,12 +928,23 @@ class SetupDrawer(QDialog):
             self.save_btn.setEnabled(True)
             return
 
+        params = build_params(
+            method_name,
+            new_x_limit,
+            new_y_limit,
+            grid_step,
+            r0,
+            k0,
+            sigma_matrix,
+            mass,
+            delta_t,
+            wall_height,
+        )
+
         simulation, stability_warnings = instantiate_solver_with_warnings(
-            method_name=method_name,
             potential=potential_obj,
             wavefunc=wavefunc,
-            delta_t=delta_t,
-            grid_step=grid_step,
+            params=params,
         )
 
         if stability_warnings:
@@ -1023,14 +995,14 @@ class SetupDrawer(QDialog):
         p.read(file_path)
 
         # Update pure numeric fields
-        self.x_limit_input.setValue(p.x_limit)
-        self.y_limit_input.setValue(p.y_limit)
+        self.x_limit_input.setValue(p.length_x)
+        self.y_limit_input.setValue(p.length_y)
         self.grid_step_input.setValue(p.grid_step)
         self.mass_input.setValue(p.mass)
-        self.frames_input.setValue(p.updates_max)
+        # Restore updates count by dividing total time by step sizes
+        self.T_tot_input.setValue(p.T_tot)
 
         self.delta_t_input.setValue(p.delta_t)
-        self.steps_per_frame_input.setValue(p.delta_n)
         self.wall_height_input.setValue(p.well_height)
 
         # Update Sigma matrix inputs
@@ -1043,16 +1015,18 @@ class SetupDrawer(QDialog):
             self.simulation_menu.setCurrentText("Crank-Nicolson")
         elif p.solver == SolverType.SSFM:
             self.simulation_menu.setCurrentText("SSFM")
+        elif p.solver == SolverType.SYM_SSFM:
+            self.simulation_menu.setCurrentText("Symmetric SSFM")
 
-        # Map WellType back to dropdown presets
+        # Map PotentialType back to dropdown presets
         if p.potential_matrix is not None:
             # Custom matrix loading
             self.preset_menu.setCurrentText("Custom / Clear")
             self._restore_canvas(p.potential_matrix)
-        elif p.well_type == WellType.W_SHAPED:
+        elif p.potential_type == PotentialType.W_SHAPED:
             self.preset_menu.setCurrentText("W-shape")
             self.load_preset_potential("W-shape")
-        elif p.well_type == WellType.MATRYOSHKA:
+        elif p.potential_type == PotentialType.MATRYOSHKA:
             self.preset_menu.setCurrentText("Matryoshka")
             self.load_preset_potential("Matryoshka")
         else:
@@ -1061,9 +1035,10 @@ class SetupDrawer(QDialog):
 
         self.update_canvas_size()
 
-        rx_grid = float(p.r0[0])
+        # p.r0 is in physical units; convert back to grid units for the canvas
+        rx_grid = float(p.r0[0] / p.grid_step)
         # Conversion from bottom-to-top (physics) to top-to-bottom (Qt grid) Y
-        ry_grid = float(self.grid_size_y) - float(p.r0[1])
+        ry_grid = float(self.grid_size_y) - float(p.r0[1] / p.grid_step)
         self.canvas.r0_grid = QPointF(rx_grid, ry_grid)
 
         kx_grid = float(p.k0[0]) / K_GRID_FACTOR
@@ -1086,15 +1061,12 @@ class SetupDrawer(QDialog):
             file_path += ".json"
 
         p = Params()
-        p.x_limit = self.x_limit_input.value()
-        p.y_limit = self.y_limit_input.value()
+        p.length_x = self.x_limit_input.value()
+        p.length_y = self.y_limit_input.value()
         p.grid_step = self.grid_step_input.value()
-        p.size_x = int(p.x_limit / p.grid_step)
-        p.size_y = int(p.y_limit / p.grid_step)
         p.mass = self.mass_input.value()
-        p.updates_max = self.frames_input.value()
+        p.T_tot = self.T_tot_input.value()
         p.delta_t = self.delta_t_input.value()
-        p.delta_n = self.steps_per_frame_input.value()
         p.well_height = self.wall_height_input.value()
 
         p.sigma0 = np.array(
@@ -1115,32 +1087,35 @@ class SetupDrawer(QDialog):
 
         preset_text = self.preset_menu.currentText()
         if preset_text == "W-shape":
-            p.well_type = WellType.W_SHAPED
+            p.potential_type = PotentialType.W_SHAPED
         elif preset_text == "Matryoshka":
-            p.well_type = WellType.MATRYOSHKA
+            p.potential_type = PotentialType.MATRYOSHKA
         else:
-            p.well_type = WellType.INFINITE_WELL
+            p.potential_type = PotentialType.INFINITE_WELL
 
         if self.canvas.r0_grid is not None and self.canvas.k0_tip_grid is not None:
             # Match the wavepacket to the requested grid resolution if it changed.
-            scale_x = p.size_x / self.canvas.grid_size_x
-            scale_y = p.size_y / self.canvas.grid_size_y
+            scale_x = p.grid_size_x / self.canvas.grid_size_x
+            scale_y = p.grid_size_y / self.canvas.grid_size_y
 
             r0x_g = self.canvas.r0_grid.x() * scale_x
             r0y_g = self.canvas.r0_grid.y() * scale_y
             k0x_g = self.canvas.k0_tip_grid.x() * scale_x
             k0y_g = self.canvas.k0_tip_grid.y() * scale_y
 
-            rx = int(np.clip(r0x_g, 0, p.size_x - 1))
-            # Flip from top-down (Qt) back to bottom-up (physics) and snap to int.
-            ry = int(np.clip(p.size_y - r0y_g, 0, p.size_y - 1))
+            rx = float(np.clip(r0x_g, 0.0, float(p.grid_size_x - 1))) * p.grid_step
+            # Flip from top-down (Qt) back to bottom-up (physics)
+            ry = (
+                float(np.clip(p.grid_size_y - r0y_g, 0.0, float(p.grid_size_y - 1)))
+                * p.grid_step
+            )
             p.r0 = (rx, ry)
 
             kx = float((k0x_g - r0x_g) * K_GRID_FACTOR)
             ky = float(-(k0y_g - r0y_g) * K_GRID_FACTOR)
             p.k0 = np.array([kx, ky], dtype=np.float64)
         else:
-            p.r0 = (p.size_x // 2, p.size_y // 2)
+            p.r0 = (p.length_x / 2, p.length_y / 2)
             p.k0 = np.array([0.0, 0.0], dtype=np.float64)
 
         img_at_grid = self.canvas.image

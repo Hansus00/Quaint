@@ -23,7 +23,7 @@ from backend.Potential import (
 )
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
-from backend.Params import Params, WellType, SolverType
+from backend.Params import Params, PotentialType, SolverType
 from backend.Analytic import GaussianPacketSolver
 import numpy as np
 import matplotlib.pyplot as plt
@@ -69,7 +69,7 @@ p.add_argument(
 p.add_argument(
     "--fps",
     type=float,
-    default=5,
+    default=15,
     required=False,
     help="Set FPS rate for animation",
     metavar="FPS",
@@ -81,7 +81,7 @@ p.add_argument(
     help="Set solving algorithm (overrides --config)",
 )
 p.add_argument(
-    "--updates-max",
+    "--T-tot",
     type=int,
     required=False,
     help="Set how many updates, each of delta_n, should happen (overrides --config)",
@@ -91,6 +91,13 @@ p.add_argument(
     type=float,
     required=False,
     help="Set size of grid step",
+)
+p.add_argument(
+    "--steps-per-frame",
+    type=int,
+    required=False,
+    default=1,
+    help="How many steps per frame",
 )
 p.add_argument(
     "--params",
@@ -125,8 +132,8 @@ if args.config is not None:
     params.read(args.config)
 if args.solver is not None:
     params.solver = args.solver
-if args.updates_max is not None:
-    params.updates_max = args.updates_max
+if args.T_tot is not None:
+    params.T_tot = args.T_tot
 if args.grid_step is not None:
     params.grid_step = args.grid_step
 params.write(str(directory / "params.json"))
@@ -134,62 +141,64 @@ logger.info("Simulation parameters: %s", params)
 
 # set potential
 # TODO: maybe make separate Potential instances for this?
-well = InfiniteWellPotential(params.size_x, params.size_y)
-if params.well_type == WellType.INFINITE_WELL:
+well = InfiniteWellPotential(params.grid_size_x, params.grid_size_y)
+if params.potential_type == PotentialType.INFINITE_WELL:
     pass
-elif params.well_type == WellType.W_SHAPED:
-    ws = WShaped(params.size_x // 4, params.size_y // 4, 3, params.inside_wall_height)
+elif params.potential_type == PotentialType.W_SHAPED:
+    ws = WShaped(
+        params.grid_size_x // 4, params.grid_size_y // 4, 3, params.well_height
+    )
     ws_inside_grid = EmbeddedPotential(
-        params.size_x,
-        params.size_y,
-        (params.size_x - params.size_x // 4) // 6,  # check for asymmetry
-        (params.size_y - params.size_y // 4) // 2,
+        params.grid_size_x,
+        params.grid_size_y,
+        (params.grid_size_x - params.grid_size_x // 4) // 6,  # check for asymmetry
+        (params.grid_size_y - params.grid_size_y // 4) // 2,
         ws,
     )
     well += ws_inside_grid
-elif params.well_type == WellType.MATRYOSHKA:
-    inside_size = (params.size_x // 3, params.size_y // 3)
+elif params.potential_type == PotentialType.MATRYOSHKA:
+    inside_size = (params.grid_size_x // 3, params.grid_size_y // 3)
     inside_well = InfiniteWellPotential(inside_size[0], inside_size[1])
     inside_well_resized = EmbeddedPotential(
-        params.size_x,
-        params.size_y,
-        (params.size_x - inside_size[0]) // 2,
-        (params.size_y - inside_size[1]) // 2,
+        params.grid_size_x,
+        params.grid_size_y,
+        (params.grid_size_x - inside_size[0]) // 2,
+        (params.grid_size_y - inside_size[1]) // 2,
         inside_well,
     )
     well += inside_well_resized
-elif params.well_type == WellType.SLAB:
-    slab = Slab(params.size_x // 16, params.size_y, params.inside_wall_height)
+elif params.potential_type == PotentialType.SLAB:
+    slab = Slab(params.grid_size_x // 16, params.grid_size_y, params.well_height)
     well += EmbeddedPotential(
-        params.size_x,
-        params.size_y,
-        (params.size_x - params.size_x // 16) // 2,
+        params.grid_size_x,
+        params.grid_size_y,
+        (params.grid_size_x - params.grid_size_x // 16) // 2,
         0,
         slab,
     )
-elif params.well_type == WellType.DOUBLE_SLIT:
-    slab = Slab(1, params.size_y, params.inside_wall_height)
+elif params.potential_type == PotentialType.DOUBLE_SLIT:
+    slab = Slab(1, params.grid_size_y, params.well_height)
 
-    slit = Slab(1, 8, params.inside_wall_height)
+    slit = Slab(1, 8, params.well_height)
     slab -= EmbeddedPotential(
         slab.matrix.shape[0],
         slab.matrix.shape[1],
         0,
-        params.size_y // 2 + 3,
+        params.grid_size_y // 2 + 3,
         slit,
     )
     slab -= EmbeddedPotential(
         slab.matrix.shape[0],
         slab.matrix.shape[1],
         0,
-        params.size_y // 2 - 8 - 3,
+        params.grid_size_y // 2 - 8 - 3,
         slit,
     )
 
     well += EmbeddedPotential(
-        params.size_x,
-        params.size_y,
-        (params.size_x - params.size_x // 16) // 4,
+        params.grid_size_x,
+        params.grid_size_y,
+        (params.grid_size_x - params.grid_size_x // 16) // 4,
         0,
         slab,
     )
@@ -218,26 +227,24 @@ ax.set_ylabel("y")
 
 # set and draw psi(0)
 gauss = GaussianPacket(
-    params.r0,
-    params.k0,
-    params.sigma0,
-    params.mass,
+    params.r0_grid,
+    params.k0_grid,
+    params.sigma0_grid,
     *well.matrix.shape,
 )  # TODO: Test Airy wave train #33
-
 
 # %%
 # run test
 # %matplotlib widget
 solver: _Solver
 if params.solver == SolverType.CN:
-    solver = CrankNicolson(well, gauss, params.delta_t, params.grid_step)
+    solver = CrankNicolson(well, gauss, params)
 elif params.solver == SolverType.SSFM:
-    solver = SSFM(well, gauss, params.delta_t, params.grid_step)
+    solver = SSFM(well, gauss, params)
 elif params.solver == SolverType.SYM_SSFM:
-    solver = SSFMSymmetric(well, gauss, params.delta_t, args.grid_step)
+    solver = SSFMSymmetric(well, gauss, params)
 elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
-    well = InfiniteWellPotential(params.size_x, params.size_y)
+    well = InfiniteWellPotential(params.grid_size_x, params.grid_size_y)
     raise NotImplementedError
 else:
     assert False, "Solver must be specified!"
@@ -259,7 +266,7 @@ def update(frame):
     elif frame == FRAMES_FOR_POTENTIAL:
         cbar.ax.set_visible(False)
     else:
-        solver.update(params.delta_n)
+        solver.update(args.updates_per_frame)
         Energies.append(solver.ev_energy())  # type: ignore
         Probabilities.append(solver.get_wave_function().total_probability())
 
@@ -293,13 +300,13 @@ def update(frame):
 
 
 if args.do_not_animate:
-    for i in range(0, params.updates_max + FRAMES_FOR_POTENTIAL + 2):
+    for i in range(0, int(params.T_tot / params.delta_t) + FRAMES_FOR_POTENTIAL + 2):
         update(i)
 else:
     ani = animation.FuncAnimation(
         fig,
         update,
-        frames=range(0, params.updates_max + FRAMES_FOR_POTENTIAL + 2),
+        frames=range(0, int(params.T_tot / params.delta_t) + FRAMES_FOR_POTENTIAL + 2),
         interval=1e3 / args.fps,
         blit=False,
         repeat=False,
@@ -351,7 +358,7 @@ with open(directory / "out.json", "w") as f:
     json.dump(out, f, indent=4)
 # %%
 # Plot P(t) and E(t)
-N = [i * params.delta_n * params.delta_t for i, e in enumerate(Energies)]
+N = [i * params.delta_t for i, e in enumerate(Energies)]
 
 fig, ax1 = plt.subplots()
 ax1.set_title(
