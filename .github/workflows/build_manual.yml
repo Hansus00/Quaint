@@ -3,7 +3,7 @@ name: Build LaTeX Manual
 on:
   push:
     paths:
-      - 'manual/**'
+      - 'docs/**'
 
 jobs:
   build:
@@ -18,7 +18,7 @@ jobs:
       - name: Compile LaTeX document
         uses: xu-cheng/latex-action@v3
         with:
-          working_directory: manual
+          working_directory: docs
           root_file: manual.tex
           latexmk_use_lualatex: false
 
@@ -26,4 +26,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: "docs: Auto-compile LaTeX manual"
-          file_pattern: manual/manual.pdf
+          file_pattern: docs/manual.pdf

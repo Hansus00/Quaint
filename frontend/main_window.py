@@ -514,7 +514,7 @@ class MainWindow(QMainWindow):
         Opens the compiled PDF manual using the OS default PDF viewer.
         """
 
-        pdf_path = os.path.abspath("manual/manual.pdf")
+        pdf_path = os.path.abspath("docs/manual.pdf")
         
         if os.path.exists(pdf_path):
             # Requesting the OS to open the PDF file with the default application

@@ -11,6 +11,7 @@
 
 \usepackage{graphicx}
 \usepackage{xcolor}
+\usepackage{authblk}
 
 % --- Custom Boxes ---
 \usepackage[most]{tcolorbox}
@@ -55,13 +56,39 @@
     pdftitle={Quaint - User Manual},
     pdfpagemode=FullScreen,
 }
-\title{\Huge \textbf{Quaint}\\ \Large Interactive Wavepacket Simulator \\ User Manual}
-\author{}
-\date{}
-
 \begin{document}
 
-\maketitle
+\begin{titlepage}
+    \centering
+    \vspace*{4cm}
+
+    {\fontsize{40}{48}\selectfont \textbf{Quaint}\par}
+    \vspace{1cm}
+
+    {\huge Interactive Quantum Wavepacket Simulator\par}
+    \vspace{0.5cm}
+    {\Large \textbf{User Manual}\par}
+
+    \vspace{3.5cm}
+
+    {\Large
+        Jacek Winiarczyk \quad
+        Szymon Borowski \quad
+        Franciszek Hansdorfer \\[0.5em]
+        Bartosz Łakomy \quad
+        Adam Podkowiński
+        \par}
+
+    \vspace{1.5cm}
+
+    {\large Faculty of Physics, University of Warsaw\par}
+    \vspace{1cm}
+    {\normalsize \textit{This project was developed under the mentorship of mgr Bartosz Kasza}\par}
+
+    \vfill
+
+    {\large \today\par}
+\end{titlepage}
 
 \newpage
 
@@ -77,45 +104,45 @@ Open your terminal and execute the following commands step by step to clone the 
 
 \begin{itemize}
     \item Clone the repository:
-\begin{terminalbox}
-git clone https://github.com/your-username/quaint.git
-\end{terminalbox}
+          \begin{terminalbox}
+              git clone https://github.com/your-username/quaint.git
+          \end{terminalbox}
 
     \item Navigate to the project directory:
-\begin{terminalbox}
-cd quaint
-\end{terminalbox}
+          \begin{terminalbox}
+              cd quaint
+          \end{terminalbox}
 
     \item Install dependencies and create a virtual environment:
-\begin{terminalbox}
-uv sync
-\end{terminalbox}
+          \begin{terminalbox}
+              uv sync
+          \end{terminalbox}
 
     \item Activate the virtual environment:
-\begin{terminalbox}
-source .venv/bin/activate
-\end{terminalbox}
+          \begin{terminalbox}
+              source .venv/bin/activate
+          \end{terminalbox}
 
     \item Run the application:
-\begin{terminalbox}
-python main.py
-\end{terminalbox}
+          \begin{terminalbox}
+              python main.py
+          \end{terminalbox}
 \end{itemize}
 
 \subsection{Linux Troubleshooting (Qt \& xcb errors)}
-Quaint utilizes PyQt6 for its graphical user interface. On Linux distributions (such as Ubuntu, Mint, or Debian), standard installations often lack the low-level windowing libraries required by Qt. 
+Quaint utilizes PyQt6 for its graphical user interface. On Linux distributions (such as Ubuntu, Mint, or Debian), standard installations often lack the low-level windowing libraries required by Qt.
 
 If the application crashes on startup with an error mentioning \texttt{qt.qpa.plugin: Could not load the Qt platform plugin "xcb"}, you need to install the missing system libraries. Run the following command to install the most common PyQt6 dependencies:
 
 \begin{terminalbox}
-sudo apt update
+    sudo apt update
 \end{terminalbox}
 \begin{terminalbox}
-sudo apt install libxcb-cursor0 libxkbcommon-x11-0 \textbackslash
-                 libxcb-xinerama0 libxcb-icccm4 \textbackslash
-                 libxcb-image0 libxcb-keysyms1 \textbackslash
-                 libxcb-randr0 libxcb-render-util0 \textbackslash
-                 libxcb-shape0
+    sudo apt install libxcb-cursor0 libxkbcommon-x11-0 \textbackslash
+    libxcb-xinerama0 libxcb-icccm4 \textbackslash
+    libxcb-image0 libxcb-keysyms1 \textbackslash
+    libxcb-randr0 libxcb-render-util0 \textbackslash
+    libxcb-shape0
 \end{terminalbox}
 After installation, try running \texttt{python main.py} again.
 
@@ -124,29 +151,29 @@ Running your first quantum simulation is straightforward:
 \begin{enumerate}
     \item Launch Quaint. The main 3D visualization window will appear.
     \item Click the \textbf{Simulation Setup} button located at the bottom of the screen.
-        \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.7\textwidth]{images/step_2.png}
-        \end{figure}
+          \begin{figure}[H]
+              \centering
+              \includegraphics[width=0.7\textwidth]{images/step_2.png}
+          \end{figure}
     \item In the right-hand panel of the setup window, locate the \textbf{Load Preset Potential} dropdown. Select \textit{Harmonic Oscillator}.
-        \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.7\textwidth]{images/step_3.png}
-        \end{figure}
+          \begin{figure}[H]
+              \centering
+              \includegraphics[width=0.7\textwidth]{images/step_3.png}
+          \end{figure}
     \item Click \textbf{Save \& Update Simulation} at the bottom right.
-        \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.7\textwidth]{images/step_4.png}
-        \end{figure}
+          \begin{figure}[H]
+              \centering
+              \includegraphics[width=0.7\textwidth]{images/step_4.png}
+          \end{figure}
     \item Once the calculation is complete, press the \textbf{Play} button (or the Spacebar) to watch the wavepacket evolve in the potential well.
-        \begin{figure}[H]
-        \centering
-        \includegraphics[width=0.7\textwidth]{images/step_5.png}
-        \end{figure}
+          \begin{figure}[H]
+              \centering
+              \includegraphics[width=0.7\textwidth]{images/step_5.png}
+          \end{figure}
 \end{enumerate}
 
 \section{Animation Window}
-The main window is dedicated to the real-time, 3D OpenGL visualization of the wavepacket and the underlying physical potential landscape. 
+The main window is dedicated to the real-time, 3D OpenGL visualization of the wavepacket and the underlying physical potential landscape.
 
 \subsection{Camera Controls}
 The simulation is rendered in full 3D space. You can navigate the view freely using your mouse:
@@ -195,7 +222,7 @@ The Setup Drawer is the core of Quaint. It is a comprehensive physics configurat
 The left side of the window is an interactive canvas representing your 2D spatial grid.
 
 \begin{Note}
-The simulation domain is strictly bounded by infinite potential walls. Any wavepacket reaching the edge of the canvas will reflect back. If you wish to simulate free space for a longer duration, you must increase the physical dimensions of the grid.
+    The simulation domain is strictly bounded by infinite potential walls. Any wavepacket reaching the edge of the canvas will reflect back. If you wish to simulate free space for a longer duration, you must increase the physical dimensions of the grid.
 \end{Note}
 
 You can modify the potential landscape using the \textbf{Editor Mode (4)} tools:
@@ -235,9 +262,9 @@ The \textbf{Simulation Settings (1)} section allows you to configure the core nu
 \end{itemize}
 
 \begin{Warning}
-\textbf{Numerical Stability:} Quantum simulations are highly sensitive to initial conditions. If your Time Step ($\delta t$) is too large relative to the Grid Step ($\delta$), the numerical solver may diverge. 
+    \textbf{Numerical Stability:} Quantum simulations are highly sensitive to initial conditions. If your Time Step ($\delta t$) is too large relative to the Grid Step ($\delta$), the numerical solver may diverge.
 
-Quaint features an automatic stability checker. Instead of crashing or producing broken "exploding" artifacts, Quaint will intercept unstable parameters, display a detailed warning, and safely return you to the Setup window so you can lower the time step or adjust the grid.
+    Quaint features an automatic stability checker. Instead of crashing or producing broken "exploding" artifacts, Quaint will intercept unstable parameters, display a detailed warning, and safely return you to the Setup window so you can lower the time step or adjust the grid.
 
 \end{Warning}
 
@@ -252,11 +279,11 @@ The \textbf{Grid Domain (2)} parameters define the physical dimensions and resol
 \begin{itemize}
     \item \textbf{Width ($w$) \& Height ($h$):} The physical dimensions of the simulation space, measured in Bohr radii ($a_0$).
     \item \textbf{Grid Step ($\delta$):} The distance between individual calculation nodes.
-    
-    \begin{Note}
-    Smaller steps provide significantly higher spatial resolution, but exponentially increase memory usage and computation time. If your simulation takes too long to generate or the interface lags, increasing the Grid Step is the most effective way to speed it up.
-    \end{Note}
-    
+
+          \begin{Note}
+              Smaller steps provide significantly higher spatial resolution, but exponentially increase memory usage and computation time. If your simulation takes too long to generate or the interface lags, increasing the Grid Step is the most effective way to speed it up.
+          \end{Note}
+
     \item \textbf{Wall Height ($V_0$):} The maximum potential energy value in the simulation, measured in Hartrees ($E_h$). This value acts as the ceiling for your Brush tool.
 \end{itemize}
 
