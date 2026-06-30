@@ -12,6 +12,7 @@ from backend.Potential import (
     HarmonicPotential,
     Potential,
     WShaped,
+    Slab,
 )
 from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import QPointF, Qt, pyqtSignal
@@ -532,6 +533,7 @@ class SetupDrawer(QDialog):
                 "Harmonic Oscillator",
                 "W-shape",
                 "Matryoshka",
+                "Slab",
             ]
         )
         self.preset_menu.textActivated.connect(self.load_preset_potential)
@@ -690,6 +692,12 @@ class SetupDrawer(QDialog):
             pot = HarmonicPotential(self.grid_size_x, self.grid_size_y, k=k, r0=r0)
             potential_matrix = pot.matrix
 
+            # Set the wavepacket in the middle
+            rx_grid = self.grid_size_x * 0.5
+            ry_grid = self.grid_size_y * 0.5
+            self.canvas.r0_grid = QPointF(rx_grid, ry_grid)
+            self.canvas.k0_tip_grid = QPointF(rx_grid, ry_grid)
+
         elif text == "W-shape":
             # Custom W-shaped potential in the middle of the grid space
             w_size_x = self.grid_size_x // 2
@@ -702,7 +710,7 @@ class SetupDrawer(QDialog):
             pos_y = (self.grid_size_y - w_size_y) // 2
 
             zero_pot = np.zeros((self.grid_size_x, self.grid_size_y))
-            zero_pot[pos_x : pos_x + w_size_x, pos_y : pos_y + w_size_y] = w_matrix
+            zero_pot[pos_x : pos_x + w_size_x, pos_y + w_size_y : pos_y : -1] = w_matrix
             potential_matrix = zero_pot
 
             # Drop the wavepacket near the top centre of the well with downward momentum.
@@ -712,6 +720,25 @@ class SetupDrawer(QDialog):
             # Arrow tip 20% of the canvas height below the anchor (positive Qt-Y =
             # negative physics-Y momentum after the save_and_close Y-flip).
             self.canvas.k0_tip_grid = QPointF(rx_grid, ry_grid + self.grid_size_y * 0.2)
+            self.sig_xx_input.setValue(4.0)
+            self.sig_yy_input.setValue(4.0)
+        
+        elif text == "Slab":
+            # A simple vertical barrier in the middle of the grid
+            slab_width = self.grid_size_x // 20
+            pot = Slab(slab_width, self.grid_size_y, wall_val)
+
+            slab_matrix = pot.matrix
+            pos_x = (self.grid_size_x - slab_width) // 2
+            zero_pot = np.zeros((self.grid_size_x, self.grid_size_y))
+            zero_pot[pos_x : pos_x + slab_width, :] = slab_matrix
+            potential_matrix = zero_pot
+
+            # Set the wavepacket on the left side of the slab, moving right towards it.
+            rx_grid = self.grid_size_x * 0.25
+            ry_grid = self.grid_size_y * 0.5
+            self.canvas.r0_grid = QPointF(rx_grid, ry_grid)
+            self.canvas.k0_tip_grid = QPointF(rx_grid + self.grid_size_x * 0.1, ry_grid)
             self.sig_xx_input.setValue(4.0)
             self.sig_yy_input.setValue(4.0)
 
@@ -752,6 +779,15 @@ class SetupDrawer(QDialog):
                 self.grid_size_x, self.grid_size_y, pos_x, pos_y, inner_pot_obj
             )
             potential_matrix = pot.matrix
+
+            # Scale the wavepacket parameters to match the new grid.
+            
+            r0_x_grid = self.canvas.r0_grid.x() / 2 + pos_x
+            r0_y_grid = self.canvas.r0_grid.y() / 2 + pos_y
+            k0_x_grid = self.canvas.k0_tip_grid.x() / 2 + pos_x
+            k0_y_grid = self.canvas.k0_tip_grid.y() / 2 + pos_y
+            self.canvas.r0_grid = QPointF(r0_x_grid, r0_y_grid)
+            self.canvas.k0_tip_grid = QPointF(k0_x_grid, k0_y_grid) 
 
         if potential_matrix is not None:
             # Leverage the existing canvas reconstruction pipeline

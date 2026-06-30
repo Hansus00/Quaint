@@ -36,6 +36,7 @@ cd Quaint
 ```uv run main.py```
 
 ## Usage
+> For a comprehensive guide, check out the complete [User Manual (PDF)](docs/manual.pdf).
 
 ### Setting up the Physics
 Click the **Simulation Setup** button to customize your experiment:

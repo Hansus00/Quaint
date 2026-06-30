@@ -1,0 +1,29 @@
+name: Build LaTeX Manual
+
+on:
+  push:
+    paths:
+      - 'docs/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Compile LaTeX document
+        uses: xu-cheng/latex-action@v3
+        with:
+          working_directory: docs
+          root_file: manual.tex
+          latexmk_use_lualatex: false
+
+      - name: Commit and push PDF
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "docs: Auto-compile LaTeX manual"
+          file_pattern: docs/manual.pdf
