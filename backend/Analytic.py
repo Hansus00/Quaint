@@ -8,8 +8,6 @@ from .StationaryWaveFunc import StationaryWaveFunc
 from .Potential import InfiniteWellPotential
 from .Potential import Potential
 
-from mpmath import jtheta
-
 
 class _AnalyticSolver(_Solver):
     delta_t: float
