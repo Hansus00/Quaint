@@ -2,11 +2,11 @@ import numpy as np
 
 from step_dependence import *
 
-params = Params(length_x=10, length_y=10, grid_step=0.1)
+params = Params(length_x=16, length_y=16, grid_step=0.1)
 mass = 1
 
 N = 1000
-dt_space = np.linspace(1e-7, 1e-4, N)
+dt_space = np.logspace(-7, -4, N)
 
 modes = [(1, 1)]
 coeffs = [1]

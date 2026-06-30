@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.typing import NDArray
 import matplotlib.pyplot as plt
 from itertools import product
 import pickle
@@ -13,8 +14,8 @@ from backend.StationaryWaveFunc import StationaryWaveFunc
 
 
 def wave_function(
-    modes: list[list[int, int]] | np.NDArray[np.int32],
-    coeffs: list[complex] | np.NDArray[np.complex128],
+    modes: list[list[int, int]] | NDArray[np.int32],
+    coeffs: list[complex] | NDArray[np.complex128],
     sizex: int,
     sizey: int,
     grid_step: float,
@@ -55,8 +56,8 @@ def wave_function(
 class InfiniteWellMixedSolver(_AnalyticSolver):
     def __init__(
         self,
-        modes: list[list[int, int]] | np.NDArray[np.int32],
-        coeffs: list[complex] | np.NDArray[np.complex128],
+        modes: list[list[int, int]] | NDArray[np.int32],
+        coeffs: list[complex] | NDArray[np.complex128],
         mass: float,
         sizex: int,
         sizey: int,
@@ -114,13 +115,13 @@ class InfiniteWellMixedSolver(_AnalyticSolver):
         )
 
 
-def l2(A: np.NDArray[np.complex128], dx: float, dy: float) -> float:
+def l2(A: NDArray[np.complex128], dx: float, dy: float) -> float:
     """Calculates L2 norm of A by approximating the integral as a simple sum assuming
     a regular rectangular grid"""
     return np.sum(np.abs(A) ** 2) * dx * dy
 
 
-def sup(A: np.NDArray[np.complex128]) -> float:
+def sup(A: NDArray[np.complex128]) -> float:
     """Calculates sup norm as the maximum of absolute value of A."""
     return np.max(np.abs(A))
 
@@ -134,10 +135,10 @@ class TimeStepper:
 
     def calc_errors(
         self,
-        dt_space: np.NDArray[np.float64],
+        dt_space: NDArray[np.float64],
         params: Params,
-        modes: list[list[int, int]] | np.NDArray[np.int32],
-        coeffs: list[complex] | np.NDArray[np.complex128],
+        modes: list[list[int, int]] | NDArray[np.int32],
+        coeffs: list[complex] | NDArray[np.complex128],
     ):
         """Calculates the differences between each solver and the exact
         solution after one step for an array of time step sizes."""
@@ -205,9 +206,9 @@ class Saver:
 
     params: Params
     results: dict
-    dt_space: np.NDArray[np.float64]
-    modes: list[list[int, int]] | np.NDArray[np.int32]
-    coeffs: list[complex] | np.NDArray[np.complex128]
+    dt_space: NDArray[np.float64]
+    modes: list[list[int, int]] | NDArray[np.int32]
+    coeffs: list[complex] | NDArray[np.complex128]
 
     def __init__(self):
         pass
@@ -249,7 +250,8 @@ def plotting(
 ) -> None | tuple[plt.Figure, Any]:
     """Helper function for plotting results of TimeStepper."""
 
-    fig, ax = plt.subplots(2, 3, figsize=(8, 8))
+    fig, ax = plt.subplots(2, 3, figsize=(16, 9))
+    plt.style.use("../JK_W.mplstyle")
 
     solver_names = ["cn", "ssfm", "sym_ssfm"]
     norm_names = ["sup", "l2"]
@@ -261,18 +263,20 @@ def plotting(
         "sym_ssfm": "Symmetric Split-step Fourier",
     }
     y_titles = {"sup": r"$\sup|\Delta|$", "l2": r"$\iint|\Delta|^2$"}
-    xlabel = r"$\delta t$"
+    xlabel = r"$\delta t$ [a. u.]"
 
     for (i, normname), (j, solvername) in product(
         enumerate(norm_names), enumerate(solver_names)
     ):
         ax[i][j].plot(thing.dt_space, thing.results[(solvername, normname)], "o")
         ax[i][j].set_xlabel(xlabel)
+        ax[i][j].set_xscale("log")
+        ax[i][j].set_yscale("log")
         ax[i][j].set_ylabel(y_titles[normname])
         ax[i][j].set_title(x_titles[solvername])
-        ax[i][j].ticklabel_format(
-            axis="x", style="sci", scilimits=(0, 0), useMathText=True
-        )
+        # ax[i][j].ticklabel_format(
+        #     axis="y", style="sci", scilimits=(0, 0), useMathText=True
+        # )
 
     fig.suptitle(title)
 

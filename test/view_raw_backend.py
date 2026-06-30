@@ -278,7 +278,7 @@ def update(frame):
     elif frame == FRAMES_FOR_POTENTIAL:
         cbar.ax.set_visible(False)
     else:
-        solver.update(args.updates_per_frame)
+        solver.update(args.steps_per_frame)
         Energies.append(solver.ev_energy())  # type: ignore
         Probabilities.append(solver.get_wave_function().total_probability())
 
