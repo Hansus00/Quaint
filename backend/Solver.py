@@ -244,10 +244,11 @@ class _BaseSSFM(_Solver):
         self, Nx: int, Ny: int, mass: float
     ) -> NDArray[np.complex128]:
         """Creates the momentum space propagator."""
-        kx = np.arange(1, Nx + 1) * np.pi / ((Nx + 1) * self._dx)
-        ky = np.arange(1, Ny + 1) * np.pi / ((Ny + 1) * self._dy)
-        kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
-
+        nx = np.arange(1, Nx + 1)
+        ny = np.arange(1, Ny + 1)
+        kx_sq = 4 / self._dx**2 * np.sin(nx * np.pi / (2 * (Nx + 1)))**2
+        ky_sq = 4 / self._dy**2 * np.sin(ny * np.pi / (2 * (Ny + 1)))**2
+        kx2, ky2 = np.meshgrid(kx_sq, ky_sq, indexing="ij")
         T = (kx2 + ky2) / (2 * mass)
         return np.exp(-1j * T * self.delta_t)
 
@@ -257,9 +258,9 @@ class _BaseSSFM(_Solver):
 
         psi_k = dstn(psi, type=1)
 
-        kx = np.arange(1, Nx + 1) * np.pi / ((Nx + 1) * self._dx)
-        ky = np.arange(1, Ny + 1) * np.pi / ((Ny + 1) * self._dy)
-        kx2, ky2 = np.meshgrid(kx**2, ky**2, indexing="ij")
+        kx_sq = 4 / self._dx**2 * np.sin(np.arange(1, Nx + 1) * np.pi / (2 * (Nx + 1)))**2
+        ky_sq = 4 / self._dy**2 * np.sin(np.arange(1, Ny + 1) * np.pi / (2 * (Ny + 1)))**2
+        kx2, ky2 = np.meshgrid(kx_sq, ky_sq, indexing="ij")
 
         # kinetic energy operator in k-space
         T = (kx2 + ky2) / (2 * self.params.mass)
