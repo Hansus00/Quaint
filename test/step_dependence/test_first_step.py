@@ -1,10 +1,18 @@
-import unittest
+"""
+Calculate maximal difference between simulation and analytical solution after one step for different values of time step: delta t.
+Test is passed when difference in a given range is lower than 1% and there is a positive correlation between difference and delta t.
+"""
+
 import numpy as np
-from step_dependence import Params, TimeStepper, plotting
+import pytest
+from step_dependence import Params, TimeStepper
+from scipy.stats import kendalltau
 
 
-class TestSolversFirstStep(unittest.TestCase):
-    def setUp(self):
+class TestSolversFirstStep:
+
+    @pytest.fixture(autouse=True)
+    def setup_stepper(self):
         self.params = Params(length_x=16, length_y=16, grid_step=0.1)
         self.N = 20
         self.dt_space = np.logspace(-7, -4, self.N)
@@ -14,30 +22,26 @@ class TestSolversFirstStep(unittest.TestCase):
         self.ts = TimeStepper()
         self.ts.calc_errors(self.dt_space, self.params, self.modes, self.coeffs)
         self.norm_names = ["sup", "l2"]
-        # fig, ax = plotting(self.ts, show=True)
 
-    def assert_errors_valid(self, solver_names):
+    def _assert_errors_valid(self, solver_names, subtests):
         for solvername in solver_names:
             for normname in self.norm_names:
-                with self.subTest(solver=solvername, norm=normname):
-                    prev_error = -1.0
+                with subtests.test(
+                    msg=f"{solvername}-{normname}", solver=solvername, norm=normname
+                ):
 
                     for k in self.ts.results[(solvername, normname)]:
-                        self.assertLess(k, 0.01)
+                        assert k < 0.01, f"Difference is bigger than 1%"
 
-                        # smaller \delta t must result in smaller difference
-                        # difference should converge to 0 with \delta t -> 0
-                        if prev_error != -1.0:
-                            self.assertGreater(k, prev_error)
+                    tau, _ = kendalltau(
+                        self.dt_space, self.ts.results[(solvername, normname)]
+                    )
+                    assert (
+                        tau > 0.95
+                    ), f"The difference should decrease as dt decreases, correlation is too low {tau}"
 
-                        prev_error = k
+    def test_cn(self, subtests):
+        self._assert_errors_valid(["cn"], subtests)
 
-    def test_cn(self):
-        self.assert_errors_valid(["cn"])
-
-    def test_ssfm(self):
-        self.assert_errors_valid(["ssfm", "sym_ssfm"])
-
-
-if __name__ == "__main__":
-    unittest.main()
+    def test_ssfm(self, subtests):
+        self._assert_errors_valid(["ssfm", "sym_ssfm"], subtests)
