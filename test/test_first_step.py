@@ -5,7 +5,7 @@ Test is passed when difference in a given range is lower than 1% and there is a 
 
 import numpy as np
 import pytest
-from step_dependence import Params, TimeStepper
+from step_dependence.step_dependence import Params, TimeStepper
 from scipy.stats import kendalltau
 
 

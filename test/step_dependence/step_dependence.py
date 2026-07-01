@@ -8,7 +8,7 @@ from copy import deepcopy
 
 import sys
 from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 from backend.Solver import CrankNicolson, SSFMSymmetric, SSFM
 from backend.Params import Params
@@ -255,7 +255,7 @@ def plotting(
     """Helper function for plotting results of TimeStepper."""
 
     fig, ax = plt.subplots(2, 3, figsize=(16, 9))
-    plt.style.use("../JK_W.mplstyle")
+    plt.style.use("../../examples/JK_W.mplstyle")
 
     solver_names = ["cn", "ssfm", "sym_ssfm"]
     norm_names = ["sup", "l2"]
