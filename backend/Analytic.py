@@ -30,7 +30,7 @@ class _AnalyticSolver(_Solver):
         self._wave_lambda = wave_func
         self._potential = potential
 
-        self._pos_1d = np.linspace(0, (grid_size * grid_step), (grid_size))
+        self._pos_1d = np.arange(1, grid_size + 1) * grid_step
         self._grid = np.meshgrid(self._pos_1d, self._pos_1d, indexing="ij")
 
     def update(self, n_step=1):
@@ -117,11 +117,11 @@ class InfiniteWellBasisSolver(_Solver):
         sizex = wave_func.matrix.shape[0]
         sizey = wave_func.matrix.shape[1]
 
-        Lx = sizex * grid_step
-        Ly = sizey * grid_step
+        Lx = (sizex + 1) * grid_step
+        Ly = (sizey + 1) * grid_step
 
-        pos1dx = np.linspace(0, Lx, sizex)
-        pos1dy = np.linspace(0, Ly, sizey)
+        pos1dx = np.arange(1, sizex + 1) * grid_step
+        pos1dy = np.arange(1, sizey + 1) * grid_step
 
         if not memory_saving:
             nxarray = np.linspace(1, Nx, Nx)
