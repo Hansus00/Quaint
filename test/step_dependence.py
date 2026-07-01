@@ -6,6 +6,10 @@ import pickle
 from typing import Any
 from copy import deepcopy
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 from backend.Solver import CrankNicolson, SSFMSymmetric, SSFM
 from backend.Params import Params
 from backend.Analytic import _AnalyticSolver
