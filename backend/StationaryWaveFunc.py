@@ -29,8 +29,8 @@ class GaussianPacket(StationaryWaveFunc):
         size_x: int,
         size_y: int,
     ):
-        _x = np.arange(size_x)
-        _y = np.arange(size_y)
+        _x = np.arange(1, size_x + 1)
+        _y = np.arange(1, size_y + 1)
 
         x, y = np.meshgrid(_x, _y, indexing="ij")
 

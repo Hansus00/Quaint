@@ -294,8 +294,7 @@ class SSFM(_BaseSSFM):
         psi_k *= self._U_T
         psi = cast(NDArray[np.complex128], idstn(psi_k, type=1))
 
-        prob = np.sqrt(np.sum(np.abs(psi) ** 2))
-        self._wave_func = StationaryWaveFunc(psi / prob)
+        self._wave_func = StationaryWaveFunc(psi)
 
 
 class SSFMSymmetric(_BaseSSFM):
@@ -316,5 +315,4 @@ class SSFMSymmetric(_BaseSSFM):
 
         psi *= self._U_V
 
-        prob = np.sqrt(np.sum(np.abs(psi) ** 2))
-        self._wave_func = StationaryWaveFunc(psi / prob)
+        self._wave_func = StationaryWaveFunc(psi)

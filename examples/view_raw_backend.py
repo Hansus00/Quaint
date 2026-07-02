@@ -15,7 +15,6 @@ warnings.filterwarnings(
     message="Unable to import Axes3D.*",
 )
 from backend.Potential import (
-    Potential,
     InfiniteWellPotential,
     Slab,
     WShaped,
@@ -24,7 +23,7 @@ from backend.Potential import (
 from backend.StationaryWaveFunc import GaussianPacket
 from backend.Solver import CrankNicolson, _Solver, SSFM, SSFMSymmetric
 from backend.Params import Params, PotentialType, SolverType
-from backend.Analytic import GaussianPacketSolver
+from backend.Analytic import FreeGaussianSolver, InfiniteWellBasisSolver
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
@@ -122,8 +121,12 @@ if args.do_not_animate:
 
 # create directory for simulation data
 now = str(datetime.now()).replace(":", "-").replace(" ", "_")
-base_dir = Path("pic") if args.out is None else Path(args.out)
-directory = base_dir / str(now)
+directory = ""
+if args.out is None:
+    base_dir = Path("pic")
+    directory = base_dir / str(now)
+else:
+    directory = Path(args.out)
 assert not directory.exists(), "Cannot override directory!"
 directory.mkdir(parents=True, exist_ok=False)
 
@@ -244,8 +247,17 @@ elif params.solver == SolverType.SSFM:
 elif params.solver == SolverType.SYM_SSFM:
     solver = SSFMSymmetric(well, gauss, params)
 elif params.solver == SolverType.ANALYTIC_GAUSSIAN:
-    well = InfiniteWellPotential(params.grid_size_x, params.grid_size_y)
-    raise NotImplementedError
+    solver = FreeGaussianSolver(
+        params.k0,
+        params.r0,
+        params.sigma0,
+        params.size_x,
+        params.mass,
+        params.delta_t,
+        params.grid_step,
+    )
+elif params.solver == SolverType.ANAL_INF_WELL_GAUSS:
+    solver = InfiniteWellBasisSolver(gauss, 100, 100, params.delta_t, params.grid_step)
 else:
     assert False, "Solver must be specified!"
 
@@ -266,7 +278,7 @@ def update(frame):
     elif frame == FRAMES_FOR_POTENTIAL:
         cbar.ax.set_visible(False)
     else:
-        solver.update(args.updates_per_frame)
+        solver.update(args.steps_per_frame)
         Energies.append(solver.ev_energy())  # type: ignore
         Probabilities.append(solver.get_wave_function().total_probability())
 

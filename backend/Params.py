@@ -24,6 +24,7 @@ class SolverType(str, Enum):
     SSFM = "ssfm"
     SYM_SSFM = "sym_ssfm"
     ANALYTIC_GAUSSIAN = "analytic_gaussian"
+    ANAL_INF_WELL_GAUSS = "anal_inf_well_gauss"
     CONSTANT = "constant"
 
 
