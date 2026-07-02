@@ -2,6 +2,8 @@ name: Build LaTeX Manual
 
 on:
   push:
+    branches-ignore:
+      - main
     paths:
       - 'docs/**'
 
