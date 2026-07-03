@@ -1,6 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from itertools import product
 import pickle
 from typing import Any
@@ -8,6 +9,7 @@ from copy import deepcopy
 
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
 
 from backend.Solver import CrankNicolson, SSFMSymmetric, SSFM
@@ -251,22 +253,21 @@ class Saver:
 
 def plotting(
     thing: TimeStepper | Saver, show: bool = True
-) -> None | tuple[plt.Figure, Any]:
+) -> None | tuple[Figure, Any]:
     """Helper function for plotting results of TimeStepper."""
 
-    fig, ax = plt.subplots(2, 3, figsize=(16, 9))
     plt.style.use("../../examples/JK_W.mplstyle")
+    fig, ax = plt.subplots(2, 3, figsize=(16, 9))
 
     solver_names = ["cn", "ssfm", "sym_ssfm"]
     norm_names = ["sup", "l2"]
 
-    title = r"$\Delta = \Psi_{\text{Method}}(\delta t) - \Psi_{\text{Exact}}(\delta t)$"
     x_titles = {
         "cn": "Crank-Nicolson",
         "ssfm": "Split-step Fourier",
         "sym_ssfm": "Symmetric Split-step Fourier",
     }
-    y_titles = {"sup": r"$\sup|\Delta|$", "l2": r"$\iint|\Delta|^2$"}
+    y_titles = {"sup": r"$E_{\sup}$", "l2": r"$E_{L^2}$"}
     xlabel = r"$\delta t$ [a. u.]"
 
     for (i, normname), (j, solvername) in product(
@@ -282,11 +283,11 @@ def plotting(
         #     axis="y", style="sci", scilimits=(0, 0), useMathText=True
         # )
 
-    fig.suptitle(title)
-
     fig.tight_layout()
 
     if show:
         plt.show()
     else:
         return fig, ax
+
+    fig.savefig("data/compare.pdf", format="pdf")
