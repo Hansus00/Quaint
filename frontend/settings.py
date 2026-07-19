@@ -3,6 +3,8 @@
 # ==============================================================================
 
 from typing import Optional
+import sys
+
 
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
@@ -109,7 +111,7 @@ class Settings(QDialog):
         # Set maximum z scale for the probability wave
         self.z_scale_spin_label = QLabel("Wave Amplitude (Z Scale):")
         self.z_scale_spin = QDoubleSpinBox()
-        self.z_scale_spin.setRange(1, 1000.0)
+        self.z_scale_spin.setRange(1, sys.float_info.max)
         self.z_scale_spin.setValue(current_z_scale)
         self.z_scale_spin_label.setToolTip(
             "Vertical scale of the wave function graph."
