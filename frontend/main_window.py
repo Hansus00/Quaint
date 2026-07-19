@@ -13,7 +13,7 @@ from backend.StationaryWaveFunc import GaussianPacket
 from PyQt6.QtCore import Qt, QUrl, QEvent
 from PyQt6.QtGui import QDesktopServices, QAction, QKeySequence
 from PyQt6.QtWidgets import (
-    QMainWindow, QVBoxLayout, QWidget, QMessageBox, 
+    QMainWindow, QVBoxLayout, QWidget, QMessageBox,
     QWhatsThis, QPushButton, QStyle
 )
 
@@ -123,7 +123,7 @@ class MainWindow(QMainWindow):
         self.size_coarse_y = int(self.y_limit / self.current_grid_step)
         self.aspect_ratio = self.y_limit / self.x_limit
         self.z_potential_offset = z_potential_offset
-        self.z_scale = 150.0
+        self.z_scale = 250.0
         self.fine_grid_scale = 3
         self.zoom_order = 2
         self.z_potential_scale = 0.07
@@ -203,18 +203,18 @@ class MainWindow(QMainWindow):
 
         # Add a floating help button on top of the animation widget
         self.help_btn = QPushButton(self.animation_widget)
-        
+
         style = self.style()
         if style is not None:
             self.help_btn.setIcon(style.standardIcon(QStyle.StandardPixmap.SP_MessageBoxQuestion))
         else:
             self.help_btn.setText("?")
-            
+
         # Setting the size and position of the help button
         self.help_btn.setFixedSize(28, 28)
         self.help_btn.move(15, 15)
         self.help_btn.setToolTip("Otwórz instrukcję (F1)")
-        
+
         # Styling the help button to be semi-transparent and circular
         self.help_btn.setStyleSheet(
             "QPushButton {"
@@ -224,7 +224,7 @@ class MainWindow(QMainWindow):
             "}"
         )
         self.help_btn.clicked.connect(self.open_manual)
-        
+
         # Global F1 shortcut
         from PyQt6.QtGui import QShortcut, QKeySequence
         self.shortcut_f1 = QShortcut(QKeySequence(Qt.Key.Key_F1), self)
@@ -508,14 +508,14 @@ class MainWindow(QMainWindow):
 
         # Redraw the current frame with the updated display properties
         self.update_simulation(self.controls.slider.value())
-    
+
     def open_manual(self) -> None:
         """
         Opens the compiled PDF manual using the OS default PDF viewer.
         """
 
         pdf_path = os.path.abspath("docs/manual.pdf")
-        
+
         if os.path.exists(pdf_path):
             # Requesting the OS to open the PDF file with the default application
             QDesktopServices.openUrl(QUrl.fromLocalFile(pdf_path))
